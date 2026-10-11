@@ -2756,13 +2756,10 @@ Use `/new`, with text and Enter in separate calls:
 
 Each look is a separate call. The survey found that `/new` and Enter sent together left
 `/new` in the composer. Do not send a fixed number of Enters blindly. If the screen asks
-`Where should the new conversation run?`, read the selection; only when
-`Use current Git worktree` is selected, confirm it in a separate call:
-
-    tmux send-keys -t <pane> Enter
-    tmux capture-pane -p -e -t <pane>
-
-Confirm the old conversation is gone and the fresh composer is empty before sending work.
+`Where should the new conversation run?`, read the selection and tell the person which
+pane asks. Even when `Use current Git worktree` is selected, the person handles that menu.
+Read the pane after they choose; confirm the old conversation is gone, the cwd is the same,
+and the fresh composer is empty before sending work. Never choose a new worktree yourself.
 An unexpected menu, question or permission prompt belongs to the person. If `/new` remains
 typed or the result is unclear, stop and tell them — a later Enter could erase the next work.
 
@@ -2770,9 +2767,10 @@ typed or the result is unclear, stop and tell them — a later Enter could erase
 
 Codex has no `SendMessage` delivery: paste the assignment directly, only after rechecking
 the live process and empty input box. A message held for the person's approval is still
-held; pasting it would skip their gate. Write the whole assignment in a scratchpad file,
-keeping its own first line and ending with `from: <your ListAgents name>`. Include the
-absolute path of `references/worker-codex.md` beside `worker.md` in `moai-supervise`.
+held; pasting it would skip their gate. Use the supervisor's `message()` assignment fields
+and `Model:` suggestion, plus `Worker: codex`. Write the whole assignment in a scratchpad
+file, ending with `from: <your ListAgents name>`. Its first line names the absolute path of
+`references/worker-codex.md` beside `worker.md` in `moai-supervise` as the steps file.
 Use the same block transport as "When a message does not arrive":
 
     tmux load-buffer -b moai-send <file>
@@ -7373,6 +7371,7 @@ stop sending outside work while a release runs",
             "text and Enter in separate calls",
             "`Where should the new conversation run?`",
             "`Use current Git worktree` is selected",
+            "the person handles that menu",
             "Do not send a fixed number of Enters blindly",
             "tmux load-buffer -b moai-send <file>",
             "tmux paste-buffer -p -d -b moai-send -t <pane>",
@@ -7386,7 +7385,7 @@ stop sending outside work while a release runs",
             assert!(codex.contains(part), "tmux 의 Codex 절에 없다 — {part}");
         }
         assert!(!codex.contains("/new Enter"), "Codex /new 와 Enter 를 한 호출에 친다");
-        assert!(tmux_calls(codex) >= 13, "새 Codex 절의 tmux 줄을 안 잰다");
+        assert!(tmux_calls(codex) >= 12, "새 Codex 절의 tmux 줄을 안 잰다");
         let launches: Vec<_> = codex.lines().filter(|line| line.contains("'codex ")).collect();
         assert_eq!(launches.len(), 1, "Codex 띄우는 줄이 하나가 아니다");
     }
