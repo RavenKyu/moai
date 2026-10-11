@@ -10944,6 +10944,33 @@ fn show_json_reads_who_did_the_work_from_model_notes() {
     assert!(ok(s.path(), &["show", &id]).contains("tokens 12"), "꼴에 안 맞는 노트가 이력에서 사라졌다");
 }
 
+/// **`stats` 는 모델 이름과 등급을 대소문자 없이 센다**(moai-rs3o.j6v) — 노트는 사람이 손으로 치니 철자가
+/// 갈린다. 세는 쪽만 접는다: 저장값과 `show --json` 의 `work` 는 적은 철자 그대로다(노트 원문 보존).
+#[test]
+fn stats_folds_the_case_of_model_names_but_show_keeps_what_was_written() {
+    let s = init("statscase");
+    let a = add(s.path(), &["하나"]);
+    let b = add(s.path(), &["둘"]);
+    ok(s.path(), &["note", &a, "model: OpenAI/GPT-6.1-Sol tokens=100 (High — 첫 철자)"]);
+    ok(s.path(), &["note", &b, "model: openai/gpt-6.1-sol tokens=50 (high — 둘째 철자)"]);
+
+    let json: serde_json::Value = serde_json::from_str(&ok(s.path(), &["stats", "--json"])).unwrap();
+    let by_model = json["work"]["by_model"].as_array().unwrap();
+    assert_eq!(by_model.len(), 1, "철자만 다른 둘이 두 모델로 섰다\n{json}");
+    assert_eq!(by_model[0]["provider"], "openai");
+    assert_eq!(by_model[0]["model"], "gpt-6.1-sol");
+    assert_eq!((by_model[0]["lines"].as_u64(), by_model[0]["tokens"].as_u64()), (Some(2), Some(150)));
+    let by_grade = json["work"]["by_grade"].as_array().unwrap();
+    assert_eq!(by_grade.len(), 1, "(High) 와 (high) 가 두 등급으로 섰다\n{json}");
+    assert_eq!(by_grade[0]["grade"], "high");
+
+    // 노트 원문은 그대로 — `work` 는 적은 철자를 든다.
+    let shown: serde_json::Value = serde_json::from_str(&ok(s.path(), &["show", &a, "--json"])).unwrap();
+    assert_eq!(shown["work"][0]["model"], "GPT-6.1-Sol");
+    assert_eq!(shown["work"][0]["provider"], "OpenAI");
+    assert_eq!(shown["work"][0]["grade"], "High");
+}
+
 /// **목록도 `work` 를 낸다**(moai-p8qj). 닫힌 500건의 토큰을 더하려고 `show <id> --json` 을
 /// 500번 부르면 저널 전체를 500번 읽는다 — 목록이 한 번 읽어 id 로 가른다.
 ///
