@@ -44,7 +44,11 @@ Claude Code's input box is the line that starts with `❯`, under the conversati
 keeps the colours, and the placeholder is drawn dim (SGR `2`, or a grey foreground) where the
 person's text is not. Anything else — a word, a pasted block, a half-typed command — is the
 person's, and if you cannot tell the placeholder from their draft, it is theirs. A pane with
-no `❯` box at all (a shell prompt, a dialog) is not a box to type into either.
+no `❯` box at all (a shell prompt, a dialog) is not a box to type into either. **Even an empty
+box counts only while the session map, run again just before, still reads that session
+`alive` in that pane** — the screen alone cannot tell: a pane whose Claude Code was killed keeps
+its last frame, box and all, above the shell `exec bash` started, and the keys go to that
+shell.
 
 Inside cmux:
 

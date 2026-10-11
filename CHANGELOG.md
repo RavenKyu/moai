@@ -12,6 +12,16 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`moai-tmux` and `moai-recover` could read a dead pane as an empty input
+  box.** A pane whose Claude Code was killed keeps its last frame, box and all,
+  above the shell, so a message `SendMessage` could not deliver — a dead session
+  is the usual reason it fails — could be pasted into that shell. The box now
+  counts as empty only while the session map, run again just before, still
+  reads that session alive in that pane, as `moai-cmux` already does.
+  (moai-xpa8.p56)
+
 ## [0.14.0] - 2026-10-11
 
 ### Added

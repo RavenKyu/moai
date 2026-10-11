@@ -2402,6 +2402,11 @@ PY"##;
 /// 되살리기는 모두에게 심기고 `moai-tmux` 는 고른 사람에게만 서니(moai-3r7l), 되살리기가 `moai-tmux` 의 절을 가리키면
 /// 그것이 없는 자리에서 없는 글을 댄다(moai-o9je). 둘째 잣대를 적으면 Claude Code 의 입력 칸 꼴이 바뀌는 날 한쪽만
 /// 고쳐진다. 비었을 때 무엇을 하는가(안 친다·사람에게 말한다)는 스킬마다 제 글이 잇는다.
+///
+/// **화면만으로는 빈 칸이 아니다**(moai-xpa8.p56) — 짝([`SESSIONS`])을 새로 봐 그 세션이 그 칸에 `alive` 일 때만이다.
+/// 죽임을 당한 Claude 는 마지막 화면(칸까지)을 `exec bash` 의 셸 위에 남겨, 닿지 않은 메시지(세션이 죽어 `SendMessage` 가
+/// 실패하는 흔한 자리다)가 셸에 스크립트로 쳐진다. cmux 쪽이 리뷰(moai-p5sz.tkn 2번)에서 받은 고침을 tmux 로 옮긴
+/// 것이고, 2026-10-11 cmux 실기에서 `kill -9` 한 탭이 마지막 화면을 남기는 것을 봤다.
 pub const EMPTY_BOX: &str = "    tmux display -p -t <pane> '#{pane_in_mode}'
     tmux capture-pane -p -e -t <pane>
 
@@ -2412,7 +2417,11 @@ Claude Code's input box is the line that starts with `❯`, under the conversati
 keeps the colours, and the placeholder is drawn dim (SGR `2`, or a grey foreground) where the
 person's text is not. Anything else — a word, a pasted block, a half-typed command — is the
 person's, and if you cannot tell the placeholder from their draft, it is theirs. A pane with
-no `❯` box at all (a shell prompt, a dialog) is not a box to type into either.";
+no `❯` box at all (a shell prompt, a dialog) is not a box to type into either. **Even an empty
+box counts only while the session map, run again just before, still reads that session
+`alive` in that pane** — the screen alone cannot tell: a pane whose Claude Code was killed keeps
+its last frame, box and all, above the shell `exec bash` started, and the keys go to that
+shell.";
 
 /// 선택 스킬 `moai-tmux` 의 SKILL.md — tmux 안에서 도는 감독의 손이다(2026-10-10 사용자 결정, moai-u99i). 고른 사람에게만
 /// 심는다(`skill::OPTIONAL`, moai-3r7l).
@@ -6223,6 +6232,11 @@ stop sending outside work while a release runs",
         let empty = &text[text.find("## Is the input box empty").unwrap()..text.find("## Label the pane").unwrap()];
         assert!(empty.contains("#{pane_in_mode}") && empty.contains("copy mode"), "칸이 copy mode 인지 안 본다");
         assert!(empty.contains("capture-pane -p -e"), "자리글을 사람의 초안과 가를 색을 안 본다");
+        // 죽은 칸의 남은 화면을 빈 칸으로 읽지 않는다 — 짝을 새로 봐 그 칸에 산 세션일 때만(moai-xpa8.p56).
+        assert!(
+            EMPTY_BOX.contains("session map, run again just before, still reads that session\n`alive` in that pane"),
+            "죽은 칸의 남은 화면을 빈 칸으로 읽는다"
+        );
         // 사람의 허락을 기다리는 메시지는 붙이지 않는다 — 그 문을 건너뛰고, 허락하면 같은 일이 두 번 간다.
         assert!(
             paste.contains("**A message\nheld for the person's approval is not one that failed:**"),
