@@ -21997,6 +21997,12 @@ fn install_prefers_a_moai_on_path_when_it_is_the_same_build() {
     std::fs::create_dir_all(&bin).unwrap();
     let shim = bin.join("moai");
     place_exe(std::path::Path::new(BIN), &shim);
+    // **한 번 먼저 띄운다**(moai-xpa8.egv). macOS 는 막 복사한 실행 파일의 첫 실행을 검사하느라 늦고, 시험
+    // 천여 개가 함께 도는 부하에서는 그 첫 실행이 `probe` 의 2초를 넘겨 `Unknown` 이 된다 — 그러면 도구는 덜
+    // 이르는 쪽(지금 바이너리)을 골라 이 시험이 셋에 둘꼴로 붉었다. 사람의 `PATH` 에 선 `moai` 는 이미 돈
+    // 파일이니, 재려는 것은 첫 실행이 아니라 고르는 셈이다.
+    let warmed = std::process::Command::new(&shim).arg("--version").output().expect("복사본을 띄우지 못했다");
+    assert!(warmed.status.success(), "{}", String::from_utf8_lossy(&warmed.stderr));
     let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
     let planted = |path: &str| {
         let mut cmd = isolated(BIN);

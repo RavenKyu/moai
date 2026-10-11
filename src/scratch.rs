@@ -155,7 +155,10 @@ fn pick_base() -> Result<PathBuf, String> {
 /// 은 한 판의 모든 스레드가 함께 봐 시험이 못 바꾼다.
 fn pick(wanted: PathBuf, aways: &[&Path]) -> Result<PathBuf, String> {
     if !inside_checkout(&wanted) {
-        return Ok(wanted);
+        // 여기서도 링크를 푼다(moai-xpa8.egv) — macOS 의 `TMPDIR` 은 `/var/folders/…` 이고 `/var` 가
+        // `/private/var` 로 가는 링크라, 옮기는 갈래만 풀던 판은 Mac 에서 경로를 견주는 통합 시험 일곱을
+        // 붉혔다(도구는 OS 가 푼 `/private/var/…` 를 낸다).
+        return Ok(real(&wanted));
     }
     for away in aways {
         let away = away.to_path_buf();
@@ -350,8 +353,9 @@ mod tests {
         std::fs::create_dir(&inside).unwrap();
         let away = Scratch::new("pick-away");
 
-        // 밖이면 준 자리를 그대로 쓴다 — 갈 곳을 안 줘도 그렇다.
-        assert_eq!(pick(away.path().to_path_buf(), &[]).unwrap(), away.path());
+        // 밖이면 준 자리를 쓴다 — 갈 곳을 안 줘도 그렇다. 그때도 **링크를 푼 철자로** 넘긴다(moai-xpa8.egv).
+        let kept = pick(away.path().to_path_buf(), &[]).unwrap();
+        assert_eq!(kept, std::fs::canonicalize(away.path()).unwrap(), "밖의 자리를 링크째 넘겼다");
         // 안이면 밖으로 옮긴다. **링크를 푼 철자로** 넘긴다.
         let moved = pick(inside.clone(), &[away.path()]).unwrap();
         assert_eq!(moved, std::fs::canonicalize(away.path()).unwrap(), "링크를 안 풀고 넘겼다");
