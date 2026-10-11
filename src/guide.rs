@@ -102,22 +102,81 @@ pub fn close_steps(id: &str, moai: &str) -> String {
         .join("\n")
 }
 
-/// 난이도 한 낱말 — **모델과 리뷰 등급을 함께 정하는 그 축**이다. 낱말·모델·잣대 셋.
+/// 난이도 한 낱말 — **개발의 역할과 에픽 끝 리뷰의 `max` 를 함께 가르는 그 축**이다. 낱말·역할·잣대 셋.
 /// 에픽 밖 이슈 하나는 그 낱말이 곧 리뷰 등급이고, 에픽은 멤버를 따로 안 보니 이 잣대로
-/// 멤버를 재어 에픽 끝의 `xhigh`·`max` 를 가른다(`EPIC_MAX`, moai-bx6t).
+/// 멤버를 재어 에픽 끝의 `max` 를 가른다(`EPIC_MAX`, moai-bx6t).
+///
+/// **둘째 칸은 모델이 아니라 역할이다**(2026-10-12 사용자 결정, moai-9tqo). 역할의 모델은 사람마다 달라
+/// 사용자 설정의 `[models]` 에 두고(`moai models --json`, moai-9tqo.3la) 스킬 글에 굽지 않는다 — project 범위로
+/// 심은 스킬은 커밋되어 남에게 간다. 옛 사다리(`haiku → sonnet → opus`)는 haiku 에 개발을 맡겼는데, 그 결정이
+/// haiku 를 개발·문서에서 뺐다. 그래서 `low`·`medium` 은 같은 `develop` 이다.
 ///
 /// 감독이 읽는 표와 일꾼이 받는 글이 같은 잣대를 두 벌 적으면 한쪽만 고쳐도 아무도
 /// 안 붉어진다 — 실제로 두 벌이 서 있었고 이미 낱말이 갈라져 있었다. 두 표면 모두
-/// 여기서 글을 받고, 모델 사다리(`haiku → …`)와 에픽 끝의 모델도 여기서 읽는다.
+/// 여기서 글을 받는다.
 ///
 /// **잣대의 글은 이 저장소 CLAUDE.md 의 리뷰 표와 같다** — 같은 축이라고 적어 두고 high 에서
 /// `동시성` 이 빠져 있었다. 한 파일 안의 동시성 고침이 medium 으로 읽혀 싼 모델과 싼 리뷰를
 /// 받는다. `the_rubric_is_the_review_table` 이 둘을 견준다.
 const DIFFICULTY: [(&str, &str, &str); 3] = [
-    ("low", "haiku", "text, comments, a one-line fix; behaviour unchanged"),
-    ("medium", "sonnet", "a behaviour change inside one file, ringed by tests"),
-    ("high", "opus", "several files, the write path, concurrency, the storage format, hooks; hard to undo"),
+    ("low", "develop", "text, comments, a one-line fix; behaviour unchanged"),
+    ("medium", "develop", "a behaviour change inside one file, ringed by tests"),
+    ("high", "complex", "several files, the write path, concurrency, the storage format, hooks; hard to undo"),
 ];
+
+/// 역할 하나의 기본 모델(또는 등급·effort) — **기본값의 자리는 `user_config::MODELS_DEFAULT` 하나다**(moai-9tqo.3la).
+/// 스킬 글이 기본값을 예로 들 때 여기서 읽는다. 손으로 적으면 설정의 기본값을 바꾸는 날 글이 옛 값을 가르친다.
+fn model_default(key: &str) -> &'static str {
+    crate::user_config::MODELS_DEFAULT
+        .iter()
+        .find(|(k, _)| *k == key)
+        .map(|(_, v)| *v)
+        .unwrap_or_else(|| panic!("MODELS_DEFAULT 에 {key} 가 없다"))
+}
+
+/// 감독이 읽는 역할 표(moai-9tqo) — 역할·하는 일·effort 의 키. **모델 칸은 없다** — 모델은 사람의 설정에서
+/// 읽고(`moai models --json`), 기본값은 [`models_defaults`] 한 줄에만 선다. 역할 이름은 설정의 키와 글자째
+/// 같아야 한다 — `the_roles_are_the_models_table` 이 견준다.
+const ROLES: [(&str, &str, &str); 7] = [
+    ("plan", "planning — splitting a request into an epic and its issues", "—"),
+    ("develop", "development — most work", "`effort`"),
+    (
+        "complex",
+        "the write path, concurrency, the storage format, hooks, or a contract across several files",
+        "`effort_complex`",
+    ),
+    ("review", "the epic-end review, once per epic", "`review_grade` (the grade)"),
+    ("docs", "a backlog that only touches the wiki or the CHANGELOG", "`effort`"),
+    ("bulk", "sorting and summing up, a review text past 64KB, the same mechanical fix many times", "`effort`"),
+    ("codex", "a Codex worker — never a subagent (\"Codex workers\")", "—"),
+];
+
+/// [`ROLES`] 의 표 — 머리까지 여기서 낸다([`difficulty_table`] 과 같은 까닭).
+fn roles_table() -> String {
+    let rows = ROLES.iter().map(|(role, what, effort)| format!("| `{role}` | {what} | {effort} |"));
+    ["| Role | What it is for | Effort key |".to_string(), "|---|---|---|".to_string()]
+        .into_iter()
+        .chain(rows)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// 사람의 표가 아무것도 안 적었을 때의 값 한 줄 — **스킬 글에서 모델 이름이 서는 자리는 이 줄과 "default" 를
+/// 단 문장뿐이다**(값을 굽지 않는다, moai-9tqo). `the_supervisor_bakes_no_model` 이 그것을 잰다.
+fn models_defaults() -> String {
+    let pairs: Vec<String> =
+        crate::user_config::MODELS_DEFAULT.iter().map(|(key, value)| format!("`{key}` `{value}`")).collect();
+    format!("With nothing written, the defaults are {}.", pairs.join(" · "))
+}
+
+/// 서브에이전트 일꾼이 모델이 모자라 집기 전에 멈출 때 내는 머리(moai-9tqo.rsl·p1p). 감독의 4 가 이 머리로 읽고
+/// 일꾼의 "The assignment" 가 이 머리로 낸다 — 두 자리가 한 글이다.
+const RAISE_HEAD: &str = "Model: raise to complex";
+
+/// 서브에이전트 일꾼이 설계 결정에 막혀 멈출 때 내는 머리(moai-9tqo.rsl·p1p). 서브에이전트에는 `AskUserQuestion`
+/// 이 없다(moai-9tqo.fxp 5) — 그래서 감독이 사람에게 묻고 답을 `SendMessage(to: <agentId>)` 로 보낸다. 이 저장소
+/// CLAUDE.md "막혔을 때" 의 꼴(상황·선택지·권장)을 영어 머리로 옮긴 것이다 — 스킬은 모든 저장소에 심긴다.
+const DECISION_HEAD: &str = "decision needed: <id>";
 
 /// 에픽 끝 리뷰를 `max` 로 올리는 멤버. **멤버를 따로 안 보니**(moai-bx6t) 이 한 줄이 그
 /// 멤버가 받는 유일한 비싼 눈이다. 일꾼 브리프 7 과 이 저장소 CLAUDE.md 의 리뷰 표가 같은
@@ -175,15 +234,15 @@ came back before you take the findings in"#;
 /// **리뷰 칸은 없다.** 감독이 보내는 일은 늘 에픽으로 펼쳐지고 멤버는 따로 안 본다 —
 /// 난이도마다 같은 이름의 리뷰 등급을 적어 두면 아무도 안 부르는 `low` 리뷰를 가르친다.
 fn difficulty_table() -> String {
-    let rows = DIFFICULTY.iter().map(|(level, model, how)| format!("| `{level}` | {how} | `{model}` |"));
-    ["| Level | How it is measured | Model |".to_string(), "|---|---|---|".to_string()]
+    let rows = DIFFICULTY.iter().map(|(level, role, how)| format!("| `{level}` | {how} | `{role}` |"));
+    ["| Level | How it is measured | Role |".to_string(), "|---|---|---|".to_string()]
         .into_iter()
         .chain(rows)
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-/// 일꾼이 받는 글의 잣대. 모델 칸은 뺀다 — 일꾼의 모델은 머리의 `모델:` 줄이 준다.
+/// 일꾼이 받는 글의 잣대. 역할 칸은 뺀다 — 일꾼의 모델은 머리의 `Model:` 줄이 준다.
 /// 들여쓰기는 부르는 쪽이 `indent` 로 한다.
 fn difficulty_rubric() -> String {
     DIFFICULTY.iter().map(|(level, _, how)| format!("`{level}` — {how}")).collect::<Vec<_>>().join("\n")
@@ -194,26 +253,27 @@ fn difficulty_levels() -> String {
     DIFFICULTY.iter().map(|(level, _, _)| format!("`{level}`")).collect::<Vec<_>>().join("·")
 }
 
-/// 제일 비싼 모델. 에픽 끝 리뷰가 `high` 부터 이것으로 본다.
-fn top_model() -> &'static str {
+/// 제일 무거운 개발 역할. 읽어 보니 `high` 인 일은 이 역할의 모델로 간다.
+fn top_role() -> &'static str {
     DIFFICULTY[DIFFICULTY.len() - 1].1
 }
 
-/// 에픽 끝 리뷰의 등급 — **가장 무거운 멤버의 난이도에서 한 칸 위**(moai-bx6t, 2026-09-18
-/// 사용자 결정). 첫 판은 모든 에픽을 `xhigh` 이상 opus 로 봐, 글 한 줄 고친 멤버 하나짜리
-/// 에픽까지 가장 비싼 리뷰를 받았다 — 그날 에픽 6개 중 4개가 멤버 하나짜리라 멤버 리뷰를
-/// 걷은 까닭(값)을 거꾸로 거슬렀다. 모델은 그 등급을 따른다. `medium` 이면 가운데 모델이다.
+/// 에픽 끝 리뷰의 모델과 등급 — **`review` 역할의 모델로 `review_grade` 에서 본다**(2026-10-12 사용자 결정,
+/// moai-9tqo). 기본은 opus·`xhigh` 이고, 쓰기 경로·동시성·저장 형식·훅을 건드린 멤버가 들면(`EPIC_MAX`) `max`,
+/// 에픽 둘에 걸친 묶음(`BUNDLE`)은 한 칸 위다 — 사다리는 `xhigh`·`max` 둘이다.
+///
+/// 옛 규칙은 "가장 무거운 멤버의 한 칸 위" 였다(moai-bx6t, 2026-09-18). 글 한 줄 고친 멤버 하나짜리 에픽까지 가장
+/// 비싼 리뷰를 받던 첫 판을 거슬러 세운 것인데, 그 사다리의 아래 칸(`medium` 이면 sonnet)이 리뷰를 싼 모델에 맡겼다
+/// — sonnet 일꾼 창에서 부른 리뷰는 창의 모델을 물려받는다. 바닥을 `xhigh` 로 올리고 모델을 역할에서 읽는다.
+/// "표면을 가로지르면 한 칸 더" 도 함께 걷었다 — 바닥이 `xhigh` 라 한 칸 더가 곧 `max` 이고, 그 자리는 위 둘이 맡는다.
 fn epic_review_rule() -> String {
-    let mid = DIFFICULTY[1].1;
-    let top = top_model();
+    let (model, grade) = (model_default("review"), model_default("review_grade"));
     format!(
-        "**The grade is one step above the heaviest member's difficulty** — `medium` if the members\n\
-         are all `low`, `high` if one is `medium`, `xhigh` if one is `high`.\n\
-         **If {EPIC_MAX}**, it is `max`.\n\
-         Raise it one more step if the epic crosses surfaces or carries several design decisions. If you hesitate, raise it.\n\
+        "**The epic-end review runs on the `review` model at `review_grade`** — read both from\n\
+         `moai models --json` (defaults `{model}` and `{grade}`).\n\
+         **If {EPIC_MAX}**, the grade is `max`.\n\
          **{BUNDLE}** — the review has to read both epics' contracts at once.\n\
-         `max` is the top of the ladder: a step above it is still `max`.\n\
-         The model follows that grade — `medium` means `{mid}`, `high` and up means `{top}`."
+         A step above the default `{grade}` is `max`, and `max` is the top of the ladder: a step above it is still `max`."
     )
 }
 
@@ -223,6 +283,15 @@ fn epic_review_rule() -> String {
 /// 자리 이름은 `<difficulty>` 다. `<grade>` 는 7 에서 개발해 본 일꾼이 고르는 리뷰 등급의 자리라, 감독이 채우는
 /// 목록에 같은 이름을 넣으면 읽기 전의 제안이 그 명령에 박힌다.
 const MODEL_SLOT: &str = "Model: <model> (<difficulty> — <why>)";
+
+/// 메시지 머리의 `Effort:` 줄(moai-9tqo.rsl) — 역할의 effort(`moai models --json` 의 `effort`·`effort_complex`).
+/// 서브에이전트는 띄울 때 그 값으로 서고, 세션은 그 창의 사람이 정한다. [`MODEL_SLOT`] 과 같은 까닭으로 한 자리다.
+const EFFORT_SLOT: &str = "Effort: <effort>";
+
+/// 메시지 머리의 `Worker:` 줄(moai-9tqo.rsl) — 이 일꾼이 서브에이전트인가 세션인가. 일꾼 글은 이 줄로 걸음을
+/// 가른다(서브에이전트에는 `EnterWorktree`·`AskUserQuestion`·`/model` 이 없다, moai-9tqo.fxp). 자리 이름이
+/// `<worker>` 가 아닌 것은 감독의 `SendMessage(to: <worker>, …)` 가 그 이름을 일꾼의 이름으로 이미 쓰기 때문이다.
+const WORKER_SLOT: &str = "Worker: <worker kind>";
 
 /// 그 줄을 일꾼이 어떻게 읽는가 — 일꾼 글([`worker`])의 "The assignment" 에 선다(moai-obxm). 메시지의 머리에는
 /// 자리만 싣고 읽는 법은 그 아래 일꾼 글에 둔다.
@@ -236,16 +305,27 @@ const MODEL_SLOT: &str = "Model: <model> (<difficulty> — <why>)";
 /// 어긋난다.
 ///
 /// **사다리는 Claude 의 것이다** — 감독 스킬이 Claude Code 에만 심기니(moai-obxm) 받는 창도 Claude Code 다.
+///
+/// **서브에이전트는 제 모델을 못 바꾼다**(moai-9tqo.rsl, fxp). 모델과 effort 는 `Agent` 가 띄울 때 박히고, `/model`
+/// 을 칠 손도 물을 사람도 없다. 그래서 무거우면 **집기 전에** 멈춰 [`RAISE_HEAD`] 한 줄을 돌려준다 — 감독이 그
+/// 메시지 그대로 `complex` 역할의 모델로 새 일꾼을 세운다. 집은 뒤에 드러난 것은 그 일꾼이 그대로 하고 보고에 적는다:
+/// 집은 줄을 남기고 멈추면 그 줄이 주인 없이 선다.
+///
+/// **역할이고 모델 이름이 아니다**(2026-10-12 사용자 결정) — 역할의 모델은 사람의 설정에 있고 스킬은 그것을 굽지 않는다.
 fn model_rule() -> String {
-    let ladder = DIFFICULTY.iter().map(|(_, model, _)| *model).collect::<Vec<_>>().join(" → ");
-    let top = top_model();
+    let top = top_role();
     format!(
-        r#"`Model:` is a suggestion picked by difficulty before anyone read the code. The model is
-changed by the person with `/model`, never by you — if this window is not on
-that model, ask the person watching the window to match it, and if it reads harder than it
+        r#"`Model:` is a suggestion picked by difficulty before anyone read the code; it is the model
+of a role in the person's table (`moai models --json`), and `Effort:` goes with it.
+**In a session** the model is changed by the person with `/model`, never by you — if this
+window is not on that model, ask the person watching the window to match it, and if it reads harder than it
 looked, raise it the same way to the model that pairs with the difficulty you just measured —
-not one step at a time ({ladder}). Handed `low` but it is `high`, the model is `{top}`.
-The grade of the epic-end review (7) is measured on this same rubric, member by member"#
+the model of that role, not one step at a time. Handed `low` but it is `high`, the role is `{top}`.
+**In a subagent** the model and the effort were fixed when you were raised, and nobody can
+change them. If it reads heavier than `Model:` says, stop before you pick anything up and hand
+back one line, `{RAISE_HEAD} — <why>`; the supervisor raises a new worker on the `{top}` model
+with the same message. What shows only after you picked up, you carry on and name in the report.
+Whether the epic-end review (7) goes to `max` is measured on this same rubric, member by member"#
     )
 }
 
@@ -1194,11 +1274,14 @@ They stand once `moai skill install` has planted the hooks for your agent.
 ### The supervisor and its workers
 
 In Claude Code, `moai skill install` also plants `moai-supervise`. A person calls it in
-one window to hand the backlog that have piled up, one at a time, to the other sessions
-of this repository and take their reports. Every idle session of this repository that
-`ListAgents` shows is a worker — nobody registers. The supervisor sends each one its
-assignment (`SendMessage`) with a line naming the file of the worker's steps to read, and
-the worker reports the same way. moai carries no messaging, and the moai binary never
+one window to hand the backlog that have piled up, one at a time, to workers and take
+their reports. A worker is a subagent the supervisor raises with Claude Code's `Agent`, on
+the model its role calls for — which model each role runs on is the person's, `[models]` in
+their user config, and `moai models` shows it. When the person wants to watch the workers'
+windows, and for a Codex worker, the workers are the idle sessions of this repository that
+`ListAgents` shows instead — nobody registers. Either way the supervisor sends each one its
+assignment with a line naming the file of the worker's steps to read, and the worker
+reports back. moai carries no messaging, and the moai binary never
 launches or drives a session. When the supervisor runs inside tmux, its companion skill
 `moai-tmux` lets it clear a worker's pane, paste a message into it, and open new worker
 panes — an ordinary interactive `claude` the person sees, opened only after the person says
@@ -1752,8 +1835,16 @@ Decided in: <epic>
 /// 말하는데, 그것이 알려진 것은 Claude Code 의 `ListAgents`·`SendMessage` 뿐이다. Codex·Antigravity 에는 같은 수단이
 /// 알려지지 않아 감독 스킬을 안 심는다([`crate::skill::Skill::claude_only`]).
 ///
-/// **일꾼은 이 저장소의 놀고 있는 세션 전부다** — 감독 자신만 뺀다. 등록도, 사람에게 어느 창인지 묻기도 없다. 출석부를
-/// 따로 두면 그것이 `ListAgents` 와 어긋나는 둘째 진실이 된다.
+/// **일꾼은 기본이 서브에이전트다**(2026-10-12 사용자 결정, moai-9tqo). 서브에이전트마다 모델과 effort 를 고를 수
+/// 있어, 일의 역할이 부르는 모델로 돈다 — 세션은 창이 열린 모델로 돈다. 역할의 모델은 사람마다 달라 사용자 설정의
+/// `[models]` 에 두고 바퀴마다 `moai models --json` 으로 읽는다 — 글에는 기본값이 예로만 선다(`models_defaults`).
+/// **세션 길은 걷지 않았다** — 사람이 창을 보고 싶을 때와 Codex 일꾼(moai-uzhx, 세션만 된다)이 그 길이고, `moai-tmux`·
+/// `moai-cmux`·`moai-saycode`·`moai-recover` 가 그 위에 서 있다. 그래서 그 글은 "Workers in sessions" 절로 옮겨 그대로 둔다.
+/// 서브에이전트의 사실(이름 인자가 없어 주소가 agentId 다, 물음이 없다, `/model` 이 없다, 보고는 끝난 알림이다)은
+/// moai-9tqo.fxp 가 쟀다.
+///
+/// **세션 길의 일꾼은 이 저장소의 놀고 있는 세션 전부다** — 감독 자신만 뺀다. 등록도, 사람에게 어느 창인지 묻기도 없다.
+/// 출석부를 따로 두면 그것이 `ListAgents` 와 어긋나는 둘째 진실이 된다.
 ///
 /// **일꾼의 걸음은 파일이고, 메시지는 그것을 읽으라고만 한다**([`worker`], 이 스킬의 `references/worker.md`,
 /// 2026-10-07 사용자 결정, moai-fim6). 일꾼 창도 같은 저장소의 같은 플러그인을 읽어 그 파일이 거기 있다 — 감독은 제
@@ -1794,21 +1885,64 @@ Decided in: <epic>
 pub fn supervise() -> String {
     let message = message();
     let table = difficulty_table();
+    let roles = roles_table();
+    let defaults = models_defaults();
     let epic_rule = epic_review_rule();
     format!(
         r#"---
 name: moai-supervise
-description: Use in Claude Code when handing the backlog piled up on one repository, one at a time, to the idle Claude Code sessions of that repository as workers, and taking their reports. Triggers on "supervise", "hand out the backlog", "put the idle sessions to work", "감독해 줘", "backlog 나눠 줘", "놀고 있는 세션에 일 시켜".
+description: Use in Claude Code when handing the backlog piled up on one repository, one at a time, to workers — subagents raised on the model each role calls for, or the idle Claude Code sessions of that repository — and taking their reports. Triggers on "supervise", "hand out the backlog", "put the idle sessions to work", "감독해 줘", "backlog 나눠 줘", "놀고 있는 세션에 일 시켜".
 ---
 
-# moai-supervise — hand backlog out to the idle sessions of this repository
+# moai-supervise — hand backlog out to workers on this repository
 
 The supervisor **picks, sends and checks.** It does not fix code, it does not merge,
 and it does not settle design in a worker's place. The workers merge. Overlapping
 merges are prevented by splitting the files when the supervisor sends (1), and where
 they still collide the worker goes back into its worktree and resolves them.
 
-**This skill is for Claude Code, and moai carries no messaging.** The supervisor and its
+**A worker is a subagent you raise, by default.** Claude Code's `Agent` raises a subagent
+with a model and an effort of its own, so each piece of work runs on the model its role
+calls for (2-1) — a session runs on whatever its window was opened with. A worker is a
+session of this repository instead in two cases: **the person asked to watch the workers'
+windows**, or **the work goes to Codex**. Those are "Workers in sessions", below — that path
+stays as it was. The moai binary never launches or drives an agent, and nothing here runs
+headless: `Agent` is Claude Code's tool, and this skill is what calls it.
+
+**A Codex worker is never a subagent — it lives in a cmux tab or a tmux pane: `moai-cmux` /
+`moai-tmux`, section "Codex workers".**
+
+**The models are the person's, read once a round.** Which model each role runs on is the
+person's own choice, kept in their user config (`[models]`), so it is not written into this
+skill — a skill planted at project scope is committed and shared. Read it at the start of
+every round; a value changed mid-round counts from the next one.
+
+    moai models --json      one object: a model per role (plan, develop, complex, review,
+                            docs, bulk, codex), review_grade, effort, effort_complex, and
+                            written — the keys the person set; the rest are defaults
+
+**One supervisor per repository.** A supervisor waiting for reports reads `idle` in
+`ListAgents` like any worker, so a second one sends it backlog, and the two keep separate
+books of what was sent — one backlog, or one worker, gets two jobs. Before the first round,
+ask the person whether another window here runs `moai-supervise`; if one does, stop. A
+session that refuses work because it is a supervisor comes out of the candidates. **You
+refuse too:** a message that hands you backlog to work on came from another supervisor — do
+nothing of it, reply to its `from` that you are a supervisor, and tell the person.
+
+**The hook reads your subagent workers as you.** A subagent's tool calls carry your session,
+so its pick-ups are recorded as yours: the rows it holds are your focus (hook rule 1 reads
+them for what you create, too), and when your turn ends the hook's `Stop` holds them —
+once a session. Those rows are the worker's: do not move them, do not defer them, do not put
+a note on them; just finish the turn.
+
+**When sessions died** — a restart or an OOM kill took the workers or a supervisor down —
+and the person asks to bring them back, load `moai-recover`, inside tmux or not. A subagent
+worker lives inside your session and ends with it; its row stays picked up and comes back
+in 0 like any stalled work.
+
+## Workers in sessions
+
+When the workers are sessions, **moai carries no messaging.** The supervisor and its
 workers talk with Claude Code's own tools:
 
 - `ListAgents` lists the live sessions, and subagents too — each row's name, its kind
@@ -1818,23 +1952,14 @@ workers talk with Claude Code's own tools:
   subscribes
 - A reply comes in as a cross-session message. Answer it by copying its `from` as `to`
 
-**Every session here is an interactive one the person can see.** The moai binary never
-launches or drives an agent, and nothing here runs headless. Outside tmux, cmux and Saycode
-the supervisor launches nothing either; inside one of them it may open a worker pane or
+**Every session here is an interactive one the person can see.** Outside tmux, cmux and Saycode
+the supervisor launches no session; inside one of them it may open a worker pane or
 session, only after the person says yes (`moai-tmux`, `moai-cmux` or `moai-saycode`, below).
 **A worker is every idle session of this
 repository in `ListAgents`, except you** — a row whose name starts with the root
 directory's slug and a `-` (2). Nobody registers and nobody is asked which windows count.
 The message you send is the whole assignment, and it names the file of the worker's steps,
 which the worker reads (3).
-
-**One supervisor per repository.** A supervisor waiting for reports reads `idle` in
-`ListAgents` like any worker, so a second one sends it backlog, and the two keep separate
-books of what was sent — one backlog, or one worker, gets two jobs. Before the first round,
-ask the person whether another window here runs `moai-supervise`; if one does, stop. A
-session that refuses work because it is a supervisor comes out of the candidates. **You
-refuse too:** a message that hands you backlog to work on came from another supervisor — do
-nothing of it, reply to its `from` that you are a supervisor, and tell the person.
 
 Five things about the messaging, one line each:
 
@@ -1882,8 +2007,7 @@ then tmux, then cmux** (tmux in a cmux tab is tmux, above). `moai-saycode`
 is optional the same way (`moai skill install --with moai-saycode`); inside Saycode without
 it, tell the person that one line plants it.
 
-**When sessions died** — a restart or an OOM kill took the workers or a supervisor down —
-and the person asks to bring them back, load `moai-recover`, inside tmux or not.
+## Before the round
 
 **Work you send out is always done in a worktree** — even if the repository has no
 worktree convention. Several workers share one root checkout, so fixing things in the
@@ -2040,12 +2164,31 @@ the send lives only in this conversation, and a supervisor that starts again (4)
 
     moai note <id> 'Sent: <worker>'
 
+`<worker>` is the session's name, or for a subagent `subagent <agentId>` — its address (2).
+
 **Send only what is yours.** A backlog item or member whose assignee is someone else — or
 nobody — is asked about first: ask the person, and send it only on a yes, writing in the
 message who said yes so the worker takes it over (`--take`, hook rule 5). `moai ready` sets
 such rows apart under `others`.
 
-**2. Find a worker.** Call `ListAgents` once. A worker is a row that
+**2. Raise a worker.** A subagent, unless the person asked to watch the workers' windows or
+the work goes to Codex — then a session (below).
+
+**A subagent.** One `Agent` call per backlog:
+
+    Agent(subagent_type: "general-purpose", model: <model>, effort: <effort>, description: "<id>", prompt: <the message of 3>)
+
+It runs in the background, and a notification comes when it ends (4). **How many run side by
+side is the person's** — ask once a round (two unless they say otherwise); the ceiling is how
+many backlog items do not collide (1). Do not pass `isolation: "worktree"`: the worker raises
+its own worktree at `.worktrees/<epic>` from the base branch (its step 3), where this
+repository's convention and the hook look for it — an isolated agent's worktree stands
+somewhere else, on a branch of its own. **`Agent` takes no name**, so the `agentId` in its
+result is the only address to wake that worker again (`SendMessage(to: <agentId>)`, 4) —
+keep it in the send mark (1). Your own subagents stand in `ListAgents` under "Subagents";
+they are not session workers.
+
+**A session.** Call `ListAgents` once. A worker is a row that
 
 - belongs to this repository. `ListAgents` shows no directory; a session takes its name from
   the directory it was opened in, slugged — lowercased, every run of characters other than
@@ -2085,8 +2228,8 @@ worker, and the message is the whole assignment.
 - **A test agent is no worker.** One raised for a test is opened outside the repository (a
   scratchpad), so its name is not this repository's
 
-The root checkout and, for a subdirectory project in a monorepo, the path down to it come
-from the lines below. The root is where `.moai` stands, so for a monorepo it is the
+Either way, the root checkout and, for a subdirectory project in a monorepo, the path down
+to it come from the lines below. The root is where `.moai` stands, so for a monorepo it is the
 subdirectory that has `.moai`, and a worktree stands for the whole repository — the worker
 has to go into the same subdirectory inside it (its step 3). The first line is `root dir`;
 a `subdir` line stands only when the root is not the top of the repository.
@@ -2106,12 +2249,25 @@ if os.path.relpath(here, top) != ".":
 PY
 ```
 
-**2-1. Pick a model — by one word of difficulty.** The grade of the epic-end review
-(the worker's 7) is measured on this same rubric, member by member. Keep two axes and the
-message carries two sets of judgement, and on the day they differ the cheap model takes the
-write path.
+**2-1. Pick the role, then read its model.** Each backlog goes to one role, and that role's
+model and effort come from the `moai models --json` you read at the start of the round.
+
+{roles}
+
+{defaults}
+
+Development is split by one word of difficulty — `develop` or `complex`. The same rubric
+decides, member by member, whether the epic-end review goes to `max` (the worker's 7). Keep
+two axes and the message carries two sets of judgement, and on the day they differ the cheap
+model takes the write path.
 
 {table}
+
+A backlog that only touches the wiki or the CHANGELOG is `docs`; sorting, summing up, or the
+same mechanical fix many times is `bulk`. **If the planner wrote `Model:` and `Effort:` lines
+in the issue body, read the model there as the role whose default it is** — the person's table
+still decides which model that role runs on. `<effort>` is `effort_complex` for `complex` and
+`effort` for the rest. The Codex worker's role is `codex`, and its sections say how it is sent.
 
 The epic-end review is that epic's only review, because the members are not reviewed
 separately (the worker's 5 and 7).
@@ -2119,18 +2275,24 @@ separately (the worker's 5 and 7).
 {epic_rule}
 
 The supervisor picks before reading any code, so this is a suggestion; the last word
-belongs to the worker who read the issue. A running session's model cannot be changed by
-a message and cannot be changed by config — the person in that window changes it with
-`/model`.
+belongs to the worker who read the issue. A session's model cannot be changed by a message
+and cannot be changed by config — the person in that window changes it with `/model`. A
+subagent's model is fixed when you raise it: a worker that finds the work heavier hands back
+`{RAISE_HEAD}` before it picks anything up (4).
 
-**3. Send.** Send **one** backlog to one idle worker. The message is the lines below, every
+**3. Send.** Send **one** backlog to one worker. The message is the lines below, every
 slot filled. The worker knows nothing of this conversation, so what is not in the message
 does not reach it — except the worker's steps: they stand in this skill's
 `references/worker.md`, and the first line tells the worker to `Read` that file and follow
-it. The worker is a session of this same repository and loaded the same plugin, so the file
-is there for it. **Do not copy the file into the message** — name it.
+it. The worker stands in this same repository with the same plugin loaded, so the file is
+there for it. **Do not copy the file into the message** — name it.
+
+To a subagent the message is the `prompt` of the `Agent` call in 2, with `Worker: subagent`.
+To a session it goes with `Worker: session`:
 
     SendMessage(to: <worker>, message: <the lines below>, notify_when_idle: true)
+
+`notify_when_idle` is for a session only — a subagent's end comes as a notification by itself.
 
 `<steps file>` is that file's absolute path: this skill's base directory — Claude Code shows
 it as "Base directory for this skill" when the skill loads — followed by
@@ -2149,7 +2311,7 @@ and if the message does not arrive, deliver it into the tab —
 `moai-cmux`, "Label the tab" and "When a message does not arrive".
 Inside Saycode, a worker Saycode lists gets the message as a prompt instead of `SendMessage` —
 `moai-saycode`, "Send work".
-Fill in `<id>`, `<title>`, `<steps file>`, `<root branch>`, `<base branch>`, `<milestone>`, `<model>`, `<difficulty>`, `<why>`, `<other work>`, `<root>`, `<person>` and — only for a subdirectory project — `<subdir>`.
+Fill in `<id>`, `<title>`, `<steps file>`, `<root branch>`, `<base branch>`, `<milestone>`, `<model>`, `<difficulty>`, `<why>`, `<effort>`, `<worker kind>`, `<other work>`, `<root>`, `<person>` and — only for a subdirectory project — `<subdir>`.
 `<root>` is the `root dir` from 2. **Leave it unfilled** and the worker, inside its worktree,
 reads its own place as the root. With no `subdir` line in 2, leave the `Subdir:` line out
 of the message.
@@ -2164,9 +2326,11 @@ refuse** — the check is the shape, not whether that milestone stands, so a sta
 in with exit 0: one line on stderr says there is no such milestone, and `moai status`
 counts the epic as `dangling_milestone`. Copy it off
 {MILESTONE_FROM}; do not write it from memory.
-`<model>`, `<difficulty>` and `<why>` are the pair you picked in 2-1 and your reason.
-**Leave them unfilled** and those placeholders travel as they are, so the note the worker
-leaves when it closes says `<model>` instead of what actually did the work.
+`<model>`, `<difficulty>` and `<why>` are the role's model you read in 2-1, the difficulty
+you measured and your reason; `<effort>` is that role's effort (2-1), the same value you pass
+to `Agent`. **Leave them unfilled** and those placeholders travel as they are, so the note
+left at the close says `<model>` instead of what actually did the work.
+`<worker kind>` is `subagent` or `session` — how you raised it in 2.
 Do not use a single quote inside `<why>` — it closes the single quote in the worker's 9-1
 and the rest of the text leaks into the shell.
 `<other work>` is the sibling worktrees you measured in 1, the work you send in this same
@@ -2178,13 +2342,31 @@ the worker meets such a file it does not fix it: it leaves it as a member and re
 worker then settles a design question by its own recommendation instead of waiting on an
 answer, writes down what it decided, and stops at what cannot be undone.
 Do not fill `<grade>` — that is the review grade the worker picks in 7, after developing.
-Do not fill `<vendor>` or `<count>` either — those are the vendor and the token count the
-worker reads in its own window in 9-1.
+Do not fill `<vendor>` either — it belongs to the `model:` line written at the close (5, and
+a session worker's 9-1).
 
 {message}
 
-**4. Wait.** End your turn. The report comes back as a cross-session message from the
-worker, `report: <epic>` at its head, and it wakes you. The idle notice that
+**4. Wait.** End your turn.
+
+**A subagent's report is the notification that it ended.** Its text comes as a message from
+it (`<agent-message from="<agentId>">`) with `report: <epic>` at its head, and the
+notification carries only numbers. Two other heads stop it before the work is done:
+
+- `{DECISION_HEAD}` — it met a design decision the notes do not settle and stopped there,
+  with the situation, the options and its recommendation (a subagent has no
+  `AskUserQuestion`). Ask the person with `AskUserQuestion`, and send the answer with
+  `SendMessage(to: <agentId>)` — the same worker wakes and carries on from its own record.
+  With `Person: away` it settles that by its recommendation instead and does not stop
+- `{RAISE_HEAD} — <why>` — it read the work as heavier than its model and picked nothing
+  up. Leave it, and raise a new worker on the `complex` model with the same message (2)
+
+Every wake ends in another notification; read the last. A subagent worker also leaves its
+report on the epic as a note before it hands back — a supervisor that started again has lost
+the notification, and reads that note (below).
+
+**A session's report comes back as a cross-session message** from the worker,
+`report: <epic>` at its head, and it wakes you. The idle notice that
 `notify_when_idle` sends is not a report: a worker goes idle whenever its turn ends — while
 it waits on its person's answer, say — and one that asked its person something sends nothing
 until it is answered. **Do not poll `ListAgents`** — the report comes to you. Inside tmux, an
@@ -2210,8 +2392,8 @@ note follows it on the same epic. Check each one that does not as in 5. A worker
 sent work you have no report for is still left out in 2 — ask it, or its person, how it
 stands.
 
-If the supervisor is in the root, then in the gap after the worker picks the member up
-and before it raises its worktree, the hook holds that member as "still picked up" when
+For a session worker, if the supervisor is in the root, then in the gap after the worker
+picks the member up and before it raises its worktree, the hook may hold that member as "still picked up" when
 the supervisor's turn ends. **That member is the worker's** — do not move it, do not
 defer it, do not put a note on it; just finish the turn.
 
@@ -2252,7 +2434,20 @@ commit with a path — a supervisor that starts again reads that line, not this 
 
     moai note <epic> 'Report-checked: <merge hash>'
 
-Then send the next backlog to an idle worker. **Outside tmux and cmux, clearing a window is
+**For a subagent worker, write the `model:` line yourself**, on one member and take it into
+the root the same way. The model is the report's `Model ran:` line — the real name the worker
+read in its own system prompt, not the alias you passed. Leave `tokens=` out: the count a
+subagent's notification carries is not what the work cost (the person's decision), and a
+false number is worse than none. A session worker writes its own line (its 9-1), and the
+review issue's line is the worker's either way (its 10).
+
+    moai note <member> 'model: anthropic/<model ran> (<difficulty> — <why>)'
+
+Then send the next backlog to a worker. **A subagent needs no clearing** — it ended with its
+hand-back. Raise a new one for the next backlog rather than waking a finished one with new
+work: its record is the old epic's.
+
+A session worker's window is different. **Outside tmux and cmux, clearing a window is
 the person's** — the supervisor never types into a window. The report ends with the worker
 telling its person when its window can be cleared, so a message you send to that same window
 right away can be erased by a clear that comes after it, and that backlog then waits for a
@@ -2266,8 +2461,8 @@ that tab's (`moai-cmux`).
 Inside Saycode, a worker Saycode lists is cleared through it, on the same report check
 (`moai-saycode`, "Clear a worker").
 
-If they do not hold, ask that worker with a message what is left, and do not finish it in
-its place.
+If they do not hold, ask that worker with a message what is left — a subagent by
+`SendMessage(to: <agentId>)` — and do not finish it in its place.
 
 ## The shared root
 
@@ -3593,6 +3788,8 @@ fn message() -> String {
         r#"    You are handed backlog <id> — <title>. Read <steps file> and follow its steps from step 1.
     Read first: moai show <id>
     {MODEL_SLOT}
+    {EFFORT_SLOT}
+    {WORKER_SLOT}
     {BESIDE}
     Root branch: <root branch>
     Base branch: <base branch>
@@ -3641,7 +3838,6 @@ pub fn worker() -> String {
     let levels = difficulty_levels();
     // 잣대는 걸음 5 안의 글머리 목록이다 — 맨 줄로 두면 GitHub 에서 세 낱말이 한 문단으로 뭉친다(리뷰 moai-bkn4.c3d).
     let rubric = indent(&difficulty_rubric(), "   - ");
-    let top = top_model();
     let epic_rule = indent(&epic_review_rule(), "   ");
     let angle = indent(REVIEW_ANGLE, "   ");
     // 7-4 는 목록 밖의 문단이라 명령 줄이 네 칸이다(`the_worker_steps_follow_the_markdown_list_rules`).
@@ -3668,6 +3864,10 @@ said yes to taking over a row that is not yours, say — belongs to the assignme
 
 - `Model:` — `<model>` and `<difficulty>`.
 {rule}
+- `Effort:` — `<effort>`, the reasoning effort that goes with the model. Like the model, a
+  subagent was raised on it and a session's person sets it — you do not
+- `Worker:` — `subagent` or `session`, how you were raised. A step that differs between the
+  two says so in the step
 - `Work running alongside:` — the worktrees and work beside you, and the files they hold (4-3)
 - `Root branch:` — `<root branch>`, the branch the root checkout stands on. The supervisor read
   it in the root; do not read it again — read inside a worktree, it gives that worktree's own branch
@@ -3875,7 +4075,7 @@ never in the root
    never start another agent program for it.
 {epic_rule}
    If the window is not on that model, ask the person watching it to change it before you
-   call — `/model {top}` (a review agent inherits the window's model).
+   call — `/model <that model>` (a review agent inherits the window's model).
    Write the grade you picked and why in one line in the angle (`-b`). The diff runs from
    where the branch left <base branch> (`git merge-base <base branch> HEAD`). You pulled it
    in 6, so the conflict resolution is inside it too. Create the review issue (rule 3)
@@ -4845,11 +5045,12 @@ stop sending outside work while a release runs",
         }
     }
 
-    /// **난이도 한 낱말이 모델과 리뷰 등급을 함께 정한다**(moai-84kd, 2026-09-15 사용자 결정).
+    /// **난이도 한 낱말이 개발의 역할과 에픽 끝 `max` 를 함께 가른다**(moai-84kd, 2026-09-15 사용자 결정 —
+    /// 2026-10-12 에 모델 칸이 역할 칸이 됐다, moai-9tqo).
     ///
     /// 축을 따로 두면 브리프가 판단을 두 벌 들고, 둘이 어긋나는 날 싼 모델이 쓰기 경로를 맡는다.
-    /// 그래서 짝은 리뷰 등급과 같은 낱말 위에 선다 — low·medium·high 가 그대로 haiku·sonnet·opus 다.
-    /// **브리프에 실려야 뜻이 있다**: 감독 스킬에만 적힌 규칙은 일꾼이 받는 글에 없다(`worker`).
+    /// 그래서 짝은 리뷰 등급과 같은 낱말 위에 선다 — low·medium 은 `develop`, high 는 `complex` 다. 역할의 모델은
+    /// 사람의 설정에서 읽는다. **브리프에 실려야 뜻이 있다**: 감독 스킬에만 적힌 규칙은 일꾼이 받는 글에 없다(`worker`).
     #[test]
     fn the_supervisor_picks_a_model_by_difficulty() {
         let (supervise, brief) = (supervise(), worker());
@@ -4862,45 +5063,54 @@ stop sending outside work while a release runs",
         let table = difficulty_table();
         assert!(head.contains(&table), "2-1 의 표가 DIFFICULTY 에서 안 나온다");
         assert!(brief.contains(&indent(&difficulty_rubric(), "   - ")), "일꾼이 받는 잣대가 DIFFICULTY 에서 안 나온다");
-        // **칸째로 맨다** — 머리의 `모델` 칸 자리에 짝이 서는지 본다. 줄 어디에 `` `haiku` ``
-        // 가 들기만 하면 되던 판은 모델 칸과 리뷰 칸을 바꿔 끼워도 초록이었다.
+        // **칸째로 맨다** — 머리의 `Role` 칸 자리에 짝이 서는지 본다. 줄 어디에 `` `develop` ``
+        // 가 들기만 하면 되던 판은 칸을 바꿔 끼워도 초록이었다.
         let cells = |l: &str| l.trim().trim_matches('|').split('|').map(|c| c.trim().to_string()).collect::<Vec<_>>();
         let mut lines = table.lines();
         let header = cells(lines.next().expect("표에 머리가 없다"));
         let col =
             |name: &str| header.iter().position(|c| c == name).unwrap_or_else(|| panic!("표 머리에 {name} 칸이 없다"));
-        let (level_col, model_col) = (col("Level"), col("Model"));
+        let (level_col, role_col) = (col("Level"), col("Role"));
         let rows: Vec<Vec<String>> = lines.skip(1).map(cells).collect();
-        for (level, model) in [("low", "haiku"), ("medium", "sonnet"), ("high", "opus")] {
+        // haiku 는 개발에 안 간다(2026-10-12 사용자 결정) — `low` 도 `develop` 이다.
+        for (level, role) in [("low", "develop"), ("medium", "develop"), ("high", "complex")] {
             let row = rows
                 .iter()
                 .find(|r| r.get(level_col) == Some(&format!("`{level}`")))
                 .unwrap_or_else(|| panic!("난이도 {level} 의 줄이 표에 없다"));
-            assert_eq!(row.get(model_col), Some(&format!("`{model}`")), "{level} 의 짝이 {model} 이 아니다 — {row:?}");
+            assert_eq!(row.get(role_col), Some(&format!("`{role}`")), "{level} 의 짝이 {role} 이 아니다 — {row:?}");
         }
-        // 에픽 끝은 그 에픽의 유일한 리뷰다. 등급은 가장 무거운 멤버의 한 칸 위, 모델은 그 등급을
-        // 따른다(moai-bx6t) — 감독의 2-1 에 서고 **그 리뷰를 부르는 일꾼에게도 같은 글로 선다.**
-        // 감독의 2-1 에만 적혀 있던 판은 그 리뷰가 도는 창에 한 번도 안 닿았다(리뷰 에이전트는
-        // 창의 모델을 물려받는다). 첫 판은 "늘 opus" 를 붙들어, 글 한 줄 고친 에픽도 가장 비싼
-        // 리뷰를 받았다 — 이제 가운데 모델로 보는 자리(`medium`)가 두 글 모두에 서는지 본다.
+        // 에픽 끝은 그 에픽의 유일한 리뷰다. **`review` 역할의 모델로 `review_grade` 에서 보고**, 쓰기 경로·동시성·
+        // 저장 형식·훅을 건드린 멤버가 들면 `max` 다(2026-10-12 사용자 결정) — 감독의 2-1 에 서고 **그 리뷰를 부르는
+        // 일꾼에게도 같은 글로 선다.** 감독의 2-1 에만 적혀 있던 판은 그 리뷰가 도는 창에 한 번도 안 닿았다.
         let rule = epic_review_rule();
         assert!(
-            rule.contains("`medium` means `sonnet`") && rule.contains("`high` and up means `opus`"),
-            "에픽 끝 리뷰의 모델이 등급을 안 따른다 — {rule}"
+            rule.contains("`review` model at `review_grade`") && rule.contains("`moai models --json`"),
+            "에픽 끝 리뷰가 역할의 모델과 등급을 설정에서 안 읽는다 — {rule}"
+        );
+        assert!(
+            rule.contains(&format!("**If {EPIC_MAX}**, the grade is `max`")),
+            "EPIC_MAX 가 max 로 안 올린다 — {rule}"
+        );
+        // 옛 사다리("한 칸 위", `medium` 이면 가운데 모델)가 돌아오면 붉어진다 — 그 아래 칸이 리뷰를 싼 모델에 맡겼다.
+        assert!(
+            !rule.contains("one step above the heaviest member") && !rule.contains("means `"),
+            "옛 리뷰 사다리가 돌아왔다 — {rule}"
         );
         assert!(head.contains(&rule), "감독의 2-1 에 에픽 끝 등급·모델 규칙이 없다");
         let step = &brief[step_at(&brief, "7")..step_at(&brief, "8")];
         assert!(step.contains("/code-review <grade> --fix"), "에픽 리뷰 걸음이 7 에 없다");
         assert!(step.contains(&indent(&rule, "   ")), "브리프 7 에 에픽 끝 등급·모델 규칙이 없다");
-        assert!(step.contains("`/model opus`"), "에픽 끝 리뷰의 모델을 맞추라는 말이 일꾼에게 없다");
-        // 훅에 막힐 때 리뷰 서브에이전트로 돌리던 길은 옛 바이너리의 것이라 걷었다(moai-fim6) — 리뷰는 이 창의
-        // `/code-review` 하나고, 그 모델은 바로 위의 `/model` 로 맞춘다.
+        assert!(step.contains("`/model <that model>`"), "에픽 끝 리뷰의 모델을 맞추라는 말이 세션 일꾼에게 없다");
+        // 훅에 막힐 때 리뷰 서브에이전트로 돌리던 길은 옛 바이너리의 것이라 걷었다(moai-fim6).
         assert!(!step.contains("`Agent`'s `model`"), "옛 바이너리를 위한 리뷰 서브에이전트 우회가 남았다");
         // 일꾼이 받는 메시지에 그 자리가 있어야 감독이 채운다. **목록 줄에서 찾는다** — 바로 아래
-        // 풀이 글도 세 자리를 적어, 감독 쪽 전체에서 찾으면 목록에서 빠져도 초록이었다.
-        assert!(message().contains(MODEL_SLOT), "메시지에 모델 자리가 없다 — 감독이 골라도 일꾼은 모른다");
+        // 풀이 글도 자리를 적어, 감독 쪽 전체에서 찾으면 목록에서 빠져도 초록이었다.
+        for slot in [MODEL_SLOT, EFFORT_SLOT, WORKER_SLOT] {
+            assert!(message().contains(slot), "메시지에 {slot} 자리가 없다 — 감독이 골라도 일꾼은 모른다");
+        }
         let list = slot_list(head);
-        for slot in ["<model>", "<difficulty>", "<why>"] {
+        for slot in ["<model>", "<difficulty>", "<why>", "<effort>", "<worker kind>"] {
             assert!(
                 list.contains(&format!("`{slot}`")),
                 "감독이 채울 자리 목록에 {slot} 가 없다 — 그대로 실려 노트에 자리표시자가 남는다"
@@ -4920,6 +5130,70 @@ stop sending outside work while a release runs",
             "브리프에 에픽 끝 말고도 리뷰가 선다 — 멤버마다 보던 판이 돌아왔다"
         );
         assert!(brief.contains("Do not review member by member"), "브리프 5 가 멤버 리뷰를 걷었다고 말하지 않는다");
+    }
+
+    /// **감독은 일꾼을 서브에이전트로 세우고, 모델은 사람의 표에서 읽는다**(2026-10-12 사용자 결정, moai-9tqo.rsl).
+    ///
+    /// 값은 스킬 글에 굽지 않는다 — project 범위로 심은 스킬은 커밋되어 남에게 가고, 모델은 사람이 제 돈으로 고르는 값이다.
+    /// 그래서 모델 이름은 기본값을 말하는 줄에만 서야 한다: 표를 바퀴 앞에 한 번 읽고(`moai models --json`), `Agent` 의
+    /// 모델·effort 는 자리로 싣는다. 손으로 `sonnet` 을 박은 줄이 하나라도 서면 그 사람의 설정을 이긴다.
+    #[test]
+    fn the_supervisor_bakes_no_model() {
+        let supervise = supervise();
+        let round = supervise.find("## One round").expect("한 바퀴가 없다");
+        assert!(supervise[..round].contains("moai models --json"), "감독이 바퀴 앞에 모델 표를 안 읽는다");
+        assert!(supervise.contains(&models_defaults()), "기본값 줄이 MODELS_DEFAULT 에서 안 나온다");
+        assert!(supervise.contains(&roles_table()), "역할 표가 ROLES 에서 안 나온다");
+        let models: Vec<&str> = crate::user_config::MODELS_DEFAULT
+            .iter()
+            .filter(|(key, _)| ROLES.iter().any(|(role, _, _)| role == key))
+            .map(|(_, model)| *model)
+            .collect();
+        assert!(models.len() >= 5, "역할의 모델을 못 골랐다 — {models:?}");
+        for line in supervise.lines() {
+            for model in &models {
+                let named = line.contains(&format!("`{model}`")) || line.contains(&format!(" {model} "));
+                assert!(!named || line.contains("default"), "기본값 밖에서 모델 {model} 을 박았다 — {line}");
+            }
+        }
+        // `Agent` 줄은 모델과 effort 를 자리로 싣는다 — 감독이 역할의 값을 채운다.
+        let raise = supervise.lines().find(|l| l.trim_start().starts_with("Agent(")).expect("일꾼을 띄우는 줄이 없다");
+        assert!(
+            raise.contains("model: <model>") && raise.contains("effort: <effort>"),
+            "Agent 줄에 자리가 없다 — {raise}"
+        );
+        assert!(!raise.contains("isolation"), "Agent 줄이 워크트리를 따로 세운다 — {raise}");
+        assert!(supervise.contains("Do not pass `isolation: \"worktree\"`"), "워크트리 격리를 쓰지 말라는 말이 없다");
+        // 세션 길은 걷지 않았다 — 사람이 창을 보고 싶을 때와 Codex 일꾼(moai-uzhx)의 길이다.
+        assert!(supervise.contains("## Workers in sessions"), "세션 길의 절이 없다");
+        // Codex 일꾼은 C 가 세우는 절 이름을 가리킨다 — 절 이름이 바뀌면 둘이 함께 바뀐다.
+        assert!(
+            supervise.contains("`moai-cmux` /\n`moai-tmux`, section \"Codex workers\""),
+            "Codex 일꾼을 가리키는 문단이 없다"
+        );
+        // 서브에이전트가 멈추는 두 머리를 감독이 읽는다. 일꾼이 내는 쪽은 일꾼 글의 시험이 본다.
+        for head in [RAISE_HEAD, DECISION_HEAD] {
+            assert!(supervise.contains(head), "감독이 {head} 를 안 읽는다");
+        }
+        assert!(worker().contains(RAISE_HEAD), "일꾼이 {RAISE_HEAD} 를 안 낸다");
+    }
+
+    /// **역할 표의 이름은 설정의 키다**(moai-9tqo.rsl). 감독이 표에서 고른 역할로 `moai models --json` 을 읽으니,
+    /// 철자가 하나라도 다르면 그 역할의 모델이 없는 키를 찾는다. 난이도 표의 역할도 그 안에 선다.
+    #[test]
+    fn the_roles_are_the_models_table() {
+        let keys: Vec<&str> = crate::user_config::MODELS_DEFAULT.iter().map(|(key, _)| *key).collect();
+        for (role, _, effort) in ROLES {
+            assert!(keys.contains(&role), "역할 {role} 이 설정의 키가 아니다 — {keys:?}");
+            for key in effort.split('`').skip(1).step_by(2) {
+                assert!(keys.contains(&key), "역할 {role} 의 effort 키 {key} 가 설정에 없다");
+            }
+        }
+        let models = keys.iter().filter(|k| !k.starts_with("effort") && **k != "review_grade").count();
+        assert_eq!(models, ROLES.len(), "설정의 역할과 표의 역할 수가 다르다");
+        for (level, role, _) in DIFFICULTY {
+            assert!(ROLES.iter().any(|(r, _, _)| *r == role), "난이도 {level} 의 역할 {role} 이 표에 없다");
+        }
     }
 
     /// **잣대의 글은 이 저장소 CLAUDE.md 의 리뷰 표와 같다.** 같은 축이라고 적어 두고 high 에서
@@ -5644,7 +5918,8 @@ stop sending outside work while a release runs",
         // (moai-obxm) 거르는 것은 이름이다 — 세션 이름은 연 디렉터리에서 오니 시험하는 쪽에 루트 밖에서 띄우라고 하고, 감독은 이름이 저장소의 것이 아닌 줄을 안 센다.
         // 둘 중 하나만 서면 다른 쪽이 샌다.
         let (supervise, brief) = (supervise(), worker());
-        let two = supervise.find("**2. Find a worker.**").expect("2 가 없다");
+        // 세션 길에서 찾는다(moai-9tqo.rsl) — 일꾼은 기본이 서브에이전트고, `ListAgents` 로 찾는 것은 세션 길뿐이다.
+        let two = supervise.find("**A session.** Call `ListAgents` once").expect("2 의 세션 길이 없다");
         let three = supervise.find("**2-1. ").expect("2-1 이 없다");
         let step = &supervise[two..three];
         assert!(step.contains("Call `ListAgents` once"), "감독이 일꾼을 ListAgents 로 안 찾는다");

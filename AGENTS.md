@@ -1,4 +1,4 @@
-<!-- moai:begin v:0.14.0 hash:767f4717 -->
+<!-- moai:begin v:0.15.1 hash:42b40ad7 -->
 ## Issue tracker — moai
 
 This repository's work lives in `.moai/issues.jsonl`.
@@ -522,11 +522,14 @@ person's other sessions and other people's work, and nothing else will.
 ### The supervisor and its workers
 
 In Claude Code, `moai skill install` also plants `moai-supervise`. A person calls it in
-one window to hand the backlog that have piled up, one at a time, to the other sessions
-of this repository and take their reports. Every idle session of this repository that
-`ListAgents` shows is a worker — nobody registers. The supervisor sends each one its
-assignment (`SendMessage`) with a line naming the file of the worker's steps to read, and
-the worker reports the same way. moai carries no messaging, and the moai binary never
+one window to hand the backlog that have piled up, one at a time, to workers and take
+their reports. A worker is a subagent the supervisor raises with Claude Code's `Agent`, on
+the model its role calls for — which model each role runs on is the person's, `[models]` in
+their user config, and `moai models` shows it. When the person wants to watch the workers'
+windows, and for a Codex worker, the workers are the idle sessions of this repository that
+`ListAgents` shows instead — nobody registers. Either way the supervisor sends each one its
+assignment with a line naming the file of the worker's steps to read, and the worker
+reports back. moai carries no messaging, and the moai binary never
 launches or drives a session. When the supervisor runs inside tmux, its companion skill
 `moai-tmux` lets it clear a worker's pane, paste a message into it, and open new worker
 panes — an ordinary interactive `claude` the person sees, opened only after the person says

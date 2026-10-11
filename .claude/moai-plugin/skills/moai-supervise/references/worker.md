@@ -18,12 +18,21 @@ other line fills a slot the steps use; a line the supervisor adds beyond those �
 said yes to taking over a row that is not yours, say — belongs to the assignment as well.
 
 - `Model:` — `<model>` and `<difficulty>`.
-  `Model:` is a suggestion picked by difficulty before anyone read the code. The model is
-  changed by the person with `/model`, never by you — if this window is not on
-  that model, ask the person watching the window to match it, and if it reads harder than it
+  `Model:` is a suggestion picked by difficulty before anyone read the code; it is the model
+  of a role in the person's table (`moai models --json`), and `Effort:` goes with it.
+  **In a session** the model is changed by the person with `/model`, never by you — if this
+  window is not on that model, ask the person watching the window to match it, and if it reads harder than it
   looked, raise it the same way to the model that pairs with the difficulty you just measured —
-  not one step at a time (haiku → sonnet → opus). Handed `low` but it is `high`, the model is `opus`.
-  The grade of the epic-end review (7) is measured on this same rubric, member by member
+  the model of that role, not one step at a time. Handed `low` but it is `high`, the role is `complex`.
+  **In a subagent** the model and the effort were fixed when you were raised, and nobody can
+  change them. If it reads heavier than `Model:` says, stop before you pick anything up and hand
+  back one line, `Model: raise to complex — <why>`; the supervisor raises a new worker on the `complex` model
+  with the same message. What shows only after you picked up, you carry on and name in the report.
+  Whether the epic-end review (7) goes to `max` is measured on this same rubric, member by member
+- `Effort:` — `<effort>`, the reasoning effort that goes with the model. Like the model, a
+  subagent was raised on it and a session's person sets it — you do not
+- `Worker:` — `subagent` or `session`, how you were raised. A step that differs between the
+  two says so in the step
 - `Work running alongside:` — the worktrees and work beside you, and the files they hold (4-3)
 - `Root branch:` — `<root branch>`, the branch the root checkout stands on. The supervisor read
   it in the root; do not read it again — read inside a worktree, it gives that worktree's own branch
@@ -258,15 +267,13 @@ never in the root
 7. Before merging, review the whole epic with `/code-review <grade> --fix` — the members were
    not reviewed separately, so this once is the only review. **It runs inside this session** —
    never start another agent program for it.
-   **The grade is one step above the heaviest member's difficulty** — `medium` if the members
-   are all `low`, `high` if one is `medium`, `xhigh` if one is `high`.
-   **If any member touched the write path, concurrency, the storage format or hooks**, it is `max`.
-   Raise it one more step if the epic crosses surfaces or carries several design decisions. If you hesitate, raise it.
+   **The epic-end review runs on the `review` model at `review_grade`** — read both from
+   `moai models --json` (defaults `opus` and `xhigh`).
+   **If any member touched the write path, concurrency, the storage format or hooks**, the grade is `max`.
    **A worktree that carries members of two epics is measured as one epic and then raised one more step** — the review has to read both epics' contracts at once.
-   `max` is the top of the ladder: a step above it is still `max`.
-   The model follows that grade — `medium` means `sonnet`, `high` and up means `opus`.
+   A step above the default `xhigh` is `max`, and `max` is the top of the ladder: a step above it is still `max`.
    If the window is not on that model, ask the person watching it to change it before you
-   call — `/model opus` (a review agent inherits the window's model).
+   call — `/model <that model>` (a review agent inherits the window's model).
    Write the grade you picked and why in one line in the angle (`-b`). The diff runs from
    where the branch left <base branch> (`git merge-base <base branch> HEAD`). You pulled it
    in 6, so the conflict resolution is inside it too. Create the review issue (rule 3)
