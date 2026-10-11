@@ -14943,6 +14943,46 @@ fn stop_does_not_count_notices_as_new_warnings() {
     assert!(!out.contains("경고가"), "알림을 경고로 셌다 — {out}");
 }
 
+/// **에픽의 멤버를 다 집어도 `wip_overload` 가 안 서고, `Stop` 이 경고가 늘었다고 붙들지 않는다**(moai-rs3o.nmu) —
+/// 일꾼 걸음이 멤버를 모두 집으라 하니, 줄마다 세면 멤버 넷짜리 에픽을 집는 순간 경고가 하나 늘었다.
+/// 에픽 없는 줄 넷은 여전히 넷이다 — 같은 보드에서 경고가 서고, `count` 는 묶음 수고 `ids` 는 줄 전부다.
+#[test]
+fn picking_up_a_whole_epic_is_not_started_at_once() {
+    let s = init("wipepic");
+    let plan = from_stdin(s.path(), &["add", "--from", "-", "--json"], "# 한 에픽\n- 하나\n- 둘\n- 셋\n- 넷\n");
+    assert!(plan.status.success(), "{}", String::from_utf8_lossy(&plan.stderr));
+    let made: serde_json::Value = serde_json::from_slice(&plan.stdout).unwrap();
+    let members: Vec<String> = made
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["kind"] == "issue")
+        .map(|r| r["id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(members.len(), 4);
+    hook_out(&s, "session-start", &event(&s, "s1"));
+
+    for id in &members {
+        ok(s.path(), &["mv", id, "in_progress", "--from", "todo"]);
+    }
+    let board: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    let kinds: Vec<&str> = board["warnings"].as_array().unwrap().iter().map(|w| w["kind"].as_str().unwrap()).collect();
+    assert!(!kinds.contains(&"wip_overload"), "에픽 하나의 멤버 넷을 넷으로 셌다 — {kinds:?}");
+
+    // 붙든다면 집은 줄이 있어서다(위 `the_close_holds_once_and_then_lets_go`) — 경고가 늘었다는 말은 없어야 한다.
+    let out = hook_out(&s, "stop", &event(&s, "s1"));
+    assert!(!out.contains("경고가"), "에픽의 멤버를 집은 것을 늘어난 경고로 셌다 — {out}");
+
+    // 에픽 없는 줄 넷은 넷이다. 기존 에픽 멤버 넷까지 집은 채여도 묶음은 다섯이고, `ids` 는 줄 여덟이다.
+    for n in 0..4 {
+        let id = add(s.path(), &[&format!("떠도는 {n}")]);
+        ok(s.path(), &["mv", &id, "in_progress", "--from", "todo"]);
+    }
+    let board: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    let w = board["warnings"].as_array().unwrap().iter().find(|w| w["kind"] == "wip_overload").expect("경고가 없다");
+    assert_eq!((w["count"].as_u64(), w["ids"].as_array().unwrap().len()), (Some(5), 8), "{w}");
+}
+
 /// `SessionStart` 는 아무것도 싣지 않고 기준선만 적는다.
 ///
 /// 재개에서 그 출력이 대화에 안 붙는 것을 확인하고 옮긴 자리다. 안 붙는 자리에

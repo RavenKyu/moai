@@ -5558,10 +5558,27 @@ fn status_in_scope<'a, 'c>(
     //    한눈 보기가 집은 것 셋을 대는 그 보드에 `4건` 이 서고, `ready` 아래 줄에 없는 id 를 잊은 것으로
     //    꾸짖는다(4번) — 그 제목은 쌍둥이 에픽의 것이다. 그 id 는 `duplicate_id` 가 따로 드러낸다.
     let wip: Vec<&Issue> = work.iter().copied().filter(|i| cfg.is_started(i.status.as_str()) && !eclipsed(i)).collect();
-    // 문턱은 id 로 잰다 — 위 `no_epic` 과 같은 까닭이다.
-    let overload = Warning::new("wip_overload", ids_of(&wip));
-    if overload.count > cfg.status.wip_limit {
-        warnings.push(overload.limit(cfg.status.wip_limit));
+    // **문턱은 묶음으로 잰다**(moai-rs3o.nmu, 2026-10-12 사용자 결정) — 같은 에픽의 멤버는 하나다. 일꾼 걸음은
+    // 에픽의 멤버를 모두 집으라 하는데(`guide::worker`), 줄마다 세면 멤버 넷짜리 에픽을 집는 순간 경고가 하나
+    // 늘어 Stop 훅이 턴을 붙들었다. 묶음의 열쇠는 줄이 **든 에픽**이다([`Placed`] 에 묻는다 — 지도를 id 로
+    // 짚으면 같은 id 의 앞줄이 뒷줄의 답을 입는다, moai-u3ta). 에픽이 없으면 id 사슬의 꼭대기([`fold_top`] —
+    // `--parent` 자식은 부모와 하나)고, 그것도 없으면 제 id 다. 리뷰 줄(`--parent <에픽>`)은 에픽 밑이라 그
+    // 에픽의 하나에 든다. 같은 id 의 쌍둥이는 제 id 로 한 번만 서므로 줄로 재지 않는 까닭(위 `no_epic`)은 그대로다.
+    //
+    // **바뀌는 것은 이 경고의 셈 하나다.** `wip`·`started` 는 "지금 집은 줄" 의 집합이라 훅 초점·`ready`·`prime`
+    // 이 같은 것을 쓰고, 그쪽은 줄마다 맞다. `count` 는 묶음 수(문턱과 견준 수)고 `ids` 는 집은 줄 전부(고칠
+    // 손잡이)다 — 둘의 뜻이 갈린다.
+    let bundles: BTreeSet<&str> = wip
+        .iter()
+        .map(|&i| {
+            in_epic
+                .at(i)
+                .or_else(|| fold_top(i, &|p| soil.lines.at(p), &soil.lines.rooted).map(|top| top.id.as_str()))
+                .unwrap_or(i.id.as_str())
+        })
+        .collect();
+    if bundles.len() > cfg.status.wip_limit {
+        warnings.push(Warning::new("wip_overload", ids_of(&wip)).count(bundles.len()).limit(cfg.status.wip_limit));
     }
 
     // 4. 집어 놓고 잊은 것.
@@ -7479,6 +7496,41 @@ mod tests {
         // 셋까지는 말하지 않는다
         let three = status(&issues[..3], &[], &cfg(), "2026-09-01T00:00:00Z", utc());
         assert!(!kinds(&three).contains(&"wip_overload"));
+    }
+
+    /// **같은 에픽의 멤버는 하나로 센다**(moai-rs3o.nmu) — 일꾼 걸음이 멤버를 모두 집으라 하니, 줄마다 세면 에픽
+    /// 하나를 집는 것만으로 경고가 서서 Stop 훅이 턴을 붙들었다. `count` 는 묶음 수고 `ids` 는 집은 줄 전부다.
+    #[test]
+    fn members_of_one_epic_count_as_one_bundle() {
+        let held = |issues: &[Issue]| status(issues, &[], &cfg(), "2026-09-01T00:00:00Z", utc());
+        let wip = |st: &StatusReport| st.warnings.iter().find(|w| w.kind == "wip_overload").cloned();
+
+        // 한 에픽의 멤버 넷 — 경고 없음.
+        let mut one = vec![make("argos-e001", Kind::Epic, "in_progress")];
+        one.extend((0..4).map(|n| member(&format!("argos-e001.m{n}"), "argos-e001", "in_progress")));
+        assert!(wip(&held(&one)).is_none(), "{:?}", held(&one).warnings);
+
+        // 에픽 셋에 멤버 하나씩 + 에픽 없는 줄 하나 — 묶음 넷.
+        let mut four: Vec<Issue> = (1..=3).map(|n| make(&format!("argos-e00{n}"), Kind::Epic, "in_progress")).collect();
+        four.extend((1..=3).map(|n| member(&format!("argos-e00{n}.m"), &format!("argos-e00{n}"), "in_progress")));
+        four.push(make("argos-0100", Kind::Issue, "in_progress"));
+        let w = wip(&held(&four)).expect("묶음 넷인데 경고가 없다");
+        assert_eq!((w.count, w.ids.len(), w.limit), (4, 4, Some(3)), "{w:?}");
+
+        // 한 에픽의 멤버 둘 + 그 에픽의 리뷰 자식(`<에픽>.xxx`) + 에픽 없는 줄 셋 — 묶음 넷, 줄 여섯.
+        let mut mixed = vec![make("argos-e001", Kind::Epic, "in_progress")];
+        mixed.extend((0..2).map(|n| member(&format!("argos-e001.m{n}"), "argos-e001", "in_progress")));
+        mixed.push(make("argos-e001.rv1", Kind::Issue, "review"));
+        mixed.extend((1..=3).map(|n| make(&format!("argos-010{n}"), Kind::Issue, "in_progress")));
+        let w = wip(&held(&mixed)).expect("묶음 넷인데 경고가 없다");
+        assert_eq!((w.count, w.ids.len()), (4, 6), "{w:?}");
+
+        // 에픽이 없어도 `--parent` 자식은 부모와 하나다 — 부모 둘에 자식 셋이어도 묶음은 둘이다.
+        let family: Vec<Issue> = ["argos-0201", "argos-0201.a", "argos-0201.b", "argos-0202", "argos-0202.a"]
+            .iter()
+            .map(|id| make(id, Kind::Issue, "in_progress"))
+            .collect();
+        assert!(wip(&held(&family)).is_none(), "{:?}", held(&family).warnings);
     }
 
     #[test]
