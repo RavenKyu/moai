@@ -46,8 +46,10 @@ does not tag — see `CONTRIBUTING.md`.
   points at it.** A subagent worker stands in the main checkout and its pick-ups
   carry the supervisor's session, so once `.worktrees/<epic>` stood the hook read
   that epic as someone else's: rule 1 stopped guarding the worker and rule 3
-  refused a review whose review issue was picked up with its angle. Rows another
-  session picked last are still read by the worktree's name. The price: the
+  refused a review whose review issue was picked up with its angle. Only a pick
+  the hook saw run for certain counts — one written after `&&`, which may not have
+  run, still loses to the name — and rows another session picked last are still
+  read by the worktree's name. The price: the
   supervisor's turn-end holds what its subagent workers hold, and the session that
   picked a row can edit the main checkout while that row's worktree stands.
   (moai-pxui)

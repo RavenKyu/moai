@@ -432,9 +432,10 @@ never starts another agent program.
 carry the supervisor's session, so the rows it picks up are the supervisor's
 [focus](glossary.md#focus) as well, and the hook holds the supervisor's turn end on
 them — once a session, as it holds any session's. A row a session picked up
-stays its own even when a sibling worktree's name points at it — that is what
-keeps rule 1 guarding a subagent in the root and lets its review through rule 3
-once the worker has picked the review issue up (moai-pxui).
+for certain stays its own even when a sibling worktree's name points at it — that
+is what keeps rule 1 guarding a subagent in the root and lets its review through
+rule 3 once the worker has picked the review issue up (moai-pxui). A pick written
+after `&&`, which may not have run, does not count: the name still wins.
 
 **Stalled work** — a member picked up with no live session working it — the
 supervisor looks for before any new backlog, and it reads it from the tracker,
