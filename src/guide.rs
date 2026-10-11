@@ -3082,8 +3082,6 @@ it can stay `true` after an API error or an interrupt. None of these is a box to
 neither is an error or an answer without `state`."#;
 
 /// Codex 보고만 트래커에서 기다린다. 두 손(cmux·tmux)이 같은 스크립트를 싣는다(moai-uzhx.yv8).
-// 소비자는 다음 멤버(2mq·fk1)에서 붙는다. 공용 조각만의 커밋도 dev 빌드가 된다.
-#[allow(dead_code)]
 pub const REPORT_WATCH: &str = r#"### Watch the epic for the Codex report
 
 Use one `Monitor` per epic, on the supervisor's side only:
@@ -3150,7 +3148,6 @@ using the saved cursor. A `report:` ends this watch. For the final report use th
 session path, which already has `notify_when_idle` and report messages."#;
 
 /// 화면을 읽은 뒤의 Codex 입력창 잣대 — 읽는 명령은 각 손이 앞에 둔다(moai-uzhx.yv8).
-#[allow(dead_code)]
 pub const CODEX_EMPTY_BOX: &str = r#"The lowest current composer starts with `›` (U+203A) and an ordinary space (U+0020).
 Its empty placeholder is `Ask Codex to do anything`. A past user message also starts with
 `›`: read the bottom input area, not any matching line in the conversation.
@@ -3266,8 +3263,9 @@ nothing about the version: tell the person what it said, and go on as if this sk
 - **Never `--force`.** cmux refuses to type into a Claude Code box that holds someone's words or a
   dialog — but only for a session its own Claude hook knows, which is why you read the box
   yourself first — and `--force` skips that refusal. A refusal is an answer — tell the person
-- **Only a worker's surface.** Type only into a surface found through the session map below for
-  a worker of this repository — never your own (`$CMUX_SURFACE_ID`), never a session of another
+- **Only a worker's surface.** Type only into a surface found through the session map below,
+  or the Codex process check in "Codex workers", for this repository — never your own
+  (`$CMUX_SURFACE_ID`), never a session of another
   repository. Every call names its surface by UUID, `--surface <surface>`: left out, cmux types
   into your own tab, and a `surface:N` name is handed out as asked for and does not outlive a
   restart
@@ -3277,8 +3275,9 @@ nothing about the version: tell the person what it said, and go on as if this sk
   it — tell the person
 - **Never in their place.** A permission prompt or a question in a worker's tab is the
   person's to answer — you read it and tell them; you press no key
-- **No polling.** Every look below is one look. A second one comes after your next step, as
+- **No polling of screens or sessions.** Every look below is one look. A second one comes after your next step, as
   its own call — never a loop, never a `sleep`, never `wait-for`
+  (the Codex epic-note monitor below reads the tracker only)
 - **The person's cmux settings stay theirs.** No `reload-config`, `themes`, `set-hook` or
   `bind-key`
 
@@ -3447,6 +3446,155 @@ surface), look at `ListAgents` once more. The new row is a worker like any other
 supervisor's 2) — send to it as in 3. If it does not show yet, look once more after your next
 step; if a prompt stands in the new tab (trusting the folder, say), tell the person — it is
 theirs to answer.
+
+## Codex workers
+
+A Codex worker is an interactive session in a tab, not a Claude review subagent. Use this
+path when the assignment says `Worker: codex`. The Claude session map above has no Codex
+records: do not add them to it or try to resume them through `moai-recover`.
+
+### Find the Codex surface
+
+Read `cmux --json --id-format both top --all` once. For each surface's `cmux_process_pids`,
+check `ps -p <pid> -o args=`: the first executable's basename must be `codex`, including a
+full path ending in `/codex`. `comm` can be truncated; host processes and temporary children
+are not the Codex session. This script prints `surface<TAB>pid<TAB>cwd` for candidates.
+Save it in the scratchpad and run `bash <script> <root>`:
+
+```sh
+python3 - "$1" <<'MOAI_CODEX_SURFACES'
+import collections, json, os, pathlib, shlex, subprocess, sys
+def output(*args):
+    return subprocess.check_output(args, text=True).strip()
+try:
+    top = json.loads(output("cmux", "--json", "--id-format", "both", "top", "--all"))
+    root = os.path.realpath(sys.argv[1])
+    worktrees = output("git", "worktree", "list", "--porcelain", "-z")
+    allowed = {{root}} | {{os.path.realpath(x[9:]) for x in worktrees.split("\0") if x.startswith("worktree ")}}
+    surfaces = collections.defaultdict(set)
+    def walk(value):
+        if isinstance(value, dict):
+            if value.get("kind") == "surface":
+                for pid in value.get("cmux_process_pids") or []:
+                    surfaces[pid].add(value["id"])
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+    walk(top)
+    candidates = collections.defaultdict(list)
+    for pid, tabs in surfaces.items():
+        if len(tabs) != 1:
+            continue
+        try:
+            args = shlex.split(output("ps", "-p", str(pid), "-o", "args="))
+            if not args or pathlib.Path(args[0]).name != "codex":
+                continue
+            if sys.platform.startswith("linux"):
+                cwd = os.path.realpath(f"/proc/{{pid}}/cwd")
+            else:
+                names = output("lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn").splitlines()
+                cwd = os.path.realpath(next(x[1:] for x in names if x.startswith("n")))
+            if cwd in allowed:
+                candidates[next(iter(tabs))].append((pid, cwd))
+        except (OSError, ValueError, StopIteration, subprocess.CalledProcessError):
+            continue
+    emitted = False
+    for surface, rows in candidates.items():
+        if len(rows) == 1:
+            pid, cwd = rows[0]
+            print(f"{{surface}}\t{{pid}}\t{{cwd}}")
+            emitted = True
+    if not emitted:
+        print("No verified Codex surface; do not type", file=sys.stderr)
+except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+    print(f"Codex surface check failed: {{error}}; do not type", file=sys.stderr)
+    sys.exit(1)
+MOAI_CODEX_SURFACES
+```
+
+Run from the supervisor's repository root. Only its root and paths named by `git worktree
+list` qualify; check the `cwd` column and skip your own surface. A missing, ambiguous or
+unreadable process is no candidate. A live PID says where Codex runs, not that it is idle.
+Re-run this check just before each input; never trust a tab title or an earlier PID.
+
+### Model and a new tab
+
+Read `moai models --json` once per round; `<codex>` is its `codex` value, configured by
+the person under `[models] codex`. Default example: `gpt-6.1-sol`.
+Once per round use `WebSearch` for `OpenAI Codex recommended models <codex>
+site:developers.openai.com/codex site:learn.chatgpt.com`, then open the official models
+page. Compare the configured name, Codex support and retirement notices. If it is outdated,
+tell the person in one line; they change the config. A stronger model existing alone does
+not make the configured model outdated. If the config or official page cannot be read,
+tell the person; do not guess or change the value.
+
+Ask once before opening new tabs, as above. On a yes, open an ordinary interactive Codex:
+
+    cmux --id-format both new-split right --surface "$CMUX_SURFACE_ID" --command 'cd <root> && codex --model <codex>'
+
+Keep the returned surface UUID. The same split refusal rule applies: stop opening and tell
+the person. Read its startup screen in a separate call; folder trust, hooks trust and any
+permission prompt belong to the person. The first assignment can use a verified fresh box.
+
+### Is the Codex input box empty
+
+    cmux read-screen --surface <surface> --lines 40
+
+{CODEX_EMPTY_BOX}
+
+### Clear the Codex window
+
+Only after `Report-checked:` and a verified live Codex with an empty idle box, type the
+command text, without assuming a newline is Enter:
+
+    cmux send --surface <surface> -- '/new'
+
+Read the screen once, then send an explicit Enter in a separate call:
+
+    cmux read-screen --surface <surface> --lines 40
+    cmux send-key --surface <surface> enter
+    cmux read-screen --surface <surface> --lines 40
+
+Codex can ask `Where should the new conversation run?`. When the screen clearly selects
+`Use current Git worktree`, the person handles that menu; tell them which tab and why.
+Read again after they choose: require a fresh startup screen in the same cwd and an empty
+composer before assigning work. Never guess an Enter count or choose a new worktree.
+If a command remains typed, a screen is cropped, or cmux refuses any input, stop and tell
+the person. Do not resend the command or paste the work over it.
+
+### Paste the assignment
+
+Use the supervisor's `message()` assignment fields and its `Model:` suggestion, plus
+`Worker: codex`. Replace the steps-file path in the first line with the **absolute** path
+to `references/worker-codex.md` beside the supervisor skill. The last line is
+`from: <supervisor name>`. Save the whole message in the scratchpad and paste only after
+the live PID, cwd and empty box checks. Use the same "Label the tab" rules above.
+
+    cmux paste --surface <surface> --submit - < <file>
+
+The lone `-` reads stdin. It submits the whole multiline block as one message. Guards can
+refuse a draft or dialog, but do not always protect a fresh Codex box; check it yourself.
+On refusal stop and tell the person. If paste succeeded but submission failed, the work
+is already in the box: do not paste again. Tell the person which tab holds it unsent.
+
+{REPORT_WATCH}
+
+### Review and the second assignment
+
+When `Review-ready:` arrives, read its whole note. The supervisor runs a review subagent
+in the reported worktree with its configured `review` model and `REVIEW_BRIEF`; refer to
+that brief, do not copy it here. Finish the review issue before sending
+"merge and close — review <id> done" with the same file-paste path and fresh input checks.
+Do not clear the conversation between these two assignments. Watch for the final report,
+then apply the supervisor's 5 and write `Report-checked:` after the checks pass.
+
+When Codex stalls, follow "When a worker stalls": read that named surface once, tell the
+person what stands there, and leave permission prompts and questions to them. The note
+monitor is the only repeated read; never poll the screen or discover sessions in a loop.
+All of "What never happens" applies to Codex too: no closing, focus changes or typing over
+the person's words. Labels do not grant permission to type.
 "#
     )
 }
@@ -7068,6 +7216,42 @@ stop sending outside work while a release runs",
         }
         // 감독 글은 다섯 자리에서 이 스킬의 절을 댄다(2·3 둘·4·5) — tmux 쪽과 같은 수다.
         assert!(named >= 5, "감독 글이 cmux 스킬의 절을 다 안 댄다 — {named}");
+    }
+
+    #[test]
+    fn cmux_codex_workers_carry_the_shared_checks_and_actual_delivery_steps() {
+        let text = cmux();
+        let codex = section(&text, "## Codex workers");
+        assert!(codex.contains(CODEX_EMPTY_BOX) && codex.contains(REPORT_WATCH));
+        for part in [
+            "codex --model <codex>",
+            "moai models --json",
+            "WebSearch",
+            "-o args=",
+            "\"cmux_process_pids\"",
+            "\"lsof\"",
+            "Worker: codex",
+            "references/worker-codex.md",
+            "from: <supervisor name>",
+            "cmux paste --surface <surface> --submit - < <file>",
+            "cmux send --surface <surface> -- '/new'",
+            "cmux send-key --surface <surface> enter",
+            "Use current Git worktree",
+            "the person handles that menu",
+            "REVIEW_BRIEF",
+            "Report-checked:",
+        ] {
+            assert!(codex.contains(part), "Codex cmux 걸음에 없다 — {part}");
+        }
+        for line in codex.lines().filter(|l| l.contains("gpt-")) {
+            assert_eq!(line, "the person under `[models] codex`. Default example: `gpt-6.1-sol`.");
+        }
+        assert!(!codex.contains("/clear"));
+        assert!(!codex.contains(SESSIONS), "Codex 를 Claude 세션 짝에 넣었다");
+        assert!(cmux_calls(codex) >= 8, "Codex 절의 cmux 명령을 못 셌다");
+        let script = codex.split("```sh\n").nth(1).unwrap().split("```").next().unwrap();
+        let out = std::process::Command::new("bash").args(["-n", "-c", script]).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
     }
 
     /// `text` 에서 `heading` 줄부터 다음 `## ` 절 앞까지 — 없으면 붉다.
