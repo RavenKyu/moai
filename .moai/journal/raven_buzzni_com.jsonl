@@ -6428,3 +6428,4 @@
 {"ts":"2026-10-11T18:01:24Z","id":"moai-uzhx.yv8","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-11T18:01:25Z","id":"moai-uzhx.2mq","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-11T18:01:25Z","id":"moai-uzhx.i1v","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-11T18:03:56Z","id":"moai-9tqo","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"사람의 지시 (2026-10-12): max 리뷰는 바로 시작하지 않고 사람에게 먼저 묻는다. 일꾼(moai-2a)은 7 에서 리뷰 이슈와 review 칸까지 세우고 멈춰 감독에게 review-ready 를 보내고, 감독이 사람에게 물어 go 를 받은 뒤 /code-review max --fix 를 부른다"}
