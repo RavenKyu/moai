@@ -49,15 +49,15 @@ Five things about the messaging, one line each:
   absolute path, and the worker reads it itself (3)
 - Never poll `ListAgents` in a loop — the report comes to you (4)
 
-**Inside tmux, load `moai-tmux` too.** When `$TMUX` is set in your shell, the skill
-`moai-tmux` gives you hands on the workers' panes, at five points of the round: offer new
-worker panes when no worker is idle (2), label the pane you send to and deliver a message
-`SendMessage` could not (3), read a stalled worker's pane (4), and clear a reported worker's
-window before its next work (5). It finds each worker's pane from its `ListAgents` name, and
-never types into a box that holds anything. **Without `$TMUX` nothing of it applies** — every
-step below goes through messages and the person, as written, unless you are inside cmux (the
-next paragraph). `moai-tmux` is an optional skill:
-it stands only where it was chosen (`moai skill install --with moai-tmux`, or its row in `moai
+**Inside tmux, load `moai-tmux` too.** When `$TMUX` is set in your shell — and is not cmux's
+stand-in (the next paragraph) — the skill `moai-tmux` gives you hands on the workers' panes,
+at five points of the round: offer new worker panes when no worker is idle (2), label the
+pane you send to and deliver a message `SendMessage` could not (3), read a stalled worker's
+pane (4), and clear a reported worker's window before its next work (5). It finds each
+worker's pane from its `ListAgents` name, and never types into a box that holds anything.
+**Without `$TMUX` nothing of it applies** — every step below goes through messages and the
+person, as written, unless you are inside cmux (the next paragraph). `moai-tmux` is an optional
+skill: it stands only where it was chosen (`moai skill install --with moai-tmux`, or its row in `moai
 init`). Inside tmux without it, tell the person that one line plants it, and carry on as if
 outside tmux.
 

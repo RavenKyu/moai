@@ -1842,15 +1842,15 @@ Five things about the messaging, one line each:
   absolute path, and the worker reads it itself (3)
 - Never poll `ListAgents` in a loop — the report comes to you (4)
 
-**Inside tmux, load `moai-tmux` too.** When `$TMUX` is set in your shell, the skill
-`moai-tmux` gives you hands on the workers' panes, at five points of the round: offer new
-worker panes when no worker is idle (2), label the pane you send to and deliver a message
-`SendMessage` could not (3), read a stalled worker's pane (4), and clear a reported worker's
-window before its next work (5). It finds each worker's pane from its `ListAgents` name, and
-never types into a box that holds anything. **Without `$TMUX` nothing of it applies** — every
-step below goes through messages and the person, as written, unless you are inside cmux (the
-next paragraph). `moai-tmux` is an optional skill:
-it stands only where it was chosen (`moai skill install --with moai-tmux`, or its row in `moai
+**Inside tmux, load `moai-tmux` too.** When `$TMUX` is set in your shell — and is not cmux's
+stand-in (the next paragraph) — the skill `moai-tmux` gives you hands on the workers' panes,
+at five points of the round: offer new worker panes when no worker is idle (2), label the
+pane you send to and deliver a message `SendMessage` could not (3), read a stalled worker's
+pane (4), and clear a reported worker's window before its next work (5). It finds each
+worker's pane from its `ListAgents` name, and never types into a box that holds anything.
+**Without `$TMUX` nothing of it applies** — every step below goes through messages and the
+person, as written, unless you are inside cmux (the next paragraph). `moai-tmux` is an optional
+skill: it stands only where it was chosen (`moai skill install --with moai-tmux`, or its row in `moai
 init`). Inside tmux without it, tell the person that one line plants it, and carry on as if
 outside tmux.
 
@@ -2458,7 +2458,7 @@ pub fn tmux() -> String {
     format!(
         r#"---
 name: moai-tmux
-description: Use in Claude Code together with moai-supervise when the supervisor runs inside tmux ($TMUX is set) — to find a worker's pane from its ListAgents name, label it, clear a reported worker's window, deliver a message SendMessage could not, read why a worker stalled, and open new worker panes once the person says yes. Triggers on "worker pane", "open a worker", "clear the worker", "일꾼 칸", "일꾼 창 열어", "칸 비워".
+description: Use in Claude Code together with moai-supervise when the supervisor runs inside tmux ($TMUX is set and is not the /tmp/cmux- stand-in that cmux claude-teams sets) — to find a worker's pane from its ListAgents name, label it, clear a reported worker's window, deliver a message SendMessage could not, read why a worker stalled, and open new worker panes once the person says yes. Triggers on "worker pane", "open a worker", "clear the worker", "일꾼 칸", "일꾼 창 열어", "칸 비워".
 ---
 
 # moai-tmux — the supervisor's hands on the workers' panes
@@ -2711,7 +2711,7 @@ pub fn cmux() -> String {
     format!(
         r#"---
 name: moai-cmux
-description: Use in Claude Code together with moai-supervise when the supervisor runs inside cmux (CMUX_SURFACE_ID is set and $TMUX is not) — to find a worker's surface from its ListAgents name, label its tab, clear a reported worker's window, deliver a message SendMessage could not, read why a worker stalled, and open new worker splits once the person says yes. Triggers on "worker surface", "worker tab", "open a worker", "clear the worker", "일꾼 탭", "일꾼 창 열어", "탭 비워".
+description: Use in Claude Code together with moai-supervise when the supervisor runs inside cmux (CMUX_SURFACE_ID is set and $TMUX is not, or is the /tmp/cmux- stand-in that cmux claude-teams sets) — to find a worker's surface from its ListAgents name, label its tab, clear a reported worker's window, deliver a message SendMessage could not, read why a worker stalled, and open new worker splits once the person says yes. Triggers on "worker surface", "worker tab", "open a worker", "clear the worker", "일꾼 탭", "일꾼 창 열어", "탭 비워".
 ---
 
 # moai-cmux — the supervisor's hands on the workers' surfaces
@@ -2787,14 +2787,17 @@ under `~/.claude/sessions/`, and the lines below print one row per record, tab-s
   answers which processes run in which surface (`cmux top`). It is `-` when that session is not
   in a cmux tab of yours — another terminal, or tmux, tmux inside a cmux tab included — when it
   shares its tab with another live session, or when cmux gave no answer (a line on its own says
-  so), and then this skill has nothing for that worker
+  so), and then this skill has nothing for that worker. A session started with cmux's
+  `claude-teams` can read `-` too: its record may carry the tmux that launcher's stand-in
+  answered, and a record with tmux in it is not matched to a surface
 - **No row at all, and a line saying no record reads alive:** this shell cannot tell live from
   dead — act on no row, and tell the person what it said
 - `cwd` is where the session stands: the root, or one of the worktrees `git worktree list`
   names — wherever they stand. A row standing elsewhere is not a worker of this repository, whatever its name
 - `status` is `idle`, `busy` or another word. It has to agree with `ListAgents` where a step
   below asks for `idle`
-- Your own row is the one whose pane is `$CMUX_SURFACE_ID`
+- Your own row is the one whose pane is `$CMUX_SURFACE_ID` — when you were started with cmux's
+  `claude-teams` it may read `-` instead (above)
 
 Run it when a step below needs a surface, once.
 
@@ -3001,6 +3004,8 @@ Inside tmux:
 Inside cmux:
 
 {CMUX_EMPTY_BOX}
+
+The session map is the lines of 1 below, run again.
 
 **When it is not empty, do not paste.** Tell the person which pane holds what — the words in it
 are theirs.

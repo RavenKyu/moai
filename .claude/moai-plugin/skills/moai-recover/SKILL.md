@@ -65,6 +65,8 @@ note that the session last asked the person something — a permission prompt, a
 it can stay `true` after an API error or an interrupt. None of these is a box to type into, and
 neither is an error or an answer without `state`.
 
+The session map is the lines of 1 below, run again.
+
 **When it is not empty, do not paste.** Tell the person which pane holds what — the words in it
 are theirs.
 

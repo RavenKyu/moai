@@ -55,17 +55,25 @@ pub const NAMES: [&str; 4] = ["moai", "moai-supervise", "moai-wiki", "moai-recov
 /// `CMUX_SURFACE_ID` 다 — cmux 는 제 탭의 셸마다 `CMUX_*` 여럿을 세우는데, 그 가운데 스킬이 실제로 기대는 것이 이것이다
 /// (그 탭을 겨누는 이름). 머리(`CMUX_`)로 재면 cmux 가 깔아 둔 `CMUX_BUNDLED_CLI_PATH` 따위가 cmux 밖의 셸에 새어도
 /// 쓰는 사람으로 읽는다. tmux 를 cmux 탭 안에서 돌리는 사람에게는 둘 다 켜진다 — 둘 다 그 사람의 것이다.
+///
+/// **[`CMUX_STAND_IN`] 으로 여는 `$TMUX` 는 tmux 의 표식이 아니다**(moai-xpa8.1vt) — `cmux claude-teams` 가 세우는 가짜라,
+/// 짝·감독 글·두 스킬의 첫 줄이 그 값을 없는 것으로 읽는다. 여기만 이름으로 재면 그 셸의 `init` 이 쓰지 못할 `moai-tmux`
+/// 를 미리 골라, 그 발동어가 그 사람의 모든 세션에 실린다.
 pub const OPTIONAL: [Optional; 2] = [
-    Optional { name: "moai-tmux", sign: |var| var == "TMUX" },
-    Optional { name: "moai-cmux", sign: |var| var == "CMUX_SURFACE_ID" },
+    Optional { name: "moai-tmux", sign: |var, value| var == "TMUX" && !value.starts_with(CMUX_STAND_IN) },
+    Optional { name: "moai-cmux", sign: |var, _| var == "CMUX_SURFACE_ID" },
 ];
+
+/// `cmux claude-teams`(그리고 `omo`·`omx`·`omc`)가 세우는 가짜 `$TMUX` 의 머리 — 까닭은 `guide::SESSIONS` 에 있다. 스킬
+/// 글은 같은 글자를 손으로 적는다(`/tmp/cmux-`).
+pub const CMUX_STAND_IN: &str = "/tmp/cmux-";
 
 /// 고를 수 있는 스킬 하나 — 이름과 표식.
 pub struct Optional {
     pub name: &'static str,
-    /// 그 스킬을 쓰는 사람이라는 환경 변수의 이름인가 — 그 이름의 변수가 **비지 않게** 하나라도 서면 쓰는 사람이다
-    /// ([`detected`]). tmux 는 제 안에서 도는 셸에 `$TMUX` 를 세운다.
-    pub sign: fn(&str) -> bool,
+    /// 그 스킬을 쓰는 사람이라는 환경 변수인가 — 이름과 값을 받는다. 그런 변수가 **비지 않게** 하나라도 서면 쓰는
+    /// 사람이다([`detected`]). tmux 는 제 안에서 도는 셸에 `$TMUX` 를 세운다.
+    pub sign: fn(&str, &str) -> bool,
 }
 
 /// `name` 이 고를 수 있는 스킬인가([`OPTIONAL`]).
@@ -87,7 +95,7 @@ pub fn detected(vars: &[(String, String)]) -> Vec<&'static str> {
 /// [`detected`] 의 몸통 — 목록을 받아, 목록에 없는 꼴의 표식(이름의 머리로 재는 것)도 시험이 잰다. cmux 는 그 꼴로
 /// 재려다 탭을 겨누는 이름 하나(`CMUX_SURFACE_ID`)로 섰다([`OPTIONAL`]).
 fn detected_in(list: &[Optional], vars: &[(String, String)]) -> Vec<&'static str> {
-    list.iter().filter(|o| vars.iter().any(|(k, v)| (o.sign)(k) && !v.is_empty())).map(|o| o.name).collect()
+    list.iter().filter(|o| vars.iter().any(|(k, v)| (o.sign)(k, v) && !v.is_empty())).map(|o| o.name).collect()
 }
 
 /// 이번에 심을 선택 스킬 — **(지금 심긴 것 ∪ `with`) − `without`**, [`OPTIONAL`] 의 차례로(moai-3r7l). 맨 `install` 은 둘이
@@ -534,6 +542,11 @@ pub fn planted_exe(text: &str) -> Option<String> {
 /// (`/bin/true` 로 2,000번씩 두 번) 그 파이프와 EOF 까지 읽어 변수에 담는 비용이다. 이 저장소의
 /// 훅 한 번은 `moai` 자신이 28ms 를 쓰므로(`pre-tool-use` 30회 평균) 그 1.1~1.7% 다.
 /// 아래 "정상 갈래" 문단의 **프로세스를 안 늘린다는 말은 그대로 선다.**
+///
+/// **치환 머리의 `set +e;`([`shell_line`], moai-xpa8.q9x)로 단순 명령이 아니게 됐다.** 그래도 dash 는 목록의 마지막
+/// 명령을 그 자식에서 그대로 exec 한다(2026-10-11 macOS 의 dash 로 잼 — 안쪽 프로세스의 부모가 바깥 껍데기다). macOS 의
+/// bash 3.2 는 `set +e;` 가 없을 때도 치환 자식이 한 번 더 띄워서 거기서도 늘지 않는다. 위 `strace` 의 bash(리눅스의
+/// bash 5)는 그 뒤로 다시 재지 않았다.
 ///
 /// **그 +0.30ms 는 바닥값이다** — `/bin/true` 는 0바이트를 낸다. 껍데기가 바이트를 읽어 다시
 /// 쓰므로 비용이 출력 크기를 따라 는다: dash 로 60번씩 재니(2026-09-23) 0B 와 17.5KB 는
@@ -1621,8 +1634,11 @@ mod tests {
         assert_eq!(detected(&env(&[("CMUX_SURFACE_ID", "")])), Vec::<&str>::new(), "빈 표식을 cmux 로 읽었다");
         // tmux 를 cmux 탭 안에서 돌리는 사람 — 둘 다 그 사람의 것이다. 차례는 [`OPTIONAL`] 의 것이다.
         assert_eq!(detected(&env(&[surface, ("TMUX", "/tmp/tmux-501/default,1,0")])), ["moai-tmux", "moai-cmux"]);
+        // `cmux claude-teams` 의 가짜 `$TMUX` 는 tmux 가 아니다 — 그 셸은 cmux 의 것이다(moai-xpa8.1vt).
+        let stand_in = ("TMUX", "/tmp/cmux-claude-teams/WS-UUID,WIN-UUID,6958867214691921188");
+        assert_eq!(detected(&env(&[surface, stand_in])), ["moai-cmux"], "cmux 의 가짜 TMUX 를 tmux 로 읽었다");
         // 머리로 재는 표식 — 지금 목록에는 없는 꼴이다(cmux 는 이름 하나로 섰다). 머리에서 시작하고 값이 차야 선다.
-        let list = [Optional { name: "moai-other", sign: |var| var.starts_with("OTHER_") }];
+        let list = [Optional { name: "moai-other", sign: |var, _| var.starts_with("OTHER_") }];
         assert_eq!(detected_in(&list, &env(&[("OTHER_SOCKET", "/tmp/s")])), ["moai-other"]);
         assert_eq!(detected_in(&list, &env(&[("OTHER_X", ""), ("XOTHER_Y", "1")])), Vec::<&str>::new());
     }
@@ -1904,6 +1920,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_binary_that_cannot_run_says_so_without_blocking() {
+        // **치환 안의 `set +e` 는 글로도 맨다**(moai-xpa8.q9x) — 아래 `-ec` 의 126 이 그것 없이 1 로 무너지는 것은
+        // bash 3.2(macOS 의 `/bin/sh`)뿐이라, 리눅스의 CI 껍데기(dash·bash 5)는 그 토막을 걷어도 푸르다. 아래의
+        // 실행 비트 문지기가 일찍 돌아가는 기계에서도 서도록 맨 앞에 둔다.
+        assert!(command("/bin/moai", "pre-tool-use").contains("o=$(set +e; "), "치환 안의 `set +e` 가 빠졌다");
         let scratch = crate::scratch::Scratch::new("skill-hookline");
         let at = scratch.path();
         // **복사로 심는다** — 까닭(ETXTBSY)은 [`planted`] 에 있다.

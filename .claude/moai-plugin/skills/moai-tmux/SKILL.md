@@ -1,6 +1,6 @@
 ---
 name: moai-tmux
-description: Use in Claude Code together with moai-supervise when the supervisor runs inside tmux ($TMUX is set) — to find a worker's pane from its ListAgents name, label it, clear a reported worker's window, deliver a message SendMessage could not, read why a worker stalled, and open new worker panes once the person says yes. Triggers on "worker pane", "open a worker", "clear the worker", "일꾼 칸", "일꾼 창 열어", "칸 비워".
+description: Use in Claude Code together with moai-supervise when the supervisor runs inside tmux ($TMUX is set and is not the /tmp/cmux- stand-in that cmux claude-teams sets) — to find a worker's pane from its ListAgents name, label it, clear a reported worker's window, deliver a message SendMessage could not, read why a worker stalled, and open new worker panes once the person says yes. Triggers on "worker pane", "open a worker", "clear the worker", "일꾼 칸", "일꾼 창 열어", "칸 비워".
 ---
 
 # moai-tmux — the supervisor's hands on the workers' panes
