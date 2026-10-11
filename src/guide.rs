@@ -2487,6 +2487,37 @@ box counts only while the session map, run again just before, still reads that s
 its last frame, box and all, above the shell `exec bash` started, and the keys go to that
 shell.";
 
+/// Codex 일꾼의 모델·리뷰·멈춤 규약은 한 글이다(moai-uzhx.2mq). cmux 와 tmux 가
+/// `format!` 으로 그대로 싣는다 — 자리마다 다른 명령은 각 절에 남긴다.
+const CODEX_WORKER_RULES: &str = r#"### Model
+
+Read `moai models --json` once per round; `<codex>` is its `codex` value, configured by
+the person under `[models] codex`. Default example: `gpt-6.1-sol`.
+Once per round use `WebSearch` for `OpenAI Codex recommended models <codex>
+site:developers.openai.com/codex site:learn.chatgpt.com`, then open the official models
+page. Compare the configured name, Codex support and retirement notices. If it is outdated,
+tell the person in one line; they change the config. A stronger model existing alone does
+not make the configured model outdated. If the config or official page cannot be read,
+tell the person; do not guess or change the value.
+
+### Review and the second assignment
+
+Codex tests and commits its work, writes `Review-ready:` as an epic note, and stops.
+It waits for the supervisor's review and the second assignment; it does not review itself.
+
+When `Review-ready:` arrives, read its whole note. The supervisor runs a review subagent
+in the reported worktree with its configured `review` model and `REVIEW_BRIEF`; refer to
+that brief, do not copy it here. Finish the review issue before sending
+"merge and close — review <id> done" with the same file-paste path and fresh input checks.
+Do not clear the conversation between these two assignments. Watch for the final report,
+then apply the supervisor's 5 and write `Report-checked:` after the checks pass.
+
+When Codex stalls, follow "When a worker stalls": read that named tab or pane once, tell
+the person what stands there, and leave permission prompts and questions to them. The note
+monitor is the only repeated read; never poll the screen or discover sessions in a loop.
+All of "What never happens" applies to Codex too: no closing, focus changes or typing over
+the person's words. Labels do not grant permission to type."#;
+
 /// 선택 스킬 `moai-tmux` 의 SKILL.md — tmux 안에서 도는 감독의 손이다(2026-10-10 사용자 결정, moai-u99i). 고른 사람에게만
 /// 심는다(`skill::OPTIONAL`, moai-3r7l).
 ///
@@ -3451,6 +3482,8 @@ A Codex worker is an interactive session in a tab, not a Claude review subagent.
 path when the assignment says `Worker: codex`. The Claude session map above has no Codex
 records: do not add them to it or try to resume them through `moai-recover`.
 
+{CODEX_WORKER_RULES}
+
 ### Find the Codex surface
 
 Read `cmux --json --id-format both top --all` once. For each surface's `cmux_process_pids`,
@@ -3517,16 +3550,7 @@ list` qualify; check the `cwd` column and skip your own surface. A missing, ambi
 unreadable process is no candidate. A live PID says where Codex runs, not that it is idle.
 Re-run this check just before each input; never trust a tab title or an earlier PID.
 
-### Model and a new tab
-
-Read `moai models --json` once per round; `<codex>` is its `codex` value, configured by
-the person under `[models] codex`. Default example: `gpt-6.1-sol`.
-Once per round use `WebSearch` for `OpenAI Codex recommended models <codex>
-site:developers.openai.com/codex site:learn.chatgpt.com`, then open the official models
-page. Compare the configured name, Codex support and retirement notices. If it is outdated,
-tell the person in one line; they change the config. A stronger model existing alone does
-not make the configured model outdated. If the config or official page cannot be read,
-tell the person; do not guess or change the value.
+### Open a Codex worker
 
 Ask once before opening new tabs, as above. On a yes, open an ordinary interactive Codex:
 
@@ -3578,21 +3602,6 @@ On refusal stop and tell the person. If paste succeeded but submission failed, t
 is already in the box: do not paste again. Tell the person which tab holds it unsent.
 
 {REPORT_WATCH}
-
-### Review and the second assignment
-
-When `Review-ready:` arrives, read its whole note. The supervisor runs a review subagent
-in the reported worktree with its configured `review` model and `REVIEW_BRIEF`; refer to
-that brief, do not copy it here. Finish the review issue before sending
-"merge and close — review <id> done" with the same file-paste path and fresh input checks.
-Do not clear the conversation between these two assignments. Watch for the final report,
-then apply the supervisor's 5 and write `Report-checked:` after the checks pass.
-
-When Codex stalls, follow "When a worker stalls": read that named surface once, tell the
-person what stands there, and leave permission prompts and questions to them. The note
-monitor is the only repeated read; never poll the screen or discover sessions in a loop.
-All of "What never happens" applies to Codex too: no closing, focus changes or typing over
-the person's words. Labels do not grant permission to type.
 "#
     )
 }
@@ -7221,6 +7230,7 @@ stop sending outside work while a release runs",
         let text = cmux();
         let codex = section(&text, "## Codex workers");
         assert!(codex.contains(CODEX_EMPTY_BOX) && codex.contains(REPORT_WATCH));
+        assert!(codex.contains(CODEX_WORKER_RULES), "Codex 모델·리뷰 규약이 공용 글과 다르다");
         for part in [
             "codex --model <codex>",
             "moai models --json",
