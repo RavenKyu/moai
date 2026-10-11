@@ -15953,6 +15953,7 @@ fn a_row_this_session_picked_stays_its_own_beside_its_epics_worktree() {
     let epic = field(&ok(&main, &["epic", "add", "에픽", "--json"]), "id");
     let mine = field(&ok(&main, &["add", "내가 할 멤버", "-e", &epic, "--json"]), "id");
     let theirs = field(&ok(&main, &["add", "남이 할 멤버", "-e", &epic, "--json"]), "id");
+    let maybe = field(&ok(&main, &["add", "돌았는지 모르게 집은 멤버", "-e", &epic, "--json"]), "id");
     let review = field(
         &ok(&main, &["add", "리뷰 — 에픽", "-t", "review", "--parent", &epic, "-b", "무엇을 왜 보는가", "--json"]),
         "id",
@@ -15972,6 +15973,10 @@ fn a_row_this_session_picked_stays_its_own_beside_its_epics_worktree() {
         assert!(at(session, "pre-tool-use", bash(&pick)).trim().is_empty());
         ok(&main, &["mv", id, "in_progress", "--from", "todo"]);
     }
+    // d 는 `&&` 뒤에서 집는다 — 훅은 그 집기를 "돌았는지 모른다"(`?`)로 적는다(moai-hze6).
+    let pick = format!("true && moai mv {maybe} in_progress --from todo");
+    assert!(at("d", "pre-tool-use", bash(&pick)).trim().is_empty());
+    ok(&main, &["mv", &maybe, "in_progress", "--from", "todo"]);
     git(&main, &["add", "-A"]);
     git(&main, &["commit", "-q", "-m", "집는다"]);
     git(&main, &["worktree", "add", "-q", &format!(".worktrees/{epic}"), "-b", &format!("worktree-{epic}")]);
@@ -15984,6 +15989,10 @@ fn a_row_this_session_picked_stays_its_own_beside_its_epics_worktree() {
     // 아무것도 안 집은 세션에게는 전처럼 옆 워크트리의 일이다.
     let made = at("c", "pre-tool-use", bash("moai add '딴 일'"));
     assert!(made.trim().is_empty(), "옆 워크트리의 일로 남의 생성을 막는다\n{made}");
+    // **돌았는지 모르는 집기는 옆 이름을 못 이긴다**(리뷰 moai-9tqo.jdi 5번) — 이기면 안 돈 집기 하나가 규칙 1 을
+    // 새로 세운다. 기록은 풀기만 한다(moai-hze6).
+    let made = at("d", "pre-tool-use", bash("moai add '딴 일'"));
+    assert!(made.trim().is_empty(), "돌았는지 모르는 집기로 옆 워크트리의 줄을 붙들어 막았다\n{made}");
 
     // 규칙 3 — 관점 적힌 리뷰 줄을 집은 a 의 리뷰는 지나간다. 집기 전에는 막힌다.
     assert!(refusal(&at("a", "pre-tool-use", skill())).contains("--parent"), "리뷰 줄 없이 리뷰를 넘겼다");
@@ -15995,7 +16004,10 @@ fn a_row_this_session_picked_stays_its_own_beside_its_epics_worktree() {
 
     // `Stop` 도 제 줄을 붙든다(받아들인 대가 — 감독이 서브에이전트 일꾼의 줄을 붙든다). 남의 줄은 안 댄다.
     let held = at("a", "stop", None);
-    assert!(held.contains(&mine) && !held.contains(&theirs), "제가 집은 멤버를 안 붙든다\n{held}");
+    assert!(
+        held.contains(&mine) && !held.contains(&theirs) && !held.contains(&maybe),
+        "제가 집은 멤버를 안 붙든다\n{held}"
+    );
     let held = at("c", "stop", None);
     assert!(held.trim().is_empty(), "옆 워크트리의 일로 남을 붙든다\n{held}");
 }

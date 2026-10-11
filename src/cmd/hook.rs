@@ -778,12 +778,12 @@ fn away_of(input: &Input, repo: &Repo, issues: &[model::Issue], me: &crate::hook
     away
 }
 
-/// 옆 이름이 서면 이 세션이 확실히 집은 줄을 `away` 에 싣는다(moai-pxui) — [`away_of`] 와 겹쳐 본 판
-/// ([`settle`])이 같은 자로 잰다. 겹친 판의 이름은 옆 스냅샷에서 다시 읽으므로, 거기서 처음 이름이 서면
-/// 그때 읽는다.
+/// 옆 이름이 서면 이 세션이 **확실히** 집은 줄을 `away` 에 싣는다(moai-pxui, [`crate::hook::Away::sure`]) —
+/// [`away_of`] 와 겹쳐 본 판([`settle`])이 같은 자로 잰다. 겹친 판의 이름은 옆 스냅샷에서 다시 읽으므로, 거기서
+/// 처음 이름이 서면 그때 읽는다.
 fn add_picked(input: &Input, repo: &Repo, issues: &[model::Issue], away: &mut crate::hook::Away) {
     if !away.names.is_empty() {
-        away.picked.extend(read_picks(input, repo, issues).mine);
+        away.sure.extend(read_picks(input, repo, issues).sure);
     }
 }
 
