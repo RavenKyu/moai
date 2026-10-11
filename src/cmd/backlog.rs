@@ -88,20 +88,15 @@ fn say_if_dead(issues: &[Issue], cfg: &crate::config::Config, stone: Option<&str
 ///
 /// 담긴 생각은 제 필드가 비어도, 혹은 다른 값을 들어도 그 에픽의 마일스톤 밑에 선다([`stone_of`]) — 규칙은 그대로
 /// 두고 **왜 그 마일스톤인지**만 댄다. 안 대면 사람은 생각의 필드가 비었는데 릴리스에 든 에픽이 서는 것을 보고서야
-/// 안다(사용후기 2026-10-12). 데려가는 값이 생각의 제 필드와 같으면 사람이 고른 것이라 침묵한다. `-e <에픽>` 이면
-/// [`stone_of`] 가 아무것도 안 데려가니 여기도 없다.
-///
-/// 에픽 줄이 아니라 **담긴 에픽**을 댄다([`crate::report::Handing`] 이 읽는 그 줄). 에픽이 없는데 값이 다르면
-/// 조상 이슈에서 받은 것인데, 그 길은 이 글이 말하는 "에픽" 이 아니라 따로 말하지 않는다.
+/// 안다(사용후기 2026-10-12). 물려받았는지는 [`crate::report::inherited_from`] 이 가른다 — 제 필드와 같으면 사람이
+/// 고른 것이라 침묵하고, 에픽이 없는데 값이 다르면 조상 이슈에서 받은 것이라 이 글이 말하는 "에픽" 이 아니다.
+/// `-e <에픽>` 이면 [`stone_of`] 가 아무것도 안 데려가니 여기도 없다.
 ///
 /// 펼친 에픽의 id 는 연습에서 모르니 `<epic>` 자리글로 둔다 — **연습과 진짜가 같은 줄을 낸다**는 [`say_if_dead`]
 /// 의 약속이 이유다. 죽은 릴리스의 줄과는 따로다: 물려받았고 죽었으면 두 사실이라 두 줄이 선다.
 fn say_if_inherited(issues: &[Issue], thought: &Issue, stone: Option<&str>, lang: crate::i18n::Lang) {
     let Some(m) = stone else { return };
-    if thought.milestone.as_deref() == Some(m) {
-        return;
-    }
-    let Some(epic) = crate::report::Handing::of(issues).at(thought) else { return };
+    let Some(epic) = crate::report::inherited_from(issues, thought, m) else { return };
     let said = crate::i18n::fill(crate::i18n::say(lang, "backlog.milestone_inherited"), &[("id", m), ("epic", epic)]);
     eprintln!("moai: {said}");
 }

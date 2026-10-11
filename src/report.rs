@@ -3245,6 +3245,19 @@ pub fn milestones(all: &[Issue]) -> BTreeMap<&str, &str> {
     milestones_in(all, &Handing::of(all))
 }
 
+/// 그 줄이 선 마일스톤 `stone` 을 **든 에픽에게서 물려받았으면** 그 에픽(moai-rs3o.fg4) — `backlog promote` 가
+/// 데려가는 값이 어디서 왔는지 댈 때 묻는다.
+///
+/// 줄 제 `milestone` 과 같으면 사람이 고른 것이라 `None` 이다. 든 에픽이 없으면 조상 이슈에서 받은 값이라 역시
+/// `None` 이다 — 그 길은 "에픽에서 왔다" 가 아니다. 든 에픽은 [`Handing::at`] 이 답한다(적힌 `epic` 이 먼저다).
+/// **여기 두는 까닭**: 이슈의 뜻을 가르는 판정은 `cmd/` 가 아니라 이 모듈의 몫이다(CLAUDE.md).
+pub fn inherited_from<'a>(all: &'a [Issue], i: &'a Issue, stone: &str) -> Option<&'a str> {
+    if i.milestone.as_deref() == Some(stone) {
+        return None;
+    }
+    Handing::of(all).at(i)
+}
+
 /// [`milestones`] 와 같은 것. 에픽 지도를 이미 가진 쪽([`Soil`])이 그것을 두 번 짓지 않게 받는다.
 pub fn milestones_in<'a>(all: &'a [Issue], epic_of: &Handing<'a>) -> BTreeMap<&'a str, &'a str> {
     milestones_over(all, epic_of, &Lines::of(all))
@@ -5562,21 +5575,26 @@ fn status_in_scope<'a, 'c>(
     // 에픽의 멤버를 모두 집으라 하는데(`guide::worker`), 줄마다 세면 멤버 넷짜리 에픽을 집는 순간 경고가 하나
     // 늘어 Stop 훅이 턴을 붙들었다. 묶음의 열쇠는 줄이 **든 에픽**이다([`Placed`] 에 묻는다 — 지도를 id 로
     // 짚으면 같은 id 의 앞줄이 뒷줄의 답을 입는다, moai-u3ta). 에픽이 없으면 id 사슬의 꼭대기([`fold_top`] —
-    // `--parent` 자식은 부모와 하나)고, 그것도 없으면 제 id 다. 리뷰 줄(`--parent <에픽>`)은 에픽 밑이라 그
-    // 에픽의 하나에 든다. 같은 id 의 쌍둥이는 제 id 로 한 번만 서므로 줄로 재지 않는 까닭(위 `no_epic`)은 그대로다.
+    // `--parent` 자식은 부모와 하나)다. **뿌리로 올라간 생각에서도 안 멈춘다** — 멈추면 `fold_top` 이 답을 버려,
+    // 생각 하나 밑에 `--parent` 로 선 줄 둘이 저마다 제 id 로 두 묶음이 된다(트리는 둘을 그 생각 밑에 그린다).
+    // 리뷰 줄(`--parent <에픽>`)은 에픽 밑이라 그 에픽의 하나에 든다.
+    //
+    // **id 마다 한 묶음이다**(위 `no_epic` 과 같은 까닭, moai-ddtg). 같은 종류의 쌍둥이는 두 줄 다 `wip` 에 서는데
+    // 두 줄의 에픽이 갈리면 줄마다 센 묶음은 한 id 를 둘로 센다 — `ids` 가 한 id 를 대는 경고가 `2건` 을 말한다.
+    // 뒷줄이 이긴다: 보드가 그 id 에 내는 제목·칸이 뒷줄의 것이다(`by_id`). 쌍둥이는 `duplicate_id` 가 따로 댄다.
     //
     // **바뀌는 것은 이 경고의 셈 하나다.** `wip`·`started` 는 "지금 집은 줄" 의 집합이라 훅 초점·`ready`·`prime`
     // 이 같은 것을 쓰고, 그쪽은 줄마다 맞다. `count` 는 묶음 수(문턱과 견준 수)고 `ids` 는 집은 줄 전부(고칠
     // 손잡이)다 — 둘의 뜻이 갈린다.
-    let bundles: BTreeSet<&str> = wip
-        .iter()
-        .map(|&i| {
-            in_epic
-                .at(i)
-                .or_else(|| fold_top(i, &|p| soil.lines.at(p), &soil.lines.rooted).map(|top| top.id.as_str()))
-                .unwrap_or(i.id.as_str())
-        })
-        .collect();
+    let mut bundle_of: BTreeMap<&str, &str> = BTreeMap::new();
+    for &i in &wip {
+        let bundle = in_epic
+            .at(i)
+            .or_else(|| fold_top(i, &|p| soil.lines.at(p), &BTreeSet::new()).map(|top| top.id.as_str()))
+            .unwrap_or(i.id.as_str());
+        bundle_of.insert(i.id.as_str(), bundle);
+    }
+    let bundles: BTreeSet<&str> = bundle_of.into_values().collect();
     if bundles.len() > cfg.status.wip_limit {
         warnings.push(Warning::new("wip_overload", ids_of(&wip)).count(bundles.len()).limit(cfg.status.wip_limit));
     }
@@ -7531,6 +7549,21 @@ mod tests {
             .map(|id| make(id, Kind::Issue, "in_progress"))
             .collect();
         assert!(wip(&held(&family)).is_none(), "{:?}", held(&family).warnings);
+
+        // 뿌리로 올라간 생각 밑의 `--parent` 자식 둘도 하나다 — 생각에서 멈추면 둘이 제 id 로 두 묶음이 된다.
+        let mut thought = vec![make("argos-0400", Kind::Backlog, "todo")];
+        thought.extend(
+            ["argos-0400.a", "argos-0400.b", "argos-0401", "argos-0402"].map(|id| make(id, Kind::Issue, "in_progress")),
+        );
+        assert!(wip(&held(&thought)).is_none(), "{:?}", held(&thought).warnings);
+
+        // 같은 id 의 쌍둥이가 에픽을 달리 들어도 id 하나는 묶음 하나다(moai-ddtg) — 줄로 세면 묶음 넷이 선다.
+        let mut twins =
+            vec![make("argos-e001", Kind::Epic, "in_progress"), make("argos-e002", Kind::Epic, "in_progress")];
+        twins.push(member("argos-0300", "argos-e001", "in_progress"));
+        twins.push(member("argos-0300", "argos-e002", "in_progress"));
+        twins.extend(["argos-0301", "argos-0302"].map(|id| make(id, Kind::Issue, "in_progress")));
+        assert!(wip(&held(&twins)).is_none(), "{:?}", held(&twins).warnings);
     }
 
     #[test]
