@@ -68,7 +68,7 @@ CODEX_REVIEW
 
 Return to the root, check its branch and tracker diff, then commit only `.moai/`.
 Stop until the supervisor pastes "merge and close — review <id> done"; its reviewer used
-`REVIEW_BRIEF` and its review model in this worktree. Then finish 7 as worker.md says — the
+"The review brief" in `references/worker.md` and its review model in this worktree. Then finish 7 as worker.md says — the
 review's fixes stand uncommitted in the worktree: take them in as a separate `fix:` commit
 and note what you hand on with the issue id — and go on with 7-1 to 11, and 12 below.
 
