@@ -303,10 +303,12 @@ tell the person; do not guess or change the value.
 Codex tests and commits its work, writes `Review-ready:` as an epic note, and stops.
 It waits for the supervisor's review and the second assignment; it does not review itself.
 
-When `Review-ready:` arrives, read its whole note. The supervisor runs a review subagent
-in the reported worktree with its configured `review` model and `REVIEW_BRIEF`; refer to
-that brief, do not copy it here. Finish the review issue before sending
+When `Review-ready:` arrives, read its whole note. Pick the review issue up
+(`moai -C <root> mv <review id> in_progress`) and run a review subagent in the reported
+worktree with its configured `review` model and `REVIEW_BRIEF`; refer to that brief, do not
+copy it here. Once the review has ended and its words are on the review issue, send
 "merge and close — review <id> done" with the same file-paste path and fresh input checks.
+Leave the review issue open: Codex takes the fixes in and closes it (worker.md 7 and 10).
 Do not clear the conversation between these two assignments. Watch for the final report,
 then apply the supervisor's 5 and write `Report-checked:` after the checks pass.
 
@@ -326,9 +328,10 @@ Replace each `<TAB>` with a literal tab. A candidate's `pane_current_command` is
 and its `pane_current_path` is `<root>` or a worktree named by `git worktree list`.
 Resolve path aliases before comparing (on macOS `/tmp` can be `/private/tmp`). A launcher
 can leave `pane_current_command` as `node` or a shell such as `zsh`; inspect the pane PID
-and one level of its children with
-`ps -axo pid=,ppid=,args=`; confirm an actual Codex executable or Codex CLI entry point,
-not a process whose arguments merely mention Codex. If you cannot identify a live Codex
+and two levels of its descendants with
+`ps -axo pid=,ppid=,args=` — under the pane's shell an npm install runs `node …/bin/codex`,
+which starts the native `codex` — and confirm one by the live PID rule below, not a process
+whose arguments merely mention Codex. If you cannot identify a live Codex
 process in that pane, do not type. Repeat this check just before each input — an exited
 Codex can leave its last frame over a shell. Never use another server's pane ids, your own
 `$TMUX_PANE`, or a pane outside this repository.
@@ -353,7 +356,8 @@ do not type; tell them which tab or pane and what could not be read.
 Codex is absent from the Claude session map. Just before typing, re-read the process list
 and check a live Codex PID: use cmux top's `cmux_process_pids`, or tmux's `pane_pid` and
 its process tree, with `ps -p <pid> -o args=`. Check the first executable's basename is
-`codex`; a truncated `comm` or a child such as `codex-code-mode-host` is not that proof.
+`codex`; a truncated `comm` or a child such as `codex-code-mode-host` is not that proof, nor
+is an npm install's `node …/bin/codex` launcher — the native `codex` it starts is.
 Require that PID, a clear empty composer and the completed report checked by the supervisor
 (or a fresh startup screen before its first assignment) together. A shell under a dead
 Codex's old composer is not a box to send work into.
@@ -403,9 +407,9 @@ typed or the result is unclear, stop and tell them — a later Enter could erase
 
 Codex has no `SendMessage` delivery: paste the assignment directly, only after rechecking
 the live process and empty input box. A message held for the person's approval is still
-held; pasting it would skip their gate. Use the supervisor's `message()` assignment fields
-and `Model:` suggestion, plus `Worker: codex`. Write the whole assignment in a scratchpad
-file, ending with `from: <your ListAgents name>`. Its first line names the absolute path of
+held; pasting it would skip their gate. Use the supervisor's `message()` assignment fields,
+with `<codex>` as the model in `Model:` (not a Claude model), plus `Worker: codex`. Write
+the whole assignment in a scratchpad file, ending with `from: <your ListAgents name>`. Its first line names the absolute path of
 `references/worker-codex.md` beside `worker.md` in `moai-supervise` as the steps file.
 Use the same block transport as "When a message does not arrive":
 
@@ -426,6 +430,9 @@ Save the script in the scratchpad; the command is `bash <script> <root> <epic> <
 Before pasting the assignment, read `moai -C <root> show <epic> --json` once and save the
 latest `journal[].ts` as `<last-seen-ts>` (an empty journal uses `1970-01-01T00:00:00Z`).
 Arm the monitor with that cursor so a quick report cannot arrive between send and baseline.
+A backlog sent `from step 1` has no epic yet: watch that backlog id in `<epic>`'s place.
+Codex writes `Unfolded: <epic>` on it right after unfolding, which ends that watch; arm the
+next one on the epic it names with `1970-01-01T00:00:00Z` — every note on a new epic is new.
 
 ```sh
 python3 - "$1" "$2" "$3" <<'MOAI_CODEX_WATCH'
@@ -433,9 +440,13 @@ import datetime, json, subprocess, sys, time
 root, epic, cursor = sys.argv[1:]
 def stamp(ts):
     return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-heads = ("report:", "Review-ready:", "Decision needed:", "진행 중 결정이 필요합니다")
+heads = ("report:", "Review-ready:", "Unfolded:", "Decision needed:")
+ends = ("report:", "Review-ready:", "Unfolded:")
+asks = "진행 중 결정이 필요합니다"
 try:
-    since = stamp(cursor)
+    # Stamps are whole seconds: a line in the cursor's second is new only if not seen yet.
+    # Before any newer line, that second is the baseline the cursor was read from.
+    since, seen = stamp(cursor), None
     while True:
         result = subprocess.run(["moai", "-C", root, "show", epic, "--json"],
                                 capture_output=True, text=True)
@@ -447,21 +458,20 @@ try:
         if row.get("journal_error"):
             raise ValueError("journal_error: " + json.dumps(row["journal_error"]))
         finished = False
-        latest, latest_ts = since, cursor
         for note in row["journal"]:
-            at = stamp(note["ts"])
-            if at <= since:
+            at, key = stamp(note["ts"]), json.dumps(note, sort_keys=True)
+            if at < since or (at == since and (seen is None or key in seen)):
                 continue
-            if at > latest:
-                latest, latest_ts = at, note["ts"]
+            if at > since:
+                since, cursor, seen = at, note["ts"], set()
+            seen.add(key)
             if note["kind"] != "note":
                 continue
             lines = (note.get("text") or "").splitlines()
             head = lines[0] if lines else ""
-            if head.startswith(heads):
+            if head.startswith(heads) or asks in head:
                 print(f"{epic}\t{note['ts']}\t{head}", flush=True)
-                finished = finished or head.startswith("report:")
-        since, cursor = latest, latest_ts
+                finished = finished or head.startswith(ends)
         if finished:
             sys.exit(0)
         time.sleep(30)
@@ -478,7 +488,9 @@ whole note with `moai show <epic>` and act on it. A failed read is an alert, nev
 When the monitor says `expired` after 30 minutes, re-arm it from the last processed timestamp;
 keep that cursor, not a new baseline that could skip a report written at expiry. Duplicate
 alerts after re-arming are harmless: check the note and its timestamp before acting again.
-After the review, paste "merge and close — review <id> done" and re-arm for the second report,
-using the saved cursor. A `report:` ends this watch. For the final report use the supervisor's
+`Unfolded:`, `Review-ready:` and `report:` each end this watch. After the review, paste "merge
+and close — review <id> done" and re-arm for the final report from the `Review-ready:`
+timestamp. A decision head (`Decision needed:`, or `진행 중 결정이 필요합니다` anywhere in the
+first line) keeps it running. For the final report use the supervisor's
 5 and write `Report-checked:` only after its checks. This watch never runs on the Claude
 session path, which already has `notify_when_idle` and report messages.

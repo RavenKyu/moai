@@ -1717,7 +1717,9 @@ mod tests {
                 // Codex 차이 글은 cmux/tmux 손이 보낸다. 감독 본문은 Claude 의 걸음을 그대로 둔다.
                 if s.name == "moai-supervise" && *rel == "references/worker-codex.md" {
                     assert!(s.claude_only, "Codex 차이 글이 감독 스킬로 .agents 에 섰다");
-                    assert!(crate::guide::worker_codex().contains("`worker.md`"));
+                    for (hand, text) in [("moai-tmux", crate::guide::tmux()), ("moai-cmux", crate::guide::cmux())] {
+                        assert!(text.contains(*rel), "{hand} 가 Codex 일꾼에게 {rel} 를 안 댄다");
+                    }
                     continue;
                 }
                 assert!(body.contains(&format!("`{rel}`")), "{} 의 SKILL.md 가 곁에 심는 {rel} 를 안 부른다", s.name);

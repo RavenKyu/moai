@@ -342,10 +342,12 @@ tell the person; do not guess or change the value.
 Codex tests and commits its work, writes `Review-ready:` as an epic note, and stops.
 It waits for the supervisor's review and the second assignment; it does not review itself.
 
-When `Review-ready:` arrives, read its whole note. The supervisor runs a review subagent
-in the reported worktree with its configured `review` model and `REVIEW_BRIEF`; refer to
-that brief, do not copy it here. Finish the review issue before sending
+When `Review-ready:` arrives, read its whole note. Pick the review issue up
+(`moai -C <root> mv <review id> in_progress`) and run a review subagent in the reported
+worktree with its configured `review` model and `REVIEW_BRIEF`; refer to that brief, do not
+copy it here. Once the review has ended and its words are on the review issue, send
 "merge and close — review <id> done" with the same file-paste path and fresh input checks.
+Leave the review issue open: Codex takes the fixes in and closes it (worker.md 7 and 10).
 Do not clear the conversation between these two assignments. Watch for the final report,
 then apply the supervisor's 5 and write `Report-checked:` after the checks pass.
 
@@ -371,7 +373,7 @@ def output(*args):
 try:
     top = json.loads(output("cmux", "--json", "--id-format", "both", "top", "--all"))
     root = os.path.realpath(sys.argv[1])
-    worktrees = output("git", "worktree", "list", "--porcelain", "-z")
+    worktrees = output("git", "-C", root, "worktree", "list", "--porcelain", "-z")
     allowed = {root} | {os.path.realpath(x[9:]) for x in worktrees.split("\0") if x.startswith("worktree ")}
     surfaces = collections.defaultdict(set)
     def walk(value):
@@ -390,8 +392,12 @@ try:
         if len(tabs) != 1:
             continue
         try:
-            args = shlex.split(output("ps", "-p", str(pid), "-o", "args="))
-            if not args or pathlib.Path(args[0]).name != "codex":
+            args = output("ps", "-p", str(pid), "-o", "args=")
+            try:
+                first = shlex.split(args)[0]
+            except (ValueError, IndexError):
+                first = args.split(" ")[0]
+            if pathlib.Path(first).name != "codex":
                 continue
             if sys.platform.startswith("linux"):
                 cwd = os.path.realpath(f"/proc/{pid}/cwd")
@@ -448,7 +454,8 @@ do not type; tell them which tab or pane and what could not be read.
 Codex is absent from the Claude session map. Just before typing, re-read the process list
 and check a live Codex PID: use cmux top's `cmux_process_pids`, or tmux's `pane_pid` and
 its process tree, with `ps -p <pid> -o args=`. Check the first executable's basename is
-`codex`; a truncated `comm` or a child such as `codex-code-mode-host` is not that proof.
+`codex`; a truncated `comm` or a child such as `codex-code-mode-host` is not that proof, nor
+is an npm install's `node …/bin/codex` launcher — the native `codex` it starts is.
 Require that PID, a clear empty composer and the completed report checked by the supervisor
 (or a fresh startup screen before its first assignment) together. A shell under a dead
 Codex's old composer is not a box to send work into.
@@ -472,8 +479,8 @@ Read the screen once, then send an explicit Enter in a separate call:
     cmux send-key --surface <surface> enter
     cmux read-screen --surface <surface> --lines 40
 
-Codex can ask `Where should the new conversation run?`. When the screen clearly selects
-`Use current Git worktree`, the person handles that menu; tell them which tab and why.
+Codex can ask `Where should the new conversation run?`. Whatever it selects —
+`Use current Git worktree` included — the person handles that menu; tell them which tab and why.
 Read again after they choose: require a fresh startup screen in the same cwd and an empty
 composer before assigning work. Never guess an Enter count or choose a new worktree.
 If a command remains typed, a screen is cropped, or cmux refuses any input, stop and tell
@@ -481,8 +488,8 @@ the person. Do not resend the command or paste the work over it.
 
 ### Paste the assignment
 
-Use the supervisor's `message()` assignment fields and its `Model:` suggestion, plus
-`Worker: codex`. Replace the steps-file path in the first line with the **absolute** path
+Use the supervisor's `message()` assignment fields, with `<codex>` as the model in `Model:`
+(not a Claude model), plus `Worker: codex`. Replace the steps-file path in the first line with the **absolute** path
 to `references/worker-codex.md` beside the supervisor skill. The last line is
 `from: <supervisor name>`. Save the whole message in the scratchpad and paste only after
 the live PID, cwd and empty box checks. Use the same "Label the tab" rules above.
@@ -502,6 +509,9 @@ Save the script in the scratchpad; the command is `bash <script> <root> <epic> <
 Before pasting the assignment, read `moai -C <root> show <epic> --json` once and save the
 latest `journal[].ts` as `<last-seen-ts>` (an empty journal uses `1970-01-01T00:00:00Z`).
 Arm the monitor with that cursor so a quick report cannot arrive between send and baseline.
+A backlog sent `from step 1` has no epic yet: watch that backlog id in `<epic>`'s place.
+Codex writes `Unfolded: <epic>` on it right after unfolding, which ends that watch; arm the
+next one on the epic it names with `1970-01-01T00:00:00Z` — every note on a new epic is new.
 
 ```sh
 python3 - "$1" "$2" "$3" <<'MOAI_CODEX_WATCH'
@@ -509,9 +519,13 @@ import datetime, json, subprocess, sys, time
 root, epic, cursor = sys.argv[1:]
 def stamp(ts):
     return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-heads = ("report:", "Review-ready:", "Decision needed:", "진행 중 결정이 필요합니다")
+heads = ("report:", "Review-ready:", "Unfolded:", "Decision needed:")
+ends = ("report:", "Review-ready:", "Unfolded:")
+asks = "진행 중 결정이 필요합니다"
 try:
-    since = stamp(cursor)
+    # Stamps are whole seconds: a line in the cursor's second is new only if not seen yet.
+    # Before any newer line, that second is the baseline the cursor was read from.
+    since, seen = stamp(cursor), None
     while True:
         result = subprocess.run(["moai", "-C", root, "show", epic, "--json"],
                                 capture_output=True, text=True)
@@ -523,21 +537,20 @@ try:
         if row.get("journal_error"):
             raise ValueError("journal_error: " + json.dumps(row["journal_error"]))
         finished = False
-        latest, latest_ts = since, cursor
         for note in row["journal"]:
-            at = stamp(note["ts"])
-            if at <= since:
+            at, key = stamp(note["ts"]), json.dumps(note, sort_keys=True)
+            if at < since or (at == since and (seen is None or key in seen)):
                 continue
-            if at > latest:
-                latest, latest_ts = at, note["ts"]
+            if at > since:
+                since, cursor, seen = at, note["ts"], set()
+            seen.add(key)
             if note["kind"] != "note":
                 continue
             lines = (note.get("text") or "").splitlines()
             head = lines[0] if lines else ""
-            if head.startswith(heads):
+            if head.startswith(heads) or asks in head:
                 print(f"{epic}\t{note['ts']}\t{head}", flush=True)
-                finished = finished or head.startswith("report:")
-        since, cursor = latest, latest_ts
+                finished = finished or head.startswith(ends)
         if finished:
             sys.exit(0)
         time.sleep(30)
@@ -554,7 +567,9 @@ whole note with `moai show <epic>` and act on it. A failed read is an alert, nev
 When the monitor says `expired` after 30 minutes, re-arm it from the last processed timestamp;
 keep that cursor, not a new baseline that could skip a report written at expiry. Duplicate
 alerts after re-arming are harmless: check the note and its timestamp before acting again.
-After the review, paste "merge and close — review <id> done" and re-arm for the second report,
-using the saved cursor. A `report:` ends this watch. For the final report use the supervisor's
+`Unfolded:`, `Review-ready:` and `report:` each end this watch. After the review, paste "merge
+and close — review <id> done" and re-arm for the final report from the `Review-ready:`
+timestamp. A decision head (`Decision needed:`, or `진행 중 결정이 필요합니다` anywhere in the
+first line) keeps it running. For the final report use the supervisor's
 5 and write `Report-checked:` only after its checks. This watch never runs on the Claude
 session path, which already has `notify_when_idle` and report messages.

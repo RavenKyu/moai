@@ -1,7 +1,7 @@
 # Codex worker steps
 
-Read `worker.md` beside this file first, at the absolute path supplied by the supervisor.
-Follow its assignment and step numbers; this file changes only the rows below.
+Read `worker.md` first — it stands beside this file, whose absolute path the assignment's
+first line names. Follow its assignment and step numbers; this file changes only the rows below.
 You are Codex, a session in a tab or pane. The person watching this window comes first.
 The supervisor skill remains Claude Code only; reading this file does not install it here.
 
@@ -17,9 +17,20 @@ The supervisor skill remains Claude Code only; reading this file does not instal
 
 `/model` exists in Codex too. The person changes the model; use the assignment's `Model:`
 as the suggestion, and record the model that actually ran. Do not change it yourself.
+`Model:` names the Codex model (`[models] codex`); worker.md's Claude models and their ladder
+do not apply here — when the work reads harder than its difficulty, say so in 9-1's reason.
 A question tool can depend on the mode: use `request_user_input_async` when available,
 or `request_user_input` in Plan mode; without either, ask in conversation and wait.
 One call's `cd` may not persist into the next: always supply the absolute command directory.
+
+## Step 1: name the epic you unfolded
+
+A backlog has no epic for the supervisor to watch until you unfold it. Right after the
+promote in 1, before 2's commit, name the epic on the backlog `<id>` you were handed:
+
+    moai -C <root> note <id> 'Unfolded: <epic>'
+
+Until it is written, a note the steps below put on the epic goes on that backlog instead.
 
 ## Steps 2–6
 
@@ -56,8 +67,10 @@ CODEX_REVIEW
 ```
 
 Return to the root, check its branch and tracker diff, then commit only `.moai/`.
-Stop. Resume 8–11 only when the supervisor pastes "merge and close — review <id> done".
-The supervisor uses `REVIEW_BRIEF` and its review model in this worktree.
+Stop until the supervisor pastes "merge and close — review <id> done"; its reviewer used
+`REVIEW_BRIEF` and its review model in this worktree. Then finish 7 as worker.md says — the
+review's fixes stand uncommitted in the worktree: take them in as a separate `fix:` commit
+and note what you hand on with the issue id — and go on with 7-1 to 11, and 12 below.
 
 ## Step 9-1: name the model that did the work
 

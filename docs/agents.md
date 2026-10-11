@@ -264,11 +264,13 @@ would run with the sandbox off, and the question does not say so.
 there. Only the sandbox goes: the approval setting is left at Codex's default.
 
 A Codex session can also be a supervisor's worker in a [tmux pane](#in-tmux)
-or [cmux tab](#in-cmux), with `Worker: codex` in its assignment. Read
-`worker.md` and the differences in `references/worker-codex.md` at the absolute
-paths the supervisor supplies. Reports are epic notes, committed from the root.
-After tests and commits, Codex writes `Review-ready:` and stops; the supervisor's
-review subagent reviews the work before a second "merge and close" assignment.
+or [cmux tab](#in-cmux), with `Worker: codex` in its assignment. The assignment
+names `references/worker-codex.md` by its absolute path; Codex reads `worker.md`
+beside it, then those differences. Reports are epic notes, committed from the
+root — after unfolding a backlog, Codex first names the new epic on that backlog
+with an `Unfolded:` note. After tests and commits, Codex writes `Review-ready:`
+and stops; the supervisor's review subagent reviews the work before a second
+"merge and close" assignment, and Codex then takes the review's fixes in itself.
 Record the model that actually ran in the issue's `model:` note, without a token
 count. Hook trust in `/hooks` is still required as above.
 
@@ -507,8 +509,9 @@ Enter are separate calls; you handle any work directory menu. Assignments use
 yes and use `[models] codex`, read from `moai models --json`; once a round the
 supervisor checks official models with `WebSearch` and tells you if that value
 is outdated. A `Monitor` watches epic notes every 30 seconds for up to 30 minutes,
-then is rearmed if needed. `Review-ready:` goes to the supervisor's review
-subagent; the second assignment follows its completed review (moai-uzhx).
+then is rearmed if needed; a backlog sent before its epic exists is watched until
+its `Unfolded:` note names the epic. `Review-ready:` goes to the supervisor's
+review subagent; the second assignment follows its completed review (moai-uzhx).
 
 ### In cmux
 
@@ -561,7 +564,8 @@ It pastes a multiline assignment with `cmux paste --surface <UUID> --submit -`
 from a file. New tabs require your yes and use `[models] codex`; the supervisor
 reads `moai models --json` and checks official models with `WebSearch` once a
 round. A `Monitor` watches epic notes every 30 seconds for up to 30 minutes,
-then is rearmed if needed. Codex stops at `Review-ready:` for the supervisor's
+then is rearmed if needed; a backlog sent before its epic exists is watched until
+its `Unfolded:` note names the epic. Codex stops at `Review-ready:` for the supervisor's
 review subagent and waits for its second assignment. Refused input is never
 forced, and drafts and permission prompts remain yours (moai-uzhx).
 
