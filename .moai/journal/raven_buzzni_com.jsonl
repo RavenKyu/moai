@@ -6345,3 +6345,7 @@
 {"ts":"2026-10-11T16:55:12Z","id":"moai-4cn9","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"moai init 선택 상자에 [models] 역할별 모델 칸"}
 {"ts":"2026-10-11T16:55:12Z","id":"moai-6vlv","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":".moai/config.toml 의 [models] 저장소 표와 사용자 설정의 우선순위"}
 {"ts":"2026-10-11T16:55:12Z","id":"moai-fmge","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/fable-5-1 (high — v0.16.0 계획: 에픽 셋·멤버 열여섯·backlog 다섯, 코드 file:line 확인)"}
+{"ts":"2026-10-11T16:57:41Z","id":"moai-rs3o.j6v","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-11T16:57:41Z","id":"moai-rs3o.nmu","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-11T16:57:41Z","id":"moai-rs3o.fg4","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-11T16:57:41Z","id":"moai-9tqo.fxp","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
