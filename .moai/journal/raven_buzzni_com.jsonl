@@ -6232,3 +6232,23 @@
 {"ts":"2026-10-11T04:02:36Z","id":"moai-fzq7.2zr","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"in_progress","to":"done","note":"지적 없음 — 받을 것도 넘길 것도 없다"}
 {"ts":"2026-10-11T04:02:42Z","id":"moai-fzq7","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (low — 셸 두 줄, Mac 의 판 올림 시험 일곱을 돌려 확인)"}
 {"ts":"2026-10-11T04:02:42Z","id":"moai-fzq7","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"in_progress","to":"done"}
+{"ts":"2026-10-11T04:17:56Z","id":"moai-wkpd","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"v0.14.1"}
+{"ts":"2026-10-11T04:18:00Z","id":"moai-xpa8","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"macOS·cmux 뒤처리 (v0.14.0 다음)"}
+{"ts":"2026-10-11T04:18:00Z","id":"moai-xpa8.p56","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"moai-tmux·moai-recover 가 죽은 칸의 남은 화면을 빈 입력 칸으로 읽는다"}
+{"ts":"2026-10-11T04:18:00Z","id":"moai-xpa8","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-ejyd 에서 펼쳤다 — moai-tmux 가 죽은 칸의 남은 화면을 빈 입력 칸으로 읽는다"}
+{"ts":"2026-10-11T04:18:00Z","id":"moai-ejyd","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-xpa8 로 펼쳤다 (이슈 1건)"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.f0b","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"tests/cli.rs 를 macOS 에서 컴파일되게 한다"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.q9x","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"macOS 에서 붉은 단위 시험 다섯"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.egv","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"macOS 에서 붉은 통합 시험 — /var 와 /private/var 따위"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.f0b","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-64vd 에서 펼쳤다 — macOS 에서 시험이 붉다 — tests/cli.rs 컴파일 실패, 단위 시험 다섯"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.q9x","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-64vd 에서 펼쳤다 — macOS 에서 시험이 붉다 — tests/cli.rs 컴파일 실패, 단위 시험 다섯"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.egv","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-64vd 에서 펼쳤다 — macOS 에서 시험이 붉다 — tests/cli.rs 컴파일 실패, 단위 시험 다섯"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-64vd","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-xpa8 의 멤버 moai-xpa8.f0b moai-xpa8.q9x moai-xpa8.egv 로 펼쳤다"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.1vt","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"cmux claude-teams 의 가짜 $TMUX — 조사하고 감독의 갈래를 정한다"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-xpa8.1vt","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-3yo3 에서 펼쳤다 — cmux claude-teams 의 가짜 $TMUX 가 감독을 moai-tmux 로 보낸다"}
+{"ts":"2026-10-11T04:18:10Z","id":"moai-3yo3","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-xpa8 의 멤버 moai-xpa8.1vt 로 펼쳤다"}
+{"ts":"2026-10-11T04:18:30Z","id":"moai-xpa8.f0b","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"자세한 것(컴파일 오류 두 줄, 실패한 시험 이름과 자리)은 펼친 backlog moai-64vd 의 본문과 노트에 있다 — moai show moai-64vd. 판 올림 시험 일곱은 moai-fzq7 로 이미 풀렸다."}
+{"ts":"2026-10-11T04:18:30Z","id":"moai-xpa8.q9x","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"자세한 것(컴파일 오류 두 줄, 실패한 시험 이름과 자리)은 펼친 backlog moai-64vd 의 본문과 노트에 있다 — moai show moai-64vd. 판 올림 시험 일곱은 moai-fzq7 로 이미 풀렸다."}
+{"ts":"2026-10-11T04:18:30Z","id":"moai-xpa8.egv","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"자세한 것(컴파일 오류 두 줄, 실패한 시험 이름과 자리)은 펼친 backlog moai-64vd 의 본문과 노트에 있다 — moai show moai-64vd. 판 올림 시험 일곱은 moai-fzq7 로 이미 풀렸다."}
+{"ts":"2026-10-11T04:18:30Z","id":"moai-xpa8.1vt","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"자세한 것은 펼친 backlog moai-3yo3 — moai show moai-3yo3. cmux 는 이제 0.65.0 이라 이 Mac 에서 실기로 볼 수 있다. 갈래를 고를 때 사람에게 한 번 더 묻는다(계획을 보일 때 약속함)."}
+{"ts":"2026-10-11T04:18:31Z","id":"moai-xpa8.p56","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
