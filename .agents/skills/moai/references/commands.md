@@ -452,11 +452,10 @@ Yearly archive files use the same `merge=moai` driver as the active snapshot.
 Before you close it, leave one line on the issue naming the AI that actually did the
 work. It is a note, not a field.
 
-    moai note <id> 'model: <vendor>/<model> tokens=<count> (<grade> — <why>)'
+    moai note <id> 'model: <vendor>/<model> (<grade> — <why>)'
 
-- The vendor is `anthropic`, `openai` or `google`; the model is its real name (`opus-5`, `sonnet-5`); the grade uses the same words as the review grades
-- **If you do not know the token count, drop `tokens=`.** Do not write 0 and do not estimate — blank, 0 and a false number are three different things
-- **One line per id.** Write the same line on several ids and the tokens multiply by the number of ids
+- The vendor is `anthropic`, `openai` or `google`; the model is its real name (`opus-5.5`, `sonnet-5.5`); the grade uses the same words as the review grades
+- **No token count.** The line carries no `tokens=` — what a window or an agent shows is not what the work cost, and a false number is worse than none. A line written with one before still reads
 - **Quote free text with single quotes** — inside double quotes the shell expands
   backticks and `$(…)` as commands, so the text is cut off and the call ends in 0.
   If the text itself contains a single quote, stream it from stdin with `-b -`
