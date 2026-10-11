@@ -6319,3 +6319,29 @@
 {"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.1vt","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
 {"ts":"2026-10-11T07:09:45Z","id":"moai-6kl0","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-p5sz.7q3 이 고쳤다 — macOS 는 LC_ALL=C TZ=UTC ps -o lstart= 로 살아 있음을 재고, tmux 칸은 tty 로 잇는다. v0.14.0 에 실려 나갔고, 리뷰(moai-p5sz.tkn·moai-xpa8.yv6)의 고침은 v0.15.1 에 실렸다. 같은 보고를 기록한 moai-kccu.l73 도 닫혔다."}
 {"ts":"2026-10-11T07:09:45Z","id":"moai-6kl0","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"done"}
+{"ts":"2026-10-11T16:27:10Z","id":"moai-fmge","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"v0.16.0"}
+{"ts":"2026-10-11T16:47:51Z","id":"moai-rs3o","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"사용후기 어긋남 셋 — stats 대소문자·wip_overload 에픽 셈·promote 마일스톤 알림"}
+{"ts":"2026-10-11T16:47:51Z","id":"moai-rs3o.j6v","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"stats 가 모델 이름을 대소문자 없이 접는다"}
+{"ts":"2026-10-11T16:47:51Z","id":"moai-rs3o.nmu","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"wip_overload 가 같은 에픽의 멤버를 하나로 센다"}
+{"ts":"2026-10-11T16:47:51Z","id":"moai-rs3o.fg4","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"promote 가 에픽에서 물려받은 산 마일스톤도 한 줄로 알린다"}
+{"ts":"2026-10-11T16:47:51Z","id":"moai-rs3o.tpk","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"A 에픽의 CHANGELOG·위키"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"감독이 역할별 모델의 서브에이전트를 일꾼으로 부린다"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo.fxp","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"실기 조사: 서브에이전트 일꾼 — 훅·워크트리·중첩 리뷰·물음·토큰"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo.3la","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"[models] 사용자 설정과 moai models 읽기 명령"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo.rsl","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"감독 스킬: 서브에이전트 일꾼·역할별 모델 표·리뷰 규칙"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo.p1p","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"일꾼 걸음: 서브에이전트 길 — 절대 경로·중첩 리뷰·보고"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo.zk3","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"CLAUDE.md 리뷰 절·일한 AI 절과 AGENTS 블록을 새 규칙으로"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-9tqo.2b6","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"B 에픽의 위키·CHANGELOG"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"Codex 일꾼을 cmux/tmux 스킬로 다룬다"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx.bjj","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"실기 조사: Codex 탭·칸의 입력창·대기 표시·/new·붙여넣기·토큰"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx.65h","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"Codex 일꾼의 걸음 — worker-codex.md 와 보고 노트"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx.yv8","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"Codex 공용 상수 — 보고를 Monitor 로 기다리기와 입력창 잣대"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx.2mq","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"moai-cmux 에 \"Codex workers\" 절"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx.fk1","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"moai-tmux 에 \"Codex workers\" 절"}
+{"ts":"2026-10-11T16:47:52Z","id":"moai-uzhx.i1v","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"C 에픽의 위키·CHANGELOG"}
+{"ts":"2026-10-11T16:55:12Z","id":"moai-ngiv","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"tracker 커밋을 줄인다 — \"집기는 develop 에서 커밋한다\" 의 까닭을 다시 잰다"}
+{"ts":"2026-10-11T16:55:12Z","id":"moai-rlja","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"PR 로만 받는 루트 가지에서 트래커가 갈 자리"}
+{"ts":"2026-10-11T16:55:12Z","id":"moai-rdlx","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"worker.md 를 늘 타는 길과 드문 갈래로 나눈다"}
+{"ts":"2026-10-11T16:55:12Z","id":"moai-4cn9","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":"moai init 선택 상자에 [models] 역할별 모델 칸"}
+{"ts":"2026-10-11T16:55:12Z","id":"moai-6vlv","kind":"create","by":"Raven","by_email":"raven@buzzni.com","title":".moai/config.toml 의 [models] 저장소 표와 사용자 설정의 우선순위"}
+{"ts":"2026-10-11T16:55:12Z","id":"moai-fmge","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/fable-5-1 (high — v0.16.0 계획: 에픽 셋·멤버 열여섯·backlog 다섯, 코드 file:line 확인)"}
