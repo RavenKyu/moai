@@ -458,7 +458,9 @@ this happens.
   interactive session you can see and type into
 
 **If anything stands in a worker's input box, or you are scrolling that pane
-(copy mode), it does not type** — it tells you.
+(copy mode), or the session map no longer reads that pane's session alive, it
+does not type** — it tells you. A killed Claude Code leaves its last screen, box
+and all, above the shell, so the screen alone is not enough (moai-xpa8.p56).
 It never kills a pane, a session or the server, and never runs `claude -p` or a
 `--dangerously-*` flag.
 
