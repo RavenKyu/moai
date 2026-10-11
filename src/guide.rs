@@ -2733,6 +2733,8 @@ Claude Code subagents. The supervisor remains Claude Code only. The Claude sessi
 above is not a Codex registry: do not add Codex to `SESSIONS` or expect `ListAgents`,
 `SendMessage` or `notify_when_idle` to reach one. Use the epic notes for its reports.
 
+{CODEX_WORKER_RULES}
+
 ### Find the Codex pane
 
 On the running server (`$TMUX`), read the panes once:
@@ -7362,7 +7364,11 @@ stop sending outside work while a release runs",
         let codex = section(&text, "## Codex workers");
         assert!(codex.contains(CODEX_EMPTY_BOX), "Codex 입력창 잣대가 공용 글과 다르다");
         assert!(codex.contains(REPORT_WATCH), "Codex 보고 기다리기가 공용 글과 다르다");
+        assert!(codex.contains(CODEX_WORKER_RULES), "Codex 모델·리뷰 규약이 공용 글과 다르다");
         for part in [
+            "moai models --json",
+            "WebSearch",
+            "REVIEW_BRIEF",
             "tmux list-panes -a -F '#{pane_id}<TAB>#{pane_current_command}<TAB>#{pane_current_path}<TAB>#{pane_pid}'",
             "`pane_current_command` is `codex`",
             "`pane_current_path` is `<root>`",
@@ -7393,6 +7399,9 @@ stop sending outside work while a release runs",
             "Do not assume cmux's wrapper",
         ] {
             assert!(codex.contains(part), "tmux 의 Codex 절에 없다 — {part}");
+        }
+        for line in text.lines().filter(|line| line.contains("gpt-")) {
+            assert_eq!(line, "the person under `[models] codex`. Default example: `gpt-6.1-sol`.");
         }
         assert!(!codex.contains("/new Enter"), "Codex /new 와 Enter 를 한 호출에 친다");
         assert!(tmux_calls(codex) >= 12, "새 Codex 절의 tmux 줄을 안 잰다");
