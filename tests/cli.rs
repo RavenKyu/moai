@@ -24764,8 +24764,11 @@ fn init_screen_defaults_install_the_hooks_and_skills() {
     let (mut master_fd, mut slave_fd) = (-1, -1);
     let size = libc::winsize { ws_row: 30, ws_col: 120, ws_xpixel: 0, ws_ypixel: 0 };
     // SAFETY: openpty 가 쓰는 두 fd 와 읽는 크기는 살아 있는 값이며, 이름·설정은 필요 없다.
+    // 설정·크기는 `*mut` 로 넘긴다 — macOS 의 libc 는 둘을 `*mut` 로, 리눅스는 `*const` 로 받고 `*mut` 는 `*const` 로
+    // 저절로 바뀐다(moai-xpa8.f0b). openpty 는 둘을 읽기만 한다.
+    let (termp, winp) = (std::ptr::null_mut::<libc::termios>(), &size as *const libc::winsize as *mut libc::winsize);
     assert_eq!(
-        unsafe { libc::openpty(&mut master_fd, &mut slave_fd, std::ptr::null_mut(), std::ptr::null(), &size) },
+        unsafe { libc::openpty(&mut master_fd, &mut slave_fd, std::ptr::null_mut(), termp, winp) },
         0,
         "{}",
         std::io::Error::last_os_error()
@@ -24790,7 +24793,8 @@ fn init_screen_defaults_install_the_hooks_and_skills() {
     // SAFETY: fork 뒤에는 비동기 신호 안전한 시스템 호출만 쓴다. 자식의 stdin 을 제어 터미널로 만든다.
     unsafe {
         command.pre_exec(|| {
-            if libc::setsid() == -1 || libc::ioctl(0, libc::TIOCSCTTY, 0) == -1 {
+            // 요청의 꼴은 OS 마다 다르다(macOS 는 `c_ulong`) — 받는 쪽의 꼴로 맞춘다(moai-xpa8.f0b).
+            if libc::setsid() == -1 || libc::ioctl(0, libc::TIOCSCTTY as _, 0) == -1 {
                 return Err(std::io::Error::last_os_error());
             }
             Ok(())
