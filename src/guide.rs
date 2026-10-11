@@ -4726,7 +4726,13 @@ stop sending outside work while a release runs",
         // 걷기가 건너뛰는 자리 — 디렉터리 링크와 UTF-8 이 아닌 이름. 못 연 디렉터리는 아래에서 갈래로 짓는다.
         std::os::unix::fs::symlink(away.path(), docs.join("away")).unwrap();
         let latin = <std::ffi::OsStr as std::os::unix::ffi::OsStrExt>::from_bytes(b"caf\xe9.md");
-        std::fs::write(docs.join(latin), "# Name\n").unwrap();
+        // macOS 의 APFS 는 UTF-8 이 아닌 이름을 만들지 못하게 한다(EILSEQ) — 그 기계에서는 그 갈래를 아래의
+        // `failed`·`unreadable` 처럼 지어 넣는다(moai-xpa8.q9x). 다른 까닭의 실패는 그대로 붉힌다.
+        let latin_refused = match std::fs::write(docs.join(latin), "# Name\n") {
+            Ok(()) => false,
+            Err(e) if e.raw_os_error() == Some(libc::EILSEQ) => true,
+            Err(e) => panic!("UTF-8 이 아닌 이름을 못 만들었다 — {e}"),
+        };
 
         let lang = crate::i18n::Lang::En;
         let known = |id: &str| id == "moai-ab12";
@@ -4746,7 +4752,11 @@ stop sending outside work while a release runs",
             path: "docs/locked".into(),
             why: crate::wiki::Skip::Unreadable("permission denied".into()),
         };
-        let walked = crate::wiki::Wiki { pages: Vec::new(), skipped: vec![unreadable] };
+        let mut skipped = vec![unreadable];
+        if latin_refused {
+            skipped.push(crate::wiki::Skipped { path: "docs/caf?.md".into(), why: crate::wiki::Skip::NotUtf8 });
+        }
+        let walked = crate::wiki::Wiki { pages: Vec::new(), skipped };
         printed.extend(crate::cmd::wiki::listed_json(lang, "docs", &Ok(walked)).unwrap());
 
         // 출력에 선 키와 `kind` 값을 모은다.
