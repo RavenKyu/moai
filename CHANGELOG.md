@@ -12,6 +12,8 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-11
+
 ### Fixed
 
 - **`moai-tmux` and `moai-recover` could read a dead pane as an empty input
