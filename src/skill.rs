@@ -804,6 +804,11 @@ fn shell_line(exe: &str, event: &str, dialect: Dialect) -> String {
     // **갈래는 셋이고 종료 값은 한 번만 가른다**(리뷰 moai-45hf.nab) — `moai` 가 스스로 끝냈으면(0·1)
     // 받은 것을 흘려보내고 표식을 세우고, 아니면 판정의 꼴일 때 흘려보내기만 하고, 꼴이 아니면 알림을
     // 낸다. 0·1 을 두 자리에 적던 줄은 한쪽만 넓히는 날 토막을 판정으로 흘리거나 알림을 삼킨다.
+    //
+    // **치환 안에서 `set +e` 를 준다**(moai-xpa8.q9x). macOS 의 `/bin/sh`(bash 3.2)는 `-e` 가 선 껍데기의 `$( … )`
+    // 안에서 실행 비트가 빠진 파일을 만나면 126 이 아니라 **1** 을 낸다(2026-10-11 실측 — `set +e;` 를 주면 126
+    // 이다). 1 은 "moai 가 스스로 끝냈다" 의 갈래라 그 판의 알림이 말없이 사라졌다 — 이 줄이 겨눈 첫 판이
+    // 바로 실행 비트가 빠진 판이다. dash 와 bash 5 는 원래 126 이라 바뀌는 것이 없다.
     let handoff = crate::cmd::hook::HANDOFF;
     // 세션을 가르는 값과 `moai` 에 붙일 말씨 — 까닭은 [`command_for`] 에 있다.
     let (sid, flag) = match dialect {
@@ -825,7 +830,7 @@ fn shell_line(exe: &str, event: &str, dialect: Dialect) -> String {
     format!(
         "command -v -- \"{exe}\" >/dev/null 2>&1{there} || exit 0; trap 'exit 0' PIPE; \
          h=\"${{TMPDIR:-/tmp}}/moai-hook-{sid}-$$.handoff\"; \
-         c=0; o=$({handoff}=\"$h\" \"{exe}\" hook {event}{flag}) || c=$?; \
+         c=0; o=$(set +e; {handoff}=\"$h\" \"{exe}\" hook {event}{flag}) || c=$?; \
          set -C; \
          case \"$c\" in \
          0|1) [ -z \"$o\" ] || {{ printf '%s\\n' \"$o\" && [ -O \"$h\" ] && ! [ -h \"$h\" ] \

@@ -21,6 +21,12 @@ does not tag — see `CONTRIBUTING.md`.
   counts as empty only while the session map, run again just before, still
   reads that session alive in that pane, as `moai-cmux` already does.
   (moai-xpa8.p56)
+- **A hook whose `moai` could not run said nothing on a Mac when the hook ran
+  under `sh -e`.** macOS's `/bin/sh` (bash 3.2) reports a file without its
+  execute bit as exit 1 inside a command substitution under `set -e`, which the
+  hook line read as `moai` ending by itself. The hook line now turns `-e` off
+  inside that substitution, so the notice that the five rules are not standing
+  shows again. Reinstall with `moai skill install` to pick it up. (moai-xpa8.q9x)
 
 ## [0.14.0] - 2026-10-11
 
