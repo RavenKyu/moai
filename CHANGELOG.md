@@ -24,6 +24,15 @@ does not tag — see `CONTRIBUTING.md`.
   model is your own spending choice, so the repository's `.moai/config.toml` does
   not carry it. (moai-9tqo.3la)
 
+- **Codex sessions can work for a Claude Code supervisor in tmux panes and
+  cmux tabs.** The two skills' "Codex workers" sections find live Codex
+  processes, check the composer before `/new` or pasting an assignment, and
+  use the configured `[models] codex` value. `worker-codex.md` supplies the
+  differences from the Claude worker steps; a `Monitor` watches epic notes
+  for reports and `Review-ready:`, where Codex stops for the supervisor's
+  review subagent and a second assignment. (moai-uzhx.65h, moai-uzhx.yv8,
+  moai-uzhx.2mq, moai-uzhx.fk1)
+
 ### Changed
 
 - **The supervisor raises its workers as subagents, each on the model its role

@@ -226,8 +226,8 @@ loads it to label, clear and paste into the workers' panes, and to open new ones
 once the person says yes; inside cmux, `moai-cmux` does the same with tabs.
 Inside a Saycode session, where the optional `moai-saycode` skill is planted, it
 drives the workers through Saycode's `happy agent` the same way, and that comes
-first. Codex and
-Antigravity have none. More in
+first. Codex and Antigravity have no supervisor skill; a Codex session can
+still be a worker in a tab or pane. More in
 [working with agents](agents.md#hand-work-to-workers).
 
 ## Take over
@@ -261,6 +261,9 @@ registers it. It follows the [brief](#brief) — picks the work up, does it in a
 leaves the report on the epic and hands it back, a session sends it with
 `SendMessage` and says when its window can be cleared.
 
+A Codex session in a tmux pane or cmux tab can also be a worker. It reports by
+epic note and stops at `Review-ready:` for the supervisor's review subagent.
+
 ## Worktree
 
 A linked git worktree, one per piece of work, on its own branch, so sessions do
@@ -268,4 +271,4 @@ not pile commits onto one branch. The tracker stays in the main checkout; the
 wiki pages ride the branch. More in
 [the workflow](workflow.md#work-in-a-worktree).
 
-Decided in: moai-tllo moai-snyk moai-u5wr moai-dhxm moai-kxkw moai-jtvp moai-bth3 moai-obxm moai-9tqo
+Decided in: moai-tllo moai-snyk moai-u5wr moai-dhxm moai-kxkw moai-jtvp moai-bth3 moai-obxm moai-9tqo moai-uzhx

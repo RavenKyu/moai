@@ -265,6 +265,17 @@ would run with the sandbox off, and the question does not say so.
 `.codex/hooks.json` in the same directory is committed — the two part ways
 there. Only the sandbox goes: the approval setting is left at Codex's default.
 
+A Codex session can also be a supervisor's worker in a [tmux pane](#in-tmux)
+or [cmux tab](#in-cmux), with `Worker: codex` in its assignment. The assignment
+names `references/worker-codex.md` by its absolute path; Codex reads `worker.md`
+beside it, then those differences. Reports are epic notes, committed from the
+root — after unfolding a backlog, Codex first names the new epic on that backlog
+with an `Unfolded:` note. After tests and commits, Codex writes `Review-ready:`
+and stops; the supervisor's review subagent reviews the work before a second
+"merge and close" assignment, and Codex then takes the review's fixes in itself.
+Record the model that actually ran in the issue's `model:` note, without a token
+count. Hook trust in `/hooks` is still required as above.
+
 ### Antigravity
 
     agy
@@ -351,8 +362,9 @@ The supervisor is a Claude Code session, and by default its
 [workers](glossary.md#worker) are **subagents** it raises with Claude Code's
 `Agent` tool — each on the model its role calls for. When you want to watch the
 workers' windows, or the worker is Codex, the workers are **sessions** instead
-([In a session](#in-a-session)). Codex and Antigravity have no supervisor of
-their own; their sessions pick their own work with `moai ready`.
+([In a session](#in-a-session)). Codex and Antigravity have no supervisor skill; a Codex session can still be a
+worker in a tab or pane. Sessions working independently pick their own work
+with `moai ready`.
 
 ### The models are yours
 
@@ -563,6 +575,19 @@ time in another form (`ps -o lstart`), and a pane is matched to a session by its
 terminal (`#{pane_tty}`), never by reading another process's environment
 (moai-p5sz.7q3).
 
+**Codex workers.** The skill finds Codex from the running server's pane
+command, path and live process, including a shell launcher's child; it does not
+add Codex to the Claude session map. It checks the screen, live PID and completed
+report together, leaving copy mode, drafts and dialogs to you. `/new` text and
+Enter are separate calls; you handle any work directory menu. Assignments use
+`load-buffer`, `paste-buffer -p` and a separate Enter. New panes require your
+yes and use `[models] codex`, read from `moai models --json`; once a round the
+supervisor checks official models with `WebSearch` and tells you if that value
+is outdated. A `Monitor` watches epic notes every 30 seconds for up to 30 minutes,
+then is rearmed if needed; a backlog sent before its epic exists is watched until
+its `Unfolded:` note names the epic. `Review-ready:` goes to the supervisor's
+review subagent; the second assignment follows its completed review (moai-uzhx).
+
 ### In cmux
 
 When the supervisor runs inside a [cmux](https://github.com/manaflow-ai/cmux)
@@ -604,6 +629,20 @@ every session in it, so when to update is yours.
 
 It never closes a tab, a workspace or a window, never moves focus, and never
 passes `--force`.
+
+**Codex workers.** The skill uses `cmux top` and live Codex PIDs whose cwd is
+the root or a named worktree, rather than the Claude session map. Before input,
+it checks the screen, live PID and completed report together; cmux's input state
+alone does not establish an idle, empty Codex composer. It sends `/new` text,
+reads the screen and sends Enter separately; you handle the work directory menu.
+It pastes a multiline assignment with `cmux paste --surface <UUID> --submit -`
+from a file. New tabs require your yes and use `[models] codex`; the supervisor
+reads `moai models --json` and checks official models with `WebSearch` once a
+round. A `Monitor` watches epic notes every 30 seconds for up to 30 minutes,
+then is rearmed if needed; a backlog sent before its epic exists is watched until
+its `Unfolded:` note names the epic. Codex stops at `Review-ready:` for the supervisor's
+review subagent and waits for its second assignment. Refused input is never
+forced, and drafts and permission prompts remain yours (moai-uzhx).
 
 ### In Saycode
 
@@ -676,6 +715,9 @@ finds its id as an `ended` row in `happy agent ls --status` and prints
 `happy resume <saycode id>` for you to run in a terminal of your own, or you
 reopen it from Saycode's session list. A worker that is one comes back before
 the supervisor does.
+
+Codex sessions are not in this map and are not resumed by `moai-recover`;
+open a Codex session yourself and read its epic notes to continue (moai-uzhx).
 
 It changes nothing in the sessions' work — no commit, no build, no `moai` write.
 
@@ -761,7 +803,7 @@ worker's line is written by the supervisor.
   where an incoming message waits for its person's approval — look at that
   window
 
-Decided in: moai-2w0s moai-hxma moai-0zjo moai-nqdc moai-bl3x moai-gelm moai-tllo moai-mdzx moai-xs2h moai-h8tn moai-snyk moai-u5wr moai-b6cw moai-ew4o moai-dhxm moai-ml0d moai-nas5 moai-kxkw moai-dj4j moai-54yc moai-bkn4 moai-084j moai-keka moai-zynt moai-j9nf moai-jtvp moai-obxm moai-six5 moai-iu73 moai-r0x8 moai-u99i moai-uqf7 moai-p5sz moai-xpa8 moai-9tqo moai-pxui
+Decided in: moai-2w0s moai-hxma moai-0zjo moai-nqdc moai-bl3x moai-gelm moai-tllo moai-mdzx moai-xs2h moai-h8tn moai-snyk moai-u5wr moai-b6cw moai-ew4o moai-dhxm moai-ml0d moai-nas5 moai-kxkw moai-dj4j moai-54yc moai-bkn4 moai-084j moai-keka moai-zynt moai-j9nf moai-jtvp moai-obxm moai-six5 moai-iu73 moai-r0x8 moai-u99i moai-uqf7 moai-p5sz moai-xpa8 moai-9tqo moai-pxui moai-uzhx
 
 ## Archive storage
 

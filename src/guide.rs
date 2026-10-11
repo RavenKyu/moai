@@ -2695,6 +2695,39 @@ box counts only while the session map, run again just before, still reads that s
 its last frame, box and all, above the shell `exec bash` started, and the keys go to that
 shell.";
 
+/// Codex 일꾼의 모델·리뷰·멈춤 규약은 한 글이다(moai-uzhx.2mq). cmux 와 tmux 가
+/// `format!` 으로 그대로 싣는다 — 자리마다 다른 명령은 각 절에 남긴다.
+const CODEX_WORKER_RULES: &str = r#"### Model
+
+Read `moai models --json` once per round; `<codex>` is its `codex` value, configured by
+the person under `[models] codex`. Default example: `gpt-6.1-sol`.
+Once per round use `WebSearch` for `OpenAI Codex recommended models <codex>
+site:developers.openai.com/codex site:learn.chatgpt.com`, then open the official models
+page. Compare the configured name, Codex support and retirement notices. If it is outdated,
+tell the person in one line; they change the config. A stronger model existing alone does
+not make the configured model outdated. If the config or official page cannot be read,
+tell the person; do not guess or change the value.
+
+### Review and the second assignment
+
+Codex tests and commits its work, writes `Review-ready:` as an epic note, and stops.
+It waits for the supervisor's review and the second assignment; it does not review itself.
+
+When `Review-ready:` arrives, read its whole note. Pick the review issue up
+(`moai -C <root> mv <review id> in_progress`) and run a review subagent in the reported
+worktree with its configured `review` model and "The review brief" in
+`references/worker.md`; refer to that brief, do not copy it here. Once the review has ended and its words are on the review issue, send
+"merge and close — review <id> done" with the same file-paste path and fresh input checks.
+Leave the review issue open: Codex takes the fixes in and closes it (worker.md 7 and 10).
+Do not clear the conversation between these two assignments. Watch for the final report,
+then apply the supervisor's 5 and write `Report-checked:` after the checks pass.
+
+When Codex stalls, follow "When a worker stalls": read that named tab or pane once, tell
+the person what stands there, and leave permission prompts and questions to them. The note
+monitor is the only repeated read; never poll the screen or discover sessions in a loop.
+All of "What never happens" applies to Codex too: no closing, focus changes or typing over
+the person's words. Labels do not grant permission to type."#;
+
 /// 선택 스킬 `moai-tmux` 의 SKILL.md — tmux 안에서 도는 감독의 손이다(2026-10-10 사용자 결정, moai-u99i). 고른 사람에게만
 /// 심는다(`skill::OPTIONAL`, moai-3r7l).
 ///
@@ -2706,7 +2739,8 @@ shell.";
 /// **치기 전의 잣대는 하나다 — 입력 칸에 무엇이든 있으면 안 친다.** 옛 5-1 은 사람이 쓰던 초안을 건지느라 480줄이
 /// 되었다. 초안인지 자리글(placeholder)인지 못 가르면 있는 것으로 읽고 사람에게 말한다.
 ///
-/// **칸은 언제나 짝([`SESSIONS`])에서 찾은 `%id` 로 겨눈다.** 사람의 tmux 서버라, 맨 `kill-*` 하나가 그 서버의 모든
+/// **칸은 언제나 `%id` 로 겨눈다.** Claude 는 짝([`SESSIONS`]), Codex 는 도는 서버의 칸·프로세스에서 찾는다.
+/// 사람의 tmux 서버라, 맨 `kill-*` 하나가 그 서버의 모든
 /// 세션을 죽인다(2026-09-18). 감독 제 칸·다른 저장소의 칸·시험 서버의 칸에는 치지 않는다.
 ///
 /// **칸 이름표는 칸 사용자 옵션 `@moai` 다.** Claude Code 가 `pane_title` 을 제 화제로 덮어 써서 제목은 못 쓴다.
@@ -2741,15 +2775,17 @@ looking at.
   or `killall` aimed at tmux — one bare `kill-server` once took down every session the
   person had (hook rule 4, and the person's own guard hook refuses it too). A worker that
   is done stays open; closing a pane is the person's
-- **Only a worker's pane.** Type only into a pane found through the session map below for a
+- **Only a worker's pane.** Type only into a pane found through the session map below (or
+  the Codex process checks in "Codex workers") for a
   worker of this repository — never your own pane (`$TMUX_PANE`), never a session of another
   repository, never a test server's pane. Every call names its pane, `-t <pane>`, as `%N`
 - **Never over the person's words.** If a worker's input box holds anything, do not type into
   it — tell the person
 - **Never in their place.** A permission prompt or a question in a worker's pane is the
   person's to answer — you read it and tell them; you press no key
-- **No polling.** Every look below is one look. A second one comes after your next step, as
-  its own call — never a loop and never a `sleep`
+- **No pane polling.** Every look at a pane below is one look. A second one comes after your
+  next step, as its own call — never a loop and never a `sleep` for screen reads. The Codex
+  report monitor reads only this repository's tracker, as "Codex workers" says
 - **The person's tmux config file stays theirs.** What you set is on the running server
 
 ## Which pane is which worker
@@ -2899,6 +2935,98 @@ Once it has started (a separate call: `capture-pane` of the new pane shows the `
 at `ListAgents` once more. The new row is a worker like any other (the supervisor's 2) — send
 to it as in 3. If it does not show yet, look once more after your next step; if a prompt
 stands in the new pane (trusting the folder, say), tell the person — it is theirs to answer.
+
+## Codex workers
+
+These are interactive Codex sessions, each in a pane, selected as `Worker: codex` — not
+Claude Code subagents. The supervisor remains Claude Code only. The Claude session map
+above is not a Codex registry: do not add Codex to `SESSIONS` or expect `ListAgents`,
+`SendMessage` or `notify_when_idle` to reach one. Use the epic notes for its reports.
+
+{CODEX_WORKER_RULES}
+
+### Find the Codex pane
+
+On the running server (`$TMUX`), read the panes once:
+
+    tmux list-panes -a -F '#{{pane_id}}<TAB>#{{pane_current_command}}<TAB>#{{pane_current_path}}<TAB>#{{pane_pid}}'
+
+Replace each `<TAB>` with a literal tab. A candidate's `pane_current_command` is `codex`,
+and its `pane_current_path` is `<root>` or a worktree named by `git worktree list`.
+Resolve path aliases before comparing (on macOS `/tmp` can be `/private/tmp`). A launcher
+can leave `pane_current_command` as `node` or a shell such as `zsh`; inspect the pane PID
+and two levels of its descendants with
+`ps -axo pid=,ppid=,args=` — under the pane's shell an npm install runs `node …/bin/codex`,
+which starts the native `codex` — and confirm one by the live PID rule below, not a process
+whose arguments merely mention Codex. If you cannot identify a live Codex
+process in that pane, do not type. Repeat this check just before each input — an exited
+Codex can leave its last frame over a shell. Never use another server's pane ids, your own
+`$TMUX_PANE`, or a pane outside this repository.
+
+### Read the Codex input box
+
+    tmux display -p -t <pane> '#{{pane_in_mode}}'
+    tmux capture-pane -p -e -t <pane>
+
+If the first line prints `1`, the person is in copy mode: the pane is theirs, so do not type.
+
+{CODEX_EMPTY_BOX}
+
+### Open a Codex worker
+
+When no idle Codex worker is left, ask the person **once** whether to open new panes and
+how many. Open one only on their yes, or when they asked for it. On a yes:
+
+    tmux split-window -P -F '#{{pane_id}}' -t "$TMUX_PANE" -c <root> 'codex --model <codex>; exec bash'
+    tmux select-layout -t "$TMUX_PANE" tiled
+
+The first line prints the new pane id. This is an ordinary interactive session; `exec bash`
+keeps its final screen readable after Codex exits. Read the new pane separately and confirm
+the live process and empty composer above. Folder trust and hook trust prompts belong to
+the person; tell them what the pane shows. Do not assume cmux's wrapper enabled or trusted
+hooks here. The person checks moai in `/hooks`; the worker keeps the five rules even when
+no hook stands.
+
+### Clear a reported Codex worker
+
+Clear only after its report passed the supervisor's checks and `Report-checked:` is
+written, its work has stopped, and its live Codex process and empty input box are confirmed.
+Use `/new`, with text and Enter in separate calls:
+
+    tmux send-keys -t <pane> /new
+    tmux capture-pane -p -e -t <pane>
+    tmux send-keys -t <pane> Enter
+    tmux capture-pane -p -e -t <pane>
+
+Each look is a separate call. The survey found that `/new` and Enter sent together left
+`/new` in the composer. Do not send a fixed number of Enters blindly. If the screen asks
+`Where should the new conversation run?`, read the selection and tell the person which
+pane asks. Even when `Use current Git worktree` is selected, the person handles that menu.
+Read the pane after they choose; confirm the old conversation is gone, the cwd is the same,
+and the fresh composer is empty before sending work. Never choose a new worktree yourself.
+An unexpected menu, question or permission prompt belongs to the person. If `/new` remains
+typed or the result is unclear, stop and tell them — a later Enter could erase the next work.
+
+### Paste the assignment
+
+Codex has no `SendMessage` delivery: paste the assignment directly, only after rechecking
+the live process and empty input box. A message held for the person's approval is still
+held; pasting it would skip their gate. Use the supervisor's `message()` assignment fields,
+with `<codex>` as the model in `Model:` (not a Claude model), plus `Worker: codex`. Write
+the whole assignment in a scratchpad file, ending with `from: <your ListAgents name>`. Its first line names the absolute path of
+`references/worker-codex.md` beside `worker.md` in `moai-supervise` as the steps file.
+Use the same block transport as "When a message does not arrive":
+
+    tmux load-buffer -b moai-send <file>
+    tmux paste-buffer -p -d -b moai-send -t <pane>
+    tmux send-keys -t <pane> Enter
+
+Run each line separately: bracketed paste preserves the multiline assignment, and the
+separate Enter submits it once. It also appends to an existing draft, so the empty check
+is essential. Tell the person which pane received the assignment. "Label the pane" above
+applies unchanged: set `@moai` on this `%N`, and ask before showing labels on borders.
+
+{REPORT_WATCH}
 "#
     )
 }
@@ -3195,6 +3323,106 @@ note that the session last asked the person something — a permission prompt, a
 it can stay `true` after an API error or an interrupt. None of these is a box to type into, and
 neither is an error or an answer without `state`."#;
 
+/// Codex 보고만 트래커에서 기다린다. 두 손(cmux·tmux)이 같은 스크립트를 싣는다(moai-uzhx.yv8).
+pub const REPORT_WATCH: &str = r#"### Watch the epic for the Codex report
+
+Use one `Monitor` per epic, on the supervisor's side only:
+`Monitor(description: "codex report on <epic>", timeout_ms: 1800000, command: <script below>)`.
+Save the script in the scratchpad; the command is `bash <script> <root> <epic> <last-seen-ts>`.
+Before pasting the assignment, read `moai -C <root> show <epic> --json` once and save the
+latest `journal[].ts` as `<last-seen-ts>` (an empty journal uses `1970-01-01T00:00:00Z`).
+Arm the monitor with that cursor so a quick report cannot arrive between send and baseline.
+A backlog sent `from step 1` has no epic yet: watch that backlog id in `<epic>`'s place.
+Codex writes `Unfolded: <epic>` on it right after unfolding, which ends that watch; arm the
+next one on the epic it names with `1970-01-01T00:00:00Z` — every note on a new epic is new.
+
+```sh
+python3 - "$1" "$2" "$3" <<'MOAI_CODEX_WATCH'
+import datetime, json, subprocess, sys, time
+root, epic, cursor = sys.argv[1:]
+def stamp(ts):
+    return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+heads = ("report:", "Review-ready:", "Unfolded:", "Decision needed:")
+ends = ("report:", "Review-ready:", "Unfolded:")
+asks = "진행 중 결정이 필요합니다"
+try:
+    # Stamps are whole seconds: a line in the cursor's second is new only if not seen yet.
+    # Before any newer line, that second is the baseline the cursor was read from.
+    since, seen = stamp(cursor), None
+    while True:
+        result = subprocess.run(["moai", "-C", root, "show", epic, "--json"],
+                                capture_output=True, text=True)
+        if result.returncode:
+            print(f"{epic}\t{cursor}\tshow failed ({result.returncode}): "
+                  + (result.stderr or result.stdout).strip().replace("\n", " "), flush=True)
+            sys.exit(1)
+        row = json.loads(result.stdout)
+        if row.get("journal_error"):
+            raise ValueError("journal_error: " + json.dumps(row["journal_error"]))
+        finished = False
+        for note in row["journal"]:
+            at, key = stamp(note["ts"]), json.dumps(note, sort_keys=True)
+            if at < since or (at == since and (seen is None or key in seen)):
+                continue
+            if at > since:
+                since, cursor, seen = at, note["ts"], set()
+            seen.add(key)
+            if note["kind"] != "note":
+                continue
+            lines = (note.get("text") or "").splitlines()
+            head = lines[0] if lines else ""
+            if head.startswith(heads) or asks in head:
+                print(f"{epic}\t{note['ts']}\t{head}", flush=True)
+                finished = finished or head.startswith(ends)
+        if finished:
+            sys.exit(0)
+        time.sleep(30)
+except (OSError, ValueError, KeyError, TypeError) as error:
+    print(f"{epic}\t{cursor}\twatch failed: {error}", flush=True)
+    sys.exit(1)
+MOAI_CODEX_WATCH
+```
+
+This reads our own tracker every 30 seconds; session discovery can knock on other sessions.
+It watches `journal` entries with `kind=note`, `text` and `ts`, not history or notes keys.
+`Review-ready:` asks for the supervisor's review; decision heads ask for the person. Read the
+whole note with `moai show <epic>` and act on it. A failed read is an alert, never success.
+When the monitor says `expired` after 30 minutes, re-arm it from the last processed timestamp;
+keep that cursor, not a new baseline that could skip a report written at expiry. Duplicate
+alerts after re-arming are harmless: check the note and its timestamp before acting again.
+`Unfolded:`, `Review-ready:` and `report:` each end this watch. After the review, paste "merge
+and close — review <id> done" and re-arm for the final report from the `Review-ready:`
+timestamp. A decision head (`Decision needed:`, or `진행 중 결정이 필요합니다` anywhere in the
+first line) keeps it running. For the final report use the supervisor's
+5 and write `Report-checked:` only after its checks. This watch never runs on the Claude
+session path, which already has `notify_when_idle` and report messages."#;
+
+/// 화면을 읽은 뒤의 Codex 입력창 잣대 — 읽는 명령은 각 손이 앞에 둔다(moai-uzhx.yv8).
+pub const CODEX_EMPTY_BOX: &str = r#"The lowest current composer starts with `›` (U+203A) and an ordinary space (U+0020).
+Its empty placeholder is `Ask Codex to do anything`. A past user message also starts with
+`›`: read the bottom input area, not any matching line in the conversation.
+
+The placeholder alone is not an idle box. During a response it can remain visible beside
+`Working` and a spinner; a past `Worked for …` is different. Do not type while a current
+response, draft (including continued lines), approval prompt, unanswered question, slash
+menu or work directory menu is visible. A cropped or contradictory screen is the person's:
+do not type; tell them which tab or pane and what could not be read.
+
+Codex is absent from the Claude session map. Just before typing, re-read the process list
+and check a live Codex PID: use cmux top's `cmux_process_pids`, or tmux's `pane_pid` and
+its process tree, with `ps -p <pid> -o args=`. Check the first executable's basename is
+`codex`; a truncated `comm` or a child such as `codex-code-mode-host` is not that proof, nor
+is an npm install's `node …/bin/codex` launcher — the native `codex` it starts is.
+Require that PID, a clear empty composer and the completed report checked by the supervisor
+(or a fresh startup screen before its first assignment) together. A shell under a dead
+Codex's old composer is not a box to send work into.
+
+cmux's `surface.input_state` can partly recognize Codex drafts and dialogs, and guards can
+refuse a paste. They can also leave stale lifecycle values, miss questions or menus, or read
+`empty` while Codex is working. Do not use that state as the Codex idle test and do not rely
+on a paste refusal to protect a draft: a fresh unregistered agent can accept text over it.
+If any check is unclear or any input is refused, do not type again; ask the person."#;
+
 /// 선택 스킬 `moai-cmux` 의 SKILL.md — cmux 안에서 도는 감독의 손이다(2026-10-10 사용자 결정, moai-p5sz). `moai-tmux`
 /// ([`tmux`])의 cmux 짝이라 그 글과 결정을 그대로 옮긴다 — 칸을 비우고, 닿지 않은 메시지를 붙이고, 사람이 그러라고 한
 /// 뒤에 새 일꾼 칸을 연다. 바이너리는 아무것도 띄우거나 몰지 않고(새 명령이 없다), 헤드리스·`-p`·`--dangerously-*`·
@@ -3286,8 +3514,9 @@ nothing about the version: tell the person what it said, and go on as if this sk
 - **Never `--force`.** cmux refuses to type into a Claude Code box that holds someone's words or a
   dialog — but only for a session its own Claude hook knows, which is why you read the box
   yourself first — and `--force` skips that refusal. A refusal is an answer — tell the person
-- **Only a worker's surface.** Type only into a surface found through the session map below for
-  a worker of this repository — never your own (`$CMUX_SURFACE_ID`), never a session of another
+- **Only a worker's surface.** Type only into a surface found through the session map below,
+  or the Codex process check in "Codex workers", for this repository — never your own
+  (`$CMUX_SURFACE_ID`), never a session of another
   repository. Every call names its surface by UUID, `--surface <surface>`: left out, cmux types
   into your own tab, and a `surface:N` name is handed out as asked for and does not outlive a
   restart
@@ -3297,8 +3526,9 @@ nothing about the version: tell the person what it said, and go on as if this sk
   it — tell the person
 - **Never in their place.** A permission prompt or a question in a worker's tab is the
   person's to answer — you read it and tell them; you press no key
-- **No polling.** Every look below is one look. A second one comes after your next step, as
+- **No polling of screens or sessions.** Every look below is one look. A second one comes after your next step, as
   its own call — never a loop, never a `sleep`, never `wait-for`
+  (the Codex epic-note monitor below reads the tracker only)
 - **The person's cmux settings stay theirs.** No `reload-config`, `themes`, `set-hook` or
   `bind-key`
 
@@ -3467,6 +3697,137 @@ surface), look at `ListAgents` once more. The new row is a worker like any other
 supervisor's 2) — send to it as in 3. If it does not show yet, look once more after your next
 step; if a prompt stands in the new tab (trusting the folder, say), tell the person — it is
 theirs to answer.
+
+## Codex workers
+
+A Codex worker is an interactive session in a tab, not a Claude review subagent. Use this
+path when the assignment says `Worker: codex`. The Claude session map above has no Codex
+records: do not add them to it or try to resume them through `moai-recover`.
+
+{CODEX_WORKER_RULES}
+
+### Find the Codex surface
+
+Read `cmux --json --id-format both top --all` once. For each surface's `cmux_process_pids`,
+check `ps -p <pid> -o args=`: the first executable's basename must be `codex`, including a
+full path ending in `/codex`. `comm` can be truncated; host processes and temporary children
+are not the Codex session. This script prints `surface<TAB>pid<TAB>cwd` for candidates.
+Save it in the scratchpad and run `bash <script> <root>`:
+
+```sh
+python3 - "$1" <<'MOAI_CODEX_SURFACES'
+import collections, json, os, pathlib, shlex, subprocess, sys
+def output(*args):
+    return subprocess.check_output(args, text=True).strip()
+try:
+    top = json.loads(output("cmux", "--json", "--id-format", "both", "top", "--all"))
+    root = os.path.realpath(sys.argv[1])
+    worktrees = output("git", "-C", root, "worktree", "list", "--porcelain", "-z")
+    allowed = {{root}} | {{os.path.realpath(x[9:]) for x in worktrees.split("\0") if x.startswith("worktree ")}}
+    surfaces = collections.defaultdict(set)
+    def walk(value):
+        if isinstance(value, dict):
+            if value.get("kind") == "surface":
+                for pid in value.get("cmux_process_pids") or []:
+                    surfaces[pid].add(value["id"])
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+    walk(top)
+    candidates = collections.defaultdict(list)
+    for pid, tabs in surfaces.items():
+        if len(tabs) != 1:
+            continue
+        try:
+            args = output("ps", "-p", str(pid), "-o", "args=")
+            try:
+                first = shlex.split(args)[0]
+            except (ValueError, IndexError):
+                first = args.split(" ")[0]
+            if pathlib.Path(first).name != "codex":
+                continue
+            if sys.platform.startswith("linux"):
+                cwd = os.path.realpath(f"/proc/{{pid}}/cwd")
+            else:
+                names = output("lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn").splitlines()
+                cwd = os.path.realpath(next(x[1:] for x in names if x.startswith("n")))
+            if cwd in allowed:
+                candidates[next(iter(tabs))].append((pid, cwd))
+        except (OSError, ValueError, StopIteration, subprocess.CalledProcessError):
+            continue
+    emitted = False
+    for surface, rows in candidates.items():
+        if len(rows) == 1:
+            pid, cwd = rows[0]
+            print(f"{{surface}}\t{{pid}}\t{{cwd}}")
+            emitted = True
+    if not emitted:
+        print("No verified Codex surface; do not type", file=sys.stderr)
+except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+    print(f"Codex surface check failed: {{error}}; do not type", file=sys.stderr)
+    sys.exit(1)
+MOAI_CODEX_SURFACES
+```
+
+Run from the supervisor's repository root. Only its root and paths named by `git worktree
+list` qualify; check the `cwd` column and skip your own surface. A missing, ambiguous or
+unreadable process is no candidate. A live PID says where Codex runs, not that it is idle.
+Re-run this check just before each input; never trust a tab title or an earlier PID.
+
+### Open a Codex worker
+
+Ask once before opening new tabs, as above. On a yes, open an ordinary interactive Codex:
+
+    cmux --id-format both new-split right --surface "$CMUX_SURFACE_ID" --command 'cd <root> && codex --model <codex>'
+
+Keep the returned surface UUID. The same split refusal rule applies: stop opening and tell
+the person. Read its startup screen in a separate call; folder trust, hooks trust and any
+permission prompt belong to the person. The first assignment can use a verified fresh box.
+
+### Is the Codex input box empty
+
+    cmux read-screen --surface <surface> --lines 40
+
+{CODEX_EMPTY_BOX}
+
+### Clear the Codex window
+
+Only after `Report-checked:` and a verified live Codex with an empty idle box, type the
+command text, without assuming a newline is Enter:
+
+    cmux send --surface <surface> -- '/new'
+
+Read the screen once, then send an explicit Enter in a separate call:
+
+    cmux read-screen --surface <surface> --lines 40
+    cmux send-key --surface <surface> enter
+    cmux read-screen --surface <surface> --lines 40
+
+Codex can ask `Where should the new conversation run?`. Whatever it selects —
+`Use current Git worktree` included — the person handles that menu; tell them which tab and why.
+Read again after they choose: require a fresh startup screen in the same cwd and an empty
+composer before assigning work. Never guess an Enter count or choose a new worktree.
+If a command remains typed, a screen is cropped, or cmux refuses any input, stop and tell
+the person. Do not resend the command or paste the work over it.
+
+### Paste the assignment
+
+Use the supervisor's `message()` assignment fields, with `<codex>` as the model in `Model:`
+(not a Claude model), plus `Worker: codex`. Replace the steps-file path in the first line with the **absolute** path
+to `references/worker-codex.md` beside the supervisor skill. The last line is
+`from: <supervisor name>`. Save the whole message in the scratchpad and paste only after
+the live PID, cwd and empty box checks. Use the same "Label the tab" rules above.
+
+    cmux paste --surface <surface> --submit - < <file>
+
+The lone `-` reads stdin. It submits the whole multiline block as one message. Guards can
+refuse a draft or dialog, but do not always protect a fresh Codex box; check it yourself.
+On refusal stop and tell the person. If paste succeeded but submission failed, the work
+is already in the box: do not paste again. Tell the person which tab holds it unsent.
+
+{REPORT_WATCH}
 "#
     )
 }
@@ -4427,6 +4788,107 @@ notes), then
 In a subagent, 7 raises the review on this prompt — copy it whole and fill every slot.
 
 {brief}
+"#
+    )
+}
+
+/// Codex 일꾼의 차이만 — Claude 걸음은 그대로 읽고, 보고와 리뷰의 길만 바꾼다(moai-uzhx.65h).
+pub fn worker_codex() -> String {
+    let review = make_review("--parent <epic>");
+    format!(
+        r#"# Codex worker steps
+
+Read `worker.md` first — it stands beside this file, whose absolute path the assignment's
+first line names. Follow its assignment and step numbers; this file changes only the rows below.
+You are Codex, a session in a tab or pane. The person watching this window comes first.
+The supervisor skill remains Claude Code only; reading this file does not install it here.
+
+| Instead of (worker.md) | Do this here |
+|---|---|
+| `EnterWorktree(path)` | Work in the worktree's absolute path on every command call (`workdir` or `cd`). |
+| `ExitWorktree(keep)` | Return to the assignment's `Root:` absolute path on every root command call. |
+| `AskUserQuestion` | Ask this window's person with the available question tool; otherwise ask in conversation and wait. |
+| `/code-review` (7) | Send the review readiness note below and wait for the supervisor's review. |
+| `TaskStop` | No equivalent step here; the supervisor manages its review subagent. |
+| `SendMessage(to: <supervisor>, …)` | Write an epic note and commit the tracker in the root, as below. |
+| `/clear` | The person or supervisor sends `/new`, then handles the work directory menu. |
+
+`/model` exists in Codex too. The person changes the model; use the assignment's `Model:`
+as the suggestion, and record the model that actually ran. Do not change it yourself.
+`Model:` names the Codex model (`[models] codex`); worker.md's Claude models and their ladder
+do not apply here — when the work reads harder than its difficulty, say so in 9-1's reason.
+A question tool can depend on the mode: use `request_user_input_async` when available,
+or `request_user_input` in Plan mode; without either, ask in conversation and wait.
+One call's `cd` may not persist into the next: always supply the absolute command directory.
+
+## Step 1: name the epic you unfolded
+
+A backlog has no epic for the supervisor to watch until you unfold it. Right after the
+promote in 1, before 2's commit, name the epic on the backlog `<id>` you were handed:
+
+    moai -C <root> note <id> 'Unfolded: <epic>'
+
+Until it is written, a note the steps below put on the epic goes on that backlog instead.
+
+## Steps 2–6
+
+Keep worker.md's pick-up, worktree, design questions, root tracker, test server and file
+ownership rules (2, 3, 4, 4-1, 4-2, 4-3, 5, 6). Never set `MOAI_HERE`.
+The root branch check and path-only tracker commits apply here too. Return to `Root:`
+before `git symbolic-ref -q HEAD`, `git status -- .moai/` and each root tracker commit.
+The assignment's base branch is where the worktree splits and eventually merges.
+Hooks may be words only here: keep the five yourself. The person trusts moai in `/hooks`;
+check that screen rather than assuming a wrapper or another installation enabled them.
+
+## Step 7: hand the review to the supervisor
+
+When the members are finished, pull the base branch as in 6, test and commit in the worktree.
+Create the review issue using the shared command, called with `moai -C <root>` (4-1):
+
+    {review}
+
+Fill the angle with the grade, why, and "review by the supervisor's review subagent".
+Do not run the review yourself. Move each finished member to review, one id per call:
+
+    {TO_REVIEW}
+
+Keep worker.md's handling of missing review columns and members left in todo.
+Record the worktree absolute path, branch, `git merge-base <base branch> HEAD` hash and
+review issue id in a note whose first line is `Review-ready: <epic>`:
+
+```sh
+moai -C <root> note <epic> -b - <<'CODEX_REVIEW'
+Review-ready: <epic>
+- Worktree: <absolute path>; branch: <branch>; merge-base: <hash>
+- Review issue: <review id>; tested: <checks and results>
+CODEX_REVIEW
+```
+
+Return to the root, check its branch and tracker diff, then commit only `.moai/`.
+Stop until the supervisor pastes "merge and close — review <id> done"; its reviewer used
+"The review brief" in `references/worker.md` and its review model in this worktree. Then finish 7 as worker.md says — the
+review's fixes stand uncommitted in the worktree: take them in as a separate `fix:` commit
+and note what you hand on with the issue id — and go on with 7-1 to 11, and 12 below.
+
+## Step 9-1: name the model that did the work
+
+Use the actual OpenAI model name from the assignment's `Model:`; correct it if different.
+The person's decision here is to omit token counts. Leave one line per finished member:
+
+    moai note <member> 'model: openai/<model> (<difficulty> — <why>)'
+
+Do not write the review issue's model line: the supervisor's reviewer writes its own.
+
+## Step 12: report by epic note
+
+Put worker.md's final report details in `moai note <epic> -b -`, called with
+`moai -C <root>` from the worktree. Its first line is `report: <epic>`.
+Return to the root, check its branch and tracker diff, and commit only `.moai/`.
+For a decision needed during work, use the same note-and-commit path, starting with
+`Decision needed:` or `진행 중 결정이 필요합니다`, and ask this window's person too.
+The supervisor watches these notes; a note does not grant permission for a decision.
+When the report is complete, tell the person here they may clear this window with `/new`.
+Do not clear it yourself; directory menus and permission prompts belong to the person.
 "#
     )
 }
@@ -5929,6 +6391,17 @@ stop sending outside work while a release runs",
     /// 아니었다. 파서는 옛 줄의 `tokens=` 를 그대로 읽는다(읽기는 관대하게) — 그 줄도 여기서 한 번 잰다.
     #[test]
     fn the_taught_model_line_is_the_one_the_parser_reads() {
+        // Codex 는 사람의 결정대로 토큰을 쓰지 않는다(moai-uzhx.65h).
+        let codex = worker_codex();
+        let line =
+            codex.lines().map(str::trim).find(|l| l.starts_with("moai note ") && l.contains("'model: ")).unwrap();
+        let said = &line[line.find("'model: ").unwrap() + 1..line.rfind('\'').unwrap()];
+        let filled =
+            said.replace("<model>", "gpt-6.1-sol").replace("<difficulty>", "high").replace("<why>", "several files");
+        let work = crate::model::parse_work(&filled).expect("Codex 의 모델 줄을 못 읽는다");
+        assert_eq!(work.provider.as_deref(), Some("openai"));
+        assert_eq!(work.tokens, None);
+        assert_eq!((work.grade.as_deref(), work.why.as_deref()), (Some("high"), Some("several files")));
         let texts = [("브리프 9-1", worker()), ("AGENTS 블록", agents()), ("스킬 참고 문서", reference())];
         for (whose, text) in &texts {
             let line = text
@@ -6500,6 +6973,133 @@ stop sending outside work while a release runs",
         }
     }
 
+    #[test]
+    fn codex_worker_changes_the_claude_steps_without_repeating_them() {
+        let text = worker_codex();
+        assert!((60..=100).contains(&text.lines().count()), "차이 글이 짧은 참고 파일의 길이를 벗어났다");
+        for word in
+            ["EnterWorktree", "ExitWorktree", "AskUserQuestion", "/code-review", "TaskStop", "SendMessage(", "/clear"]
+        {
+            let lines: Vec<_> = text.lines().filter(|l| l.contains(word)).collect();
+            assert_eq!(lines.len(), 1, "Claude 낱말이 표 밖에도 섰다 — {word}");
+            let columns: Vec<_> = lines[0].split('|').collect();
+            assert!(columns[1].contains(word) && !columns[2].contains(word), "대체 동작에 Claude 낱말이 섰다 — {word}");
+        }
+        for part in [
+            "`worker.md`",
+            "Review-ready:",
+            "report:",
+            "moai note <epic> -b -",
+            "/new",
+            "Root:",
+            "request_user_input_async",
+            "keep the five yourself",
+            "review by the supervisor's review subagent",
+            TO_REVIEW,
+            // 감독은 에픽이 서기 전에 받은 backlog 를 지켜본다 — 펼친 에픽을 거기 적어야 보고를 따라간다.
+            "moai -C <root> note <id> 'Unfolded: <epic>'",
+            // 리뷰가 남긴 고침은 커밋되지 않았다 — 8 로 건너뛰면 병합에서 빠지고 7-1~7-4 가 안 돈다.
+            "take them in as a separate `fix:` commit",
+            "go on with 7-1 to 11",
+        ] {
+            assert!(text.contains(part), "Codex 차이 글에 없다 — {part}");
+        }
+        assert!(!text.contains("Resume 8"), "리뷰 뒤에 7 의 끝과 7-1~7-4 를 건너뛴다");
+        assert!(text.contains(&make_review("--parent <epic>")));
+        assert!(!text.contains("tokens="), "사람이 걷은 토큰 항목이 남았다");
+        assert!(!text.contains("gpt-"), "모델 이름을 구웠다");
+        assert!(text.contains("`/model` exists") && text.contains("Return to the assignment's `Root:`"));
+    }
+
+    #[test]
+    fn codex_report_watch_reads_the_actual_journal_and_is_valid_shell() {
+        for part in [
+            "Monitor(",
+            "timeout_ms: 1800000",
+            "moai -C <root> show <epic> --json",
+            "report:",
+            "Review-ready:",
+            "Decision needed:",
+            "진행 중 결정이 필요합니다",
+            "row[\"journal\"]",
+            "note[\"kind\"]",
+            "note.get(\"text\")",
+            "note[\"ts\"]",
+            "journal_error",
+            "time.sleep(30)",
+            "sys.exit(1)",
+        ] {
+            assert!(REPORT_WATCH.contains(part), "보고 기다리기에 없다 — {part}");
+        }
+        assert!(!REPORT_WATCH.contains("ListAgents"), "보고를 세션 훑기로 기다린다");
+        let script = REPORT_WATCH.split("```sh\n").nth(1).unwrap().split("```").next().unwrap();
+        let out = std::process::Command::new("bash").args(["-n", "-c", script]).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    }
+
+    /// **보고 기다리기의 파이썬을 실제로 돌린다** — `bash -n` 은 heredoc 안의 파이썬을 안 읽는다. 가짜 `moai` 가 낸
+    /// 저널에서 커서의 초에 선 옛 `report:` 는 건너뛰고(기준선), `<id> 진행 중 …` 꼴의 결정 물음은 집고, 새 `report:` 에서
+    /// 끝난다. 30초 잠은 첫 읽기에 끝나니 안 든다.
+    #[cfg(unix)]
+    #[test]
+    fn codex_report_watch_skips_the_baseline_and_ends_on_a_report() {
+        use std::os::unix::fs::PermissionsExt;
+        if std::process::Command::new("python3").arg("-c").arg("pass").output().is_err() {
+            return; // python3 가 없는 기계 — 글만 잰다.
+        }
+        let s = crate::scratch::Scratch::new("codex-watch");
+        let bin = s.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        let note =
+            |ts: &str, text: &str| serde_json::json!({"ts": ts, "id": "e", "kind": "note", "by": "x", "text": text});
+        let row = serde_json::json!({"id": "e", "journal": [
+            note("2026-10-12T00:00:00Z", "report: e (an earlier round)"),
+            {"ts": "2026-10-12T00:00:05Z", "id": "e", "kind": "status", "by": "x", "from": "todo", "to": "done"},
+            note("2026-10-12T00:00:05Z", "e 진행 중 결정이 필요합니다.\n- 상황: …"),
+            note("2026-10-12T00:00:06Z", "Next: none"),
+            note("2026-10-12T00:00:07Z", "report: e\n- merged"),
+        ]});
+        let shown = s.path().join("show.json");
+        std::fs::write(&shown, row.to_string()).unwrap();
+        let fake = bin.join("moai");
+        std::fs::write(&fake, format!("#!/bin/sh\ncat '{}'\n", shown.display())).unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let script = REPORT_WATCH.split("```sh\n").nth(1).unwrap().split("```").next().unwrap();
+        let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
+        let out = std::process::Command::new("bash")
+            .args(["-c", script, "watch", "/root", "e", "2026-10-12T00:00:00Z"])
+            .env("PATH", path)
+            .output()
+            .unwrap();
+        let said = String::from_utf8_lossy(&out.stdout);
+        assert!(out.status.success(), "{said}{}", String::from_utf8_lossy(&out.stderr));
+        let heads: Vec<_> = said.lines().map(|l| l.split('\t').nth(2).unwrap_or(l)).collect();
+        assert_eq!(heads, ["e 진행 중 결정이 필요합니다.", "report: e"]);
+    }
+
+    #[test]
+    fn codex_empty_box_requires_liveness_and_a_finished_response() {
+        for part in [
+            "U+203A",
+            "U+0020",
+            "Ask Codex to do anything",
+            "Working",
+            "Worked for",
+            "draft",
+            "approval",
+            "unanswered question",
+            "work directory menu",
+            "cmux_process_pids",
+            "pane_pid",
+            "-o args=",
+            "completed report",
+            "do not type",
+        ] {
+            assert!(CODEX_EMPTY_BOX.contains(part), "Codex 빈 칸 잣대에 없다 — {part}");
+        }
+        assert!(!CODEX_EMPTY_BOX.contains("--force"));
+    }
+
     /// **표는 두 스킬에 같은 글로 서고, 규칙 3 이 그것을 가리킨다**(사용자 결정 2026-10-04). 규칙 3 은 AGENTS 블록에도
     /// 서는데 그 블록은 세 에이전트가 다 읽는다 — `/code-review` 하나만 대던 판은 Codex 창에 없는 명령을 시켰다. 가리키는
     /// 절 이름과 표의 머리가 갈리면 가리킨 자리가 없다.
@@ -6993,8 +7593,8 @@ stop sending outside work while a release runs",
         }
     }
 
-    /// 글이 가르치는 `tmux` 줄을 세며 하나하나 잰다 — 칸을 `-t` 로 겨누거나, 칸을 안 건드리는 넷(설정 읽기 `show`·
-    /// 테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer`) 중 하나이고, `kill-*` 이 아니고, 하위 명령 앞에 서버를 고르는
+    /// 글이 가르치는 `tmux` 줄을 세며 하나하나 잰다 — 칸을 `-t` 로 겨누거나, 칸을 안 건드리는 읽기(`show`·`list-panes`)·
+    /// 테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer` 중 하나이고, `kill-*` 이 아니고, 하위 명령 앞에 서버를 고르는
     /// 깃발이 없다. `moai-tmux` 와 `moai-recover` 가 같은 잣대로 잰다 — 둘 다 사람의 tmux 서버에 친다.
     fn tmux_calls(text: &str) -> usize {
         let mut calls = 0;
@@ -7006,7 +7606,7 @@ stop sending outside work while a release runs",
                 calls += 1;
                 let words: Vec<&str> = cmd.split_whitespace().collect();
                 assert!(!words[1].starts_with("kill"), "tmux 스킬이 kill 을 가르친다 — {cmd}");
-                let free = matches!(words[1], "show" | "load-buffer")
+                let free = matches!(words[1], "show" | "load-buffer" | "list-panes")
                     || (words[1] == "set" && words.get(3).is_some_and(|w| w.starts_with("pane-border-")));
                 assert!(free || words.contains(&"-t"), "칸을 안 겨눈 tmux 줄 — {cmd}");
                 // 하위 명령 앞의 깃발(`-L`·`-S`)이 서버를 고른다 — 뒤의 `-S` 는 `capture-pane` 의 시작 줄이다.
@@ -7209,6 +7809,58 @@ stop sending outside work while a release runs",
         assert!(named >= 5, "감독 글이 cmux 스킬의 절을 다 안 댄다 — {named}");
     }
 
+    #[test]
+    fn cmux_codex_workers_carry_the_shared_checks_and_actual_delivery_steps() {
+        let text = cmux();
+        let codex = section(&text, "## Codex workers");
+        assert!(codex.contains(CODEX_EMPTY_BOX) && codex.contains(REPORT_WATCH));
+        assert!(codex.contains(CODEX_WORKER_RULES), "Codex 모델·리뷰 규약이 공용 글과 다르다");
+        assert!(worker().contains("## The review brief\n"), "Codex가 가리키는 리뷰 브리프가 없다");
+        for part in [
+            "codex --model <codex>",
+            "moai models --json",
+            "WebSearch",
+            "-o args=",
+            "\"cmux_process_pids\"",
+            "\"lsof\"",
+            "Worker: codex",
+            "references/worker-codex.md",
+            "from: <supervisor name>",
+            "cmux paste --surface <surface> --submit - < <file>",
+            "cmux send --surface <surface> -- '/new'",
+            "cmux send-key --surface <surface> enter",
+            "Use current Git worktree",
+            "the person handles that menu",
+            "The review brief",
+            "Report-checked:",
+        ] {
+            assert!(codex.contains(part), "Codex cmux 걸음에 없다 — {part}");
+        }
+        for line in codex.lines().filter(|l| l.contains("gpt-")) {
+            assert_eq!(line, "the person under `[models] codex`. Default example: `gpt-6.1-sol`.");
+        }
+        assert!(!codex.contains("/clear"));
+        assert!(!codex.contains(SESSIONS), "Codex 를 Claude 세션 짝에 넣었다");
+        assert!(cmux_calls(codex) >= 8, "Codex 절의 cmux 명령을 못 셌다");
+        let script = codex.split("```sh\n").nth(1).unwrap().split("```").next().unwrap();
+        let out = std::process::Command::new("bash").args(["-n", "-c", script]).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        // `bash -n` 은 heredoc 안을 안 읽는다 — `format!` 의 `{{`·`}}` 하나가 어긋나면 파이썬만 깨진다.
+        let python =
+            script.split_once("<<'MOAI_CODEX_SURFACES'\n").unwrap().1.split("MOAI_CODEX_SURFACES").next().unwrap();
+        assert!(python.contains("\"git\", \"-C\", root"), "워크트리 목록을 부른 자리에서 읽는다");
+        let parse = std::process::Command::new("python3")
+            .args(["-c", "import ast, sys; ast.parse(sys.argv[1])", python])
+            .output();
+        if let Ok(out) = parse {
+            assert!(
+                out.status.success(),
+                "Codex 탭 찾기의 파이썬이 안 읽힌다: {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+        }
+    }
+
     /// `text` 에서 `heading` 줄부터 다음 `## ` 절 앞까지 — 없으면 붉다.
     fn section<'a>(text: &'a str, heading: &str) -> &'a str {
         let at = text.find(&format!("{heading}\n")).unwrap_or_else(|| panic!("{heading} 절이 없다"));
@@ -7218,7 +7870,7 @@ stop sending outside work while a release runs",
 
     /// **`moai-tmux` 는 이름 댄 칸만 만진다**(2026-10-10 사용자 결정, moai-u99i). 사람의 tmux 서버라 맨 `kill-server` 하나가
     /// 그 사람의 세션을 다 죽인다(2026-09-18). 그래서 `tmux` 를 부르는 줄은 모두 칸을 `-t` 로 겨누거나, 칸을 안 건드리는
-    /// 넷(설정 읽기 `show`·테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer`) 중 하나다. `kill-*` 은 하지 말라는 줄에만
+    /// 읽기(`show`·`list-panes`)·테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer` 중 하나다. `kill-*` 은 하지 말라는 줄에만
     /// 선다. 칸을 열 때 `claude` 에 붙는 깃발은 `--model` 하나다 — `-p`·`--dangerously-*`·권한 모드가 서면 헤드리스가 된다.
     /// 치기 전의 잣대(빈 입력 칸)와 열기 전에 묻기도 글로 선다.
     #[test]
@@ -7301,6 +7953,59 @@ stop sending outside work while a release runs",
         ] {
             assert!(supervise.contains(line), "감독의 {step} 에 tmux 갈래가 없다");
         }
+    }
+
+    #[test]
+    fn the_tmux_codex_workers_use_panes_and_epic_reports() {
+        let text = tmux();
+        let codex = section(&text, "## Codex workers");
+        assert!(codex.contains(CODEX_EMPTY_BOX), "Codex 입력창 잣대가 공용 글과 다르다");
+        assert!(codex.contains(REPORT_WATCH), "Codex 보고 기다리기가 공용 글과 다르다");
+        assert!(codex.contains(CODEX_WORKER_RULES), "Codex 모델·리뷰 규약이 공용 글과 다르다");
+        assert!(worker().contains("## The review brief\n"), "Codex가 가리키는 리뷰 브리프가 없다");
+        for part in [
+            "moai models --json",
+            "WebSearch",
+            "The review brief",
+            "tmux list-panes -a -F '#{pane_id}<TAB>#{pane_current_command}<TAB>#{pane_current_path}<TAB>#{pane_pid}'",
+            "`pane_current_command` is `codex`",
+            "`pane_current_path` is `<root>`",
+            "`ps -axo pid=,ppid=,args=`",
+            "two levels of its descendants",
+            "`node …/bin/codex`",
+            "a shell such as `zsh`",
+            "Repeat this check just before each input",
+            "`$TMUX_PANE`",
+            "tmux display -p -t <pane> '#{pane_in_mode}'",
+            "tmux capture-pane -p -e -t <pane>",
+            "ask the person **once**",
+            "only on their yes",
+            "'codex --model <codex>; exec bash'",
+            "`Report-checked:`",
+            "tmux send-keys -t <pane> /new\n",
+            "text and Enter in separate calls",
+            "`Where should the new conversation run?`",
+            "`Use current Git worktree` is selected",
+            "the person handles that menu",
+            "Do not send a fixed number of Enters blindly",
+            "tmux load-buffer -b moai-send <file>",
+            "tmux paste-buffer -p -d -b moai-send -t <pane>",
+            "tmux send-keys -t <pane> Enter",
+            "from: <your ListAgents name>",
+            "references/worker-codex.md",
+            "Label the pane",
+            "`@moai`",
+            "Do not assume cmux's wrapper",
+        ] {
+            assert!(codex.contains(part), "tmux 의 Codex 절에 없다 — {part}");
+        }
+        for line in text.lines().filter(|line| line.contains("gpt-")) {
+            assert_eq!(line, "the person under `[models] codex`. Default example: `gpt-6.1-sol`.");
+        }
+        assert!(!codex.contains("/new Enter"), "Codex /new 와 Enter 를 한 호출에 친다");
+        assert!(tmux_calls(codex) >= 12, "새 Codex 절의 tmux 줄을 안 잰다");
+        let launches: Vec<_> = codex.lines().filter(|line| line.contains("'codex ")).collect();
+        assert_eq!(launches.len(), 1, "Codex 띄우는 줄이 하나가 아니다");
     }
 
     /// **되살리기는 Saycode 세션을 칸에서 되살리지 않고, `happy resume` 을 제가 치지 않는다**(moai-l244.nj6). 그 줄은
