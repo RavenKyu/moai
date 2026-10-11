@@ -473,7 +473,9 @@ When the supervisor runs inside a [cmux](https://github.com/manaflow-ai/cmux)
 tab (`$CMUX_SURFACE_ID` is set and `$TMUX` is not) and the `moai-cmux` skill is
 planted (`moai skill install --with moai-cmux`), it loads that skill and works on
 the workers' tabs of your cmux (moai-p5sz). Running tmux inside a cmux tab is
-tmux's case — what is typed there goes to tmux. **It needs cmux 0.65.0 or
+tmux's case — what is typed there goes to tmux; a supervisor started with
+`cmux claude-teams` is cmux's case all the same, since that launcher's `$TMUX`
+(`/tmp/cmux-…`) is cmux's own stand-in. **It needs cmux 0.65.0 or
 later**: the skill checks `cmux capabilities` once a round, and on an older cmux
 it tells you and goes on as if it were not there. Updating restarts cmux and
 every session in it, so when to update is yours.

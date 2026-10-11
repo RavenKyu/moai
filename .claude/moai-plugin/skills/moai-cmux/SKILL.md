@@ -6,8 +6,11 @@ description: Use in Claude Code together with moai-supervise when the supervisor
 # moai-cmux — the supervisor's hands on the workers' surfaces
 
 This is the supervisor's (`moai-supervise`) companion **when it runs inside cmux** —
-`CMUX_SURFACE_ID` is set in its shell and `$TMUX` is not. Inside tmux — tmux running in a cmux
-tab included — what you type goes to tmux: that is `moai-tmux`, and none of this applies.
+`CMUX_SURFACE_ID` is set in its shell and `$TMUX` is not. A `$TMUX` that starts with
+`/tmp/cmux-` counts as not set: it is cmux's own stand-in, which cmux's `claude-teams` sets for
+Claude Code's agent teams, and the `tmux` on that `PATH` is cmux in disguise — it passes
+`set-option` by and refuses `load-buffer`. Inside a real tmux — one running in a cmux tab
+included — what you type goes to tmux: that is `moai-tmux`, and none of this applies.
 Outside both tmux and cmux none of this applies either: the supervisor works through messages
 and the person alone. The cmux app here is **the person's own**: every workspace they have lives
 in it, and every surface you touch is a tab they are looking at.
@@ -98,6 +101,8 @@ def tty(pid):
     t = out("ps", "-p", str(pid), "-o", "tty=")
     return device("/dev/" + t) if t.strip("?") else 0
 mine = os.environ.get("TMUX")
+if mine and mine.startswith("/tmp/cmux-"):
+    mine = None
 cmux = not mine and bool(os.environ.get("CMUX_SURFACE_ID"))
 surfaces = {}
 def walk(o):

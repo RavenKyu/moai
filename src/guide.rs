@@ -1857,7 +1857,10 @@ outside tmux.
 **Inside cmux, load `moai-cmux` instead.** When `CMUX_SURFACE_ID` is set in your shell and
 `$TMUX` is not, `moai-cmux` gives you the same hands on the workers' cmux tabs, at the same
 five points, and reads the same session map. It needs cmux 0.65.0 or later and says so itself.
-When both are set you run in tmux inside a cmux tab — what you type goes to tmux, so it is
+**A `$TMUX` that starts with `/tmp/cmux-` is cmux's own stand-in**, not a tmux server —
+`cmux claude-teams` sets it for Claude Code's agent teams, and the `tmux` on its `PATH` is cmux
+in disguise — so with it you are inside cmux: `moai-cmux`. When both are set otherwise you run in
+tmux inside a cmux tab — what you type goes to tmux, so it is
 `moai-tmux`. **With neither, nothing of either applies.** `moai-cmux` is optional the same
 way (`moai skill install --with moai-cmux`); inside cmux without it, tell the person that one
 line plants it, and carry on as if outside cmux.
@@ -2307,6 +2310,13 @@ subject — that has actually happened. So in the root, supervisor and worker al
 /// - **tmux 가 이긴다** — tmux 를 cmux 안에서 돌리면 둘 다 서는데, 그 셸에서 친 것은 tmux 칸으로 가니 tmux 의 짝을
 ///   낸다. 거꾸로 cmux 쪽에서는 기록에 `tmux` 가 선 산 세션을 `-` 로 낸다 — tmux 서버가 cmux 안에서 섰다면 그
 ///   환경의 `CMUX_SURFACE_ID` 는 tmux 를 띄운 surface 의 것이라, 거기 치면 그 세션이 아니라 tmux 의 지금 칸에 간다
+/// - **`/tmp/cmux-` 로 여는 `$TMUX` 는 tmux 가 아니다**(사람 결정 2026-10-11, moai-xpa8.1vt) — `cmux claude-teams`
+///   (그리고 `omo`·`omx`·`omc`)가 Claude 의 agent teams 에 주는 가짜다(`/tmp/cmux-claude-teams/<워크스페이스>,<창>,<칸>`,
+///   v0.65.0 의 `configureTmuxCompatEnvironment`). 그 `PATH` 의 `tmux` 는 cmux 의 shim 이라 `set-option` 을 말없이
+///   받아넘기고 `load-buffer` 를 거절해, tmux 로 읽던 판은 감독이 일꾼 칸에 아무것도 못 했다. 그 값은 없는 것으로 보고
+///   cmux 갈래를 탄다. 진짜 tmux 의 소켓은 그 자리에 서지 않으니 잘못 읽을 길이 없고, cmux 가 그 꼴을 바꾸면 옛
+///   쓸모없는 쪽으로 돌아갈 뿐이다. 그렇게 띄운 일꾼의 기록에는 그 가짜에서 온 `tmux` 가 서서 아래 갈래로 `-` 다 —
+///   감독이 여는 일꾼은 맨 `claude` 라 거기 안 걸린다
 /// - **cmux 가 `top` 을 모르면 칸이 모두 `-` 다** — `top` 은 v0.64.0, `moai-cmux` 가 기대는 나머지는 v0.65.0 부터다.
 ///   판을 재는 것은 스킬의 몫이고(`moai-cmux` 의 첫 절), 짝은 모르는 판에서 아무 surface 도 대지 않는다. 답이 없으면
 ///   (옛 판, 닿지 않는 소켓, 샌드박스) stderr 에 한 줄을 남긴다 — 모든 칸의 `-` 가 "cmux 탭 밖" 이 아니라 "cmux 가 답하지
@@ -2353,6 +2363,8 @@ def tty(pid):
     t = out("ps", "-p", str(pid), "-o", "tty=")
     return device("/dev/" + t) if t.strip("?") else 0
 mine = os.environ.get("TMUX")
+if mine and mine.startswith("/tmp/cmux-"):
+    mine = None
 cmux = not mine and bool(os.environ.get("CMUX_SURFACE_ID"))
 surfaces = {}
 def walk(o):
@@ -2453,7 +2465,9 @@ description: Use in Claude Code together with moai-supervise when the supervisor
 
 This is the supervisor's (`moai-supervise`) companion **when it runs inside tmux** — `$TMUX`
 is set in its shell. Without `$TMUX` none of this applies: the supervisor works through
-messages and the person — or, inside cmux, through `moai-cmux`. The tmux server here is **the
+messages and the person — or, inside cmux, through `moai-cmux`. Nor does it apply when `$TMUX`
+starts with `/tmp/cmux-`: that is cmux's own stand-in (`cmux claude-teams` sets it), and its
+`tmux` is cmux in disguise — that is `moai-cmux`'s. The tmux server here is **the
 person's own**: every session they have lives on it, and every pane you touch is one they are
 looking at.
 
@@ -2660,7 +2674,8 @@ neither is an error or an answer without `state`."#;
 /// surface 를 믿고 이을 길이 없다(`tree` 의 tty 는 낡은 값이 섞이고, 프로세스 환경을 손수 읽는 것은 자동 모드가 막는다).
 ///
 /// **tmux 가 이긴다.** cmux 탭 안에서 tmux 를 돌리면 `$TMUX` 와 `CMUX_SURFACE_ID` 가 함께 서는데, 그 셸에서 친 것은 tmux
-/// 칸으로 간다 — 그때는 `moai-tmux` 이고 이 글은 서지 않는다. 짝([`SESSIONS`])도 같은 차례로 칸을 고른다.
+/// 칸으로 간다 — 그때는 `moai-tmux` 이고 이 글은 서지 않는다. 짝([`SESSIONS`])도 같은 차례로 칸을 고른다. 다만
+/// `/tmp/cmux-` 로 여는 `$TMUX` 는 cmux 가 세운 가짜라 cmux 다(moai-xpa8.1vt, 까닭은 [`SESSIONS`]).
 ///
 /// **surface 는 언제나 짝에서 찾은 UUID 로, `--surface` 를 붙여 겨눈다.** 빼면 cmux 가 `CMUX_SURFACE_ID`(감독 제 탭)에
 /// 친다. `surface:N` 은 cmux 가 물을 때마다 짓는 이름이라 다시 서면 안 남는다. 닫기(`close-*`)·`--force`·포커스 옮기기는
@@ -2702,8 +2717,11 @@ description: Use in Claude Code together with moai-supervise when the supervisor
 # moai-cmux — the supervisor's hands on the workers' surfaces
 
 This is the supervisor's (`moai-supervise`) companion **when it runs inside cmux** —
-`CMUX_SURFACE_ID` is set in its shell and `$TMUX` is not. Inside tmux — tmux running in a cmux
-tab included — what you type goes to tmux: that is `moai-tmux`, and none of this applies.
+`CMUX_SURFACE_ID` is set in its shell and `$TMUX` is not. A `$TMUX` that starts with
+`/tmp/cmux-` counts as not set: it is cmux's own stand-in, which cmux's `claude-teams` sets for
+Claude Code's agent teams, and the `tmux` on that `PATH` is cmux in disguise — it passes
+`set-option` by and refuses `load-buffer`. Inside a real tmux — one running in a cmux tab
+included — what you type goes to tmux: that is `moai-tmux`, and none of this applies.
 Outside both tmux and cmux none of this applies either: the supervisor works through messages
 and the person alone. The cmux app here is **the person's own**: every workspace they have lives
 in it, and every surface you touch is a tab they are looking at.
@@ -3089,7 +3107,8 @@ has to see the workers when it starts.
 
 ## 5. Inside tmux — open a pane each
 
-`$TMUX` is set in your shell. For each session, in that order:
+`$TMUX` is set in your shell and does not start with `/tmp/cmux-` (that one is cmux's stand-in —
+6 below). For each session, in that order:
 
     tmux split-window -P -F '#{{pane_id}}' -t "$TMUX_PANE" -c <cwd> 'claude --resume <sessionId>; exec bash'
     tmux select-layout -t "$TMUX_PANE" tiled
@@ -3108,7 +3127,8 @@ person which pane is which session.
 
 ## 6. Inside cmux — open a tab each
 
-`CMUX_SURFACE_ID` is set in your shell and `$TMUX` is not — and the cmux is 0.65.0 or later:
+`CMUX_SURFACE_ID` is set in your shell and `$TMUX` is not, or is cmux's stand-in
+(`/tmp/cmux-…`) — and the cmux is 0.65.0 or later:
 `cmux capabilities` lists `surface.input_state` in its `methods`. On an older cmux, tell the
 person that this way needs cmux 0.65.0, and go to 7; when it prints an error instead of a
 `methods` list, tell them what it said, and go to 7. For each session, in that order:
@@ -5789,6 +5809,11 @@ stop sending outside work while a release runs",
             "감독이 cmux 안에서 moai-cmux 를 안 읽는다"
         );
         assert!(head.contains("so it is\n`moai-tmux`"), "tmux 를 cmux 안에서 돌릴 때 tmux 가 이긴다는 말이 없다");
+        // `cmux claude-teams` 의 가짜 `$TMUX` 는 cmux 다(moai-xpa8.1vt).
+        assert!(
+            head.contains("**A `$TMUX` that starts with `/tmp/cmux-` is cmux's own stand-in**"),
+            "감독이 cmux 의 가짜 TMUX 를 tmux 로 읽는다"
+        );
     }
 
     /// **`ListAgents` 의 이름과 tmux 칸을 잇는 짝은 한 자리에 선다**(moai-u99i.xo8). 감독의 tmux 스킬이 그 상수를 그대로
@@ -5883,6 +5908,12 @@ stop sending outside work while a release runs",
             run_in(Some("/nonexistent/moai-other-server,1,0"), true),
             run(Some("/nonexistent/moai-other-server,1,0")),
             "tmux 안의 감독에게 cmux 의 surface 를 냈다"
+        );
+        // `cmux claude-teams` 가 세우는 가짜 `$TMUX` 는 tmux 가 아니다 — cmux 갈래를 탄다(moai-xpa8.1vt).
+        assert_eq!(
+            run_in(Some("/tmp/cmux-claude-teams/WS-UUID,WIN-UUID,6958867214691921188"), true),
+            run_in(None, true),
+            "cmux 의 가짜 TMUX 를 tmux 로 읽었다"
         );
         // 한 탭을 둘이 대면 둘 다 `-` 다 — 다리는 물려받은 환경뿐이라(cmux 탭 안의 zellij·screen) 그 탭에 친 것은 앞에 선
         // 세션 하나에만 간다. `bg` 기록은 띄운 세션의 탭을 물려받을 뿐 그 입력을 받지 않아 탭을 안 대고, 대는 쪽도 막지 않는다.
@@ -6104,8 +6135,13 @@ stop sending outside work while a release runs",
             "빈 입력 칸의 잣대가 그 탭의 세션이 살아 있는지 안 본다"
         );
         assert!(text.contains("**Then do not type. Tell the person"), "빈 입력 칸이 아닐 때 안 멈춘다");
-        // tmux 안이면 이 글이 안 선다 — 친 것이 tmux 로 간다.
+        // tmux 안이면 이 글이 안 선다 — 친 것이 tmux 로 간다. cmux 의 가짜 `$TMUX` 는 안 선 것으로 친다(moai-xpa8.1vt).
         assert!(text.contains("CMUX_SURFACE_ID` is set in its shell and `$TMUX` is not"), "tmux 가 이긴다는 말이 없다");
+        assert!(
+            text.contains("A `$TMUX` that starts with\n`/tmp/cmux-` counts as not set"),
+            "cmux 의 가짜 TMUX 를 tmux 로 읽는다"
+        );
+        assert!(tmux().contains("starts with `/tmp/cmux-`"), "tmux 스킬이 cmux 의 가짜 TMUX 를 제 것으로 읽는다");
         // 이름표는 탭 제목이라 사람이 보는 자리를 바꾼다 — 바퀴마다 묻고, 사람이 붙인 이름은 안 덮는다. 걷는 길은
         // `clear_name` 이다(빈 제목은 cmux 가 거절한다). 둘 다 `rpc tab.action` 이다 — CLI 낱말은 제 워크스페이스에 매인다.
         let label = section(&text, "## Label the tab");
@@ -6330,6 +6366,7 @@ stop sending outside work while a release runs",
         let outside = section(&text, "## 7. Outside tmux and cmux — say what to type");
         assert!(open.contains("paste-buffer -p -d -b moai-recover -t <pane>"), "여러 줄을 붙이기로 안 싣는다");
         assert!(outside.contains("open nothing"), "tmux·cmux 밖에서도 칸을 연다");
+        assert!(open.contains("does not start with `/tmp/cmux-`"), "되살리기가 cmux 의 가짜 TMUX 를 tmux 로 읽는다");
         // cmux 의 판은 제 글이 잰다 — `moai-cmux` 는 고른 사람에게만 서서 그 절을 대면 없는 글을 가리킨다.
         assert!(tabs.contains("`cmux capabilities` lists `surface.input_state`"), "되살리기가 cmux 의 판을 안 잰다");
         assert!(

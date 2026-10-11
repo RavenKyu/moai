@@ -27,6 +27,11 @@ does not tag — see `CONTRIBUTING.md`.
   hook line read as `moai` ending by itself. The hook line now turns `-e` off
   inside that substitution, so the notice that the five rules are not standing
   shows again. Reinstall with `moai skill install` to pick it up. (moai-xpa8.q9x)
+- **A supervisor started with `cmux claude-teams` had no hands on the workers.**
+  That launcher sets a stand-in `$TMUX` (`/tmp/cmux-…`) whose `tmux` is cmux in
+  disguise, so the supervisor took `moai-tmux`'s way, its labels went nowhere
+  and the session map found no pane. A `$TMUX` that starts with `/tmp/cmux-` now
+  counts as cmux, and the supervisor uses `moai-cmux`. (moai-xpa8.1vt)
 
 ## [0.14.0] - 2026-10-11
 

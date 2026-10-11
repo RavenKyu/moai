@@ -110,6 +110,8 @@ def tty(pid):
     t = out("ps", "-p", str(pid), "-o", "tty=")
     return device("/dev/" + t) if t.strip("?") else 0
 mine = os.environ.get("TMUX")
+if mine and mine.startswith("/tmp/cmux-"):
+    mine = None
 cmux = not mine and bool(os.environ.get("CMUX_SURFACE_ID"))
 surfaces = {}
 def walk(o):
@@ -247,7 +249,8 @@ has to see the workers when it starts.
 
 ## 5. Inside tmux — open a pane each
 
-`$TMUX` is set in your shell. For each session, in that order:
+`$TMUX` is set in your shell and does not start with `/tmp/cmux-` (that one is cmux's stand-in —
+6 below). For each session, in that order:
 
     tmux split-window -P -F '#{pane_id}' -t "$TMUX_PANE" -c <cwd> 'claude --resume <sessionId>; exec bash'
     tmux select-layout -t "$TMUX_PANE" tiled
@@ -266,7 +269,8 @@ person which pane is which session.
 
 ## 6. Inside cmux — open a tab each
 
-`CMUX_SURFACE_ID` is set in your shell and `$TMUX` is not — and the cmux is 0.65.0 or later:
+`CMUX_SURFACE_ID` is set in your shell and `$TMUX` is not, or is cmux's stand-in
+(`/tmp/cmux-…`) — and the cmux is 0.65.0 or later:
 `cmux capabilities` lists `surface.input_state` in its `methods`. On an older cmux, tell the
 person that this way needs cmux 0.65.0, and go to 7; when it prints an error instead of a
 `methods` list, tell them what it said, and go to 7. For each session, in that order:

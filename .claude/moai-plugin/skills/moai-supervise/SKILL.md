@@ -64,7 +64,10 @@ outside tmux.
 **Inside cmux, load `moai-cmux` instead.** When `CMUX_SURFACE_ID` is set in your shell and
 `$TMUX` is not, `moai-cmux` gives you the same hands on the workers' cmux tabs, at the same
 five points, and reads the same session map. It needs cmux 0.65.0 or later and says so itself.
-When both are set you run in tmux inside a cmux tab — what you type goes to tmux, so it is
+**A `$TMUX` that starts with `/tmp/cmux-` is cmux's own stand-in**, not a tmux server —
+`cmux claude-teams` sets it for Claude Code's agent teams, and the `tmux` on its `PATH` is cmux
+in disguise — so with it you are inside cmux: `moai-cmux`. When both are set otherwise you run in
+tmux inside a cmux tab — what you type goes to tmux, so it is
 `moai-tmux`. **With neither, nothing of either applies.** `moai-cmux` is optional the same
 way (`moai skill install --with moai-cmux`); inside cmux without it, tell the person that one
 line plants it, and carry on as if outside cmux.

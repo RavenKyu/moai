@@ -7,7 +7,9 @@ description: Use in Claude Code together with moai-supervise when the supervisor
 
 This is the supervisor's (`moai-supervise`) companion **when it runs inside tmux** — `$TMUX`
 is set in its shell. Without `$TMUX` none of this applies: the supervisor works through
-messages and the person — or, inside cmux, through `moai-cmux`. The tmux server here is **the
+messages and the person — or, inside cmux, through `moai-cmux`. Nor does it apply when `$TMUX`
+starts with `/tmp/cmux-`: that is cmux's own stand-in (`cmux claude-teams` sets it), and its
+`tmux` is cmux in disguise — that is `moai-cmux`'s. The tmux server here is **the
 person's own**: every session they have lives on it, and every pane you touch is one they are
 looking at.
 
@@ -74,6 +76,8 @@ def tty(pid):
     t = out("ps", "-p", str(pid), "-o", "tty=")
     return device("/dev/" + t) if t.strip("?") else 0
 mine = os.environ.get("TMUX")
+if mine and mine.startswith("/tmp/cmux-"):
+    mine = None
 cmux = not mine and bool(os.environ.get("CMUX_SURFACE_ID"))
 surfaces = {}
 def walk(o):
