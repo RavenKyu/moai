@@ -15805,6 +15805,69 @@ fn a_child_this_session_picked_stays_its_own_under_a_parent_another_session_pick
     assert!(!held.contains(&format!("moai defer {parent} ")), "남이 집은 부모로 붙든다\n{held}");
 }
 
+/// **이 세션이 집은 줄은 옆 워크트리의 이름이 가리켜도 제 것이다**(moai-pxui, 2026-10-12 사용자 결정 "집은 줄이
+/// 이긴다"). 서브에이전트 일꾼은 `EnterWorktree` 를 못 써 루트에 서고, 그 집기는 부모의 세션 id 로 적힌다 —
+/// `.worktrees/<에픽>` 이 서는 순간 훅은 그 에픽을 옆의 일로 보아, 규칙 1 이 그 일꾼을 안 지키고 규칙 3 은 관점
+/// 적힌 리뷰를 집은 뒤에도 "You are holding nothing" 으로 리뷰를 막았다(moai-9tqo.fxp). 집기 기록을 읽는
+/// 배선(막는 판정에도 싣는가)은 단위 시험이 못 밟아 여기서 본다. 남의 세션이 집은 줄과 아무도 안 집은 세션은
+/// 전처럼 이름이 가른다.
+#[test]
+fn a_row_this_session_picked_stays_its_own_beside_its_epics_worktree() {
+    let s = Scratch::new("hookpickname");
+    let main = s.path().join("main");
+    std::fs::create_dir_all(&main).unwrap();
+    git(&main, &["init", "-q"]);
+    ok(&main, &["init", "argos"]);
+    let epic = field(&ok(&main, &["epic", "add", "에픽", "--json"]), "id");
+    let mine = field(&ok(&main, &["add", "내가 할 멤버", "-e", &epic, "--json"]), "id");
+    let theirs = field(&ok(&main, &["add", "남이 할 멤버", "-e", &epic, "--json"]), "id");
+    let review = field(
+        &ok(&main, &["add", "리뷰 — 에픽", "-t", "review", "--parent", &epic, "-b", "무엇을 왜 보는가", "--json"]),
+        "id",
+    );
+    git(&main, &["add", "-A"]);
+    git(&main, &["commit", "-q", "-m", "세운다"]);
+    let at = |session: &str, event: &str, tool: Option<(&str, String)>| {
+        let body =
+            tool.map_or(String::new(), |(name, input)| format!(",\"tool_name\":\"{name}\",\"tool_input\":{input}"));
+        let input = format!("{{\"session_id\":\"{session}\",\"cwd\":{}{body}}}", json_str(&main.display().to_string()));
+        String::from_utf8(hook_in(&s, &main, event, &input).stdout).unwrap()
+    };
+    let bash = |c: &str| Some(("Bash", format!("{{\"command\":{}}}", json_str(c))));
+    let skill = || Some(("Skill", "{\"skill\":\"code-review\",\"args\":\"high\"}".to_string()));
+    for (session, id) in [("a", &mine), ("b", &theirs)] {
+        let pick = format!("moai mv {id} in_progress --from todo");
+        assert!(at(session, "pre-tool-use", bash(&pick)).trim().is_empty());
+        ok(&main, &["mv", id, "in_progress", "--from", "todo"]);
+    }
+    git(&main, &["add", "-A"]);
+    git(&main, &["commit", "-q", "-m", "집는다"]);
+    git(&main, &["worktree", "add", "-q", &format!(".worktrees/{epic}"), "-b", &format!("worktree-{epic}")]);
+
+    // 규칙 1 — 루트에 선 a 에게 다시 선다. 거절문은 a 가 집은 멤버만 대고, 남(b)이 집은 멤버는 옆의 것이다.
+    let why = refusal(&at("a", "pre-tool-use", bash("moai add '딴 일'")));
+    assert!(why.contains(&mine) && !why.contains(&theirs), "옆 이름에 제 집기를 내줬다\n{why}");
+    let made = at("a", "pre-tool-use", bash(&format!("moai add '딴 일' -e {epic}")));
+    assert!(made.trim().is_empty(), "제 에픽 안의 생성을 막는다\n{made}");
+    // 아무것도 안 집은 세션에게는 전처럼 옆 워크트리의 일이다.
+    let made = at("c", "pre-tool-use", bash("moai add '딴 일'"));
+    assert!(made.trim().is_empty(), "옆 워크트리의 일로 남의 생성을 막는다\n{made}");
+
+    // 규칙 3 — 관점 적힌 리뷰 줄을 집은 a 의 리뷰는 지나간다. 집기 전에는 막힌다.
+    assert!(refusal(&at("a", "pre-tool-use", skill())).contains("--parent"), "리뷰 줄 없이 리뷰를 넘겼다");
+    let pick = format!("moai mv {review} in_progress --from todo");
+    assert!(at("a", "pre-tool-use", bash(&pick)).trim().is_empty());
+    ok(&main, &["mv", &review, "in_progress", "--from", "todo"]);
+    let out = at("a", "pre-tool-use", skill());
+    assert!(out.trim().is_empty(), "제가 집은 리뷰를 옆 이름에 내주고 리뷰를 막았다\n{out}");
+
+    // `Stop` 도 제 줄을 붙든다(받아들인 대가 — 감독이 서브에이전트 일꾼의 줄을 붙든다). 남의 줄은 안 댄다.
+    let held = at("a", "stop", None);
+    assert!(held.contains(&mine) && !held.contains(&theirs), "제가 집은 멤버를 안 붙든다\n{held}");
+    let held = at("c", "stop", None);
+    assert!(held.trim().is_empty(), "옆 워크트리의 일로 남을 붙든다\n{held}");
+}
+
 /// **겨루다 질 집기는 적지 않는다**(리뷰 moai-3k2d.1df). 훅은 명령이 돌기 전에 적으므로, 낡은 `--from` 으로
 /// 진 쪽이 마지막으로 집은 세션이 되어 이긴 쪽의 줄을 제 것으로 들었다 — 진 쪽은 남의 일을 닫거나 미루라고
 /// 붙들리고, 이긴 쪽은 제 줄을 놓았다. 본 칸이 지금 칸과 다르면 `moai mv` 가 안 옮기니 적을 것도 없다.
