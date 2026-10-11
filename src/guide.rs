@@ -2498,7 +2498,8 @@ shell.";
 /// **치기 전의 잣대는 하나다 — 입력 칸에 무엇이든 있으면 안 친다.** 옛 5-1 은 사람이 쓰던 초안을 건지느라 480줄이
 /// 되었다. 초안인지 자리글(placeholder)인지 못 가르면 있는 것으로 읽고 사람에게 말한다.
 ///
-/// **칸은 언제나 짝([`SESSIONS`])에서 찾은 `%id` 로 겨눈다.** 사람의 tmux 서버라, 맨 `kill-*` 하나가 그 서버의 모든
+/// **칸은 언제나 `%id` 로 겨눈다.** Claude 는 짝([`SESSIONS`]), Codex 는 도는 서버의 칸·프로세스에서 찾는다.
+/// 사람의 tmux 서버라, 맨 `kill-*` 하나가 그 서버의 모든
 /// 세션을 죽인다(2026-09-18). 감독 제 칸·다른 저장소의 칸·시험 서버의 칸에는 치지 않는다.
 ///
 /// **칸 이름표는 칸 사용자 옵션 `@moai` 다.** Claude Code 가 `pane_title` 을 제 화제로 덮어 써서 제목은 못 쓴다.
@@ -2533,15 +2534,17 @@ looking at.
   or `killall` aimed at tmux — one bare `kill-server` once took down every session the
   person had (hook rule 4, and the person's own guard hook refuses it too). A worker that
   is done stays open; closing a pane is the person's
-- **Only a worker's pane.** Type only into a pane found through the session map below for a
+- **Only a worker's pane.** Type only into a pane found through the session map below (or
+  the Codex process checks in "Codex workers") for a
   worker of this repository — never your own pane (`$TMUX_PANE`), never a session of another
   repository, never a test server's pane. Every call names its pane, `-t <pane>`, as `%N`
 - **Never over the person's words.** If a worker's input box holds anything, do not type into
   it — tell the person
 - **Never in their place.** A permission prompt or a question in a worker's pane is the
   person's to answer — you read it and tell them; you press no key
-- **No polling.** Every look below is one look. A second one comes after your next step, as
-  its own call — never a loop and never a `sleep`
+- **No pane polling.** Every look at a pane below is one look. A second one comes after your
+  next step, as its own call — never a loop and never a `sleep` for screen reads. The Codex
+  report monitor reads only this repository's tracker, as "Codex workers" says
 - **The person's tmux config file stays theirs.** What you set is on the running server
 
 ## Which pane is which worker
@@ -2691,6 +2694,97 @@ Once it has started (a separate call: `capture-pane` of the new pane shows the `
 at `ListAgents` once more. The new row is a worker like any other (the supervisor's 2) — send
 to it as in 3. If it does not show yet, look once more after your next step; if a prompt
 stands in the new pane (trusting the folder, say), tell the person — it is theirs to answer.
+
+## Codex workers
+
+These are interactive Codex sessions, each in a pane, selected as `Worker: codex` — not
+Claude Code subagents. The supervisor remains Claude Code only. The Claude session map
+above is not a Codex registry: do not add Codex to `SESSIONS` or expect `ListAgents`,
+`SendMessage` or `notify_when_idle` to reach one. Use the epic notes for its reports.
+
+### Find the Codex pane
+
+On the running server (`$TMUX`), read the panes once:
+
+    tmux list-panes -a -F '#{{pane_id}}<TAB>#{{pane_current_command}}<TAB>#{{pane_current_path}}<TAB>#{{pane_pid}}'
+
+Replace each `<TAB>` with a literal tab. A candidate's `pane_current_command` is `codex`,
+and its `pane_current_path` is `<root>` or a worktree named by `git worktree list`.
+Resolve path aliases before comparing (on macOS `/tmp` can be `/private/tmp`). A launcher
+can leave `pane_current_command` as `node` or a shell such as `zsh`; inspect the pane PID
+and one level of its children with
+`ps -axo pid=,ppid=,args=`; confirm an actual Codex executable or Codex CLI entry point,
+not a process whose arguments merely mention Codex. If you cannot identify a live Codex
+process in that pane, do not type. Repeat this check just before each input — an exited
+Codex can leave its last frame over a shell. Never use another server's pane ids, your own
+`$TMUX_PANE`, or a pane outside this repository.
+
+### Read the Codex input box
+
+    tmux display -p -t <pane> '#{{pane_in_mode}}'
+    tmux capture-pane -p -e -t <pane>
+
+If the first line prints `1`, the person is in copy mode: the pane is theirs, so do not type.
+
+{CODEX_EMPTY_BOX}
+
+### Open a Codex worker
+
+When no idle Codex worker is left, ask the person **once** whether to open new panes and
+how many. Open one only on their yes, or when they asked for it. On a yes:
+
+    tmux split-window -P -F '#{{pane_id}}' -t "$TMUX_PANE" -c <root> 'codex --model <codex>; exec bash'
+    tmux select-layout -t "$TMUX_PANE" tiled
+
+The first line prints the new pane id. This is an ordinary interactive session; `exec bash`
+keeps its final screen readable after Codex exits. Read the new pane separately and confirm
+the live process and empty composer above. Folder trust and hook trust prompts belong to
+the person; tell them what the pane shows. Do not assume cmux's wrapper enabled or trusted
+hooks here. The person checks moai in `/hooks`; the worker keeps the five rules even when
+no hook stands.
+
+### Clear a reported Codex worker
+
+Clear only after its report passed the supervisor's checks and `Report-checked:` is
+written, its work has stopped, and its live Codex process and empty input box are confirmed.
+Use `/new`, with text and Enter in separate calls:
+
+    tmux send-keys -t <pane> /new
+    tmux capture-pane -p -e -t <pane>
+    tmux send-keys -t <pane> Enter
+    tmux capture-pane -p -e -t <pane>
+
+Each look is a separate call. The survey found that `/new` and Enter sent together left
+`/new` in the composer. Do not send a fixed number of Enters blindly. If the screen asks
+`Where should the new conversation run?`, read the selection; only when
+`Use current Git worktree` is selected, confirm it in a separate call:
+
+    tmux send-keys -t <pane> Enter
+    tmux capture-pane -p -e -t <pane>
+
+Confirm the old conversation is gone and the fresh composer is empty before sending work.
+An unexpected menu, question or permission prompt belongs to the person. If `/new` remains
+typed or the result is unclear, stop and tell them — a later Enter could erase the next work.
+
+### Paste the assignment
+
+Codex has no `SendMessage` delivery: paste the assignment directly, only after rechecking
+the live process and empty input box. A message held for the person's approval is still
+held; pasting it would skip their gate. Write the whole assignment in a scratchpad file,
+keeping its own first line and ending with `from: <your ListAgents name>`. Include the
+absolute path of `references/worker-codex.md` beside `worker.md` in `moai-supervise`.
+Use the same block transport as "When a message does not arrive":
+
+    tmux load-buffer -b moai-send <file>
+    tmux paste-buffer -p -d -b moai-send -t <pane>
+    tmux send-keys -t <pane> Enter
+
+Run each line separately: bracketed paste preserves the multiline assignment, and the
+separate Enter submits it once. It also appends to an existing draft, so the empty check
+is essential. Tell the person which pane received the assignment. "Label the pane" above
+applies unchanged: set `@moai` on this `%N`, and ask before showing labels on borders.
+
+{REPORT_WATCH}
 "#
     )
 }
@@ -6760,8 +6854,8 @@ stop sending outside work while a release runs",
         }
     }
 
-    /// 글이 가르치는 `tmux` 줄을 세며 하나하나 잰다 — 칸을 `-t` 로 겨누거나, 칸을 안 건드리는 넷(설정 읽기 `show`·
-    /// 테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer`) 중 하나이고, `kill-*` 이 아니고, 하위 명령 앞에 서버를 고르는
+    /// 글이 가르치는 `tmux` 줄을 세며 하나하나 잰다 — 칸을 `-t` 로 겨누거나, 칸을 안 건드리는 읽기(`show`·`list-panes`)·
+    /// 테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer` 중 하나이고, `kill-*` 이 아니고, 하위 명령 앞에 서버를 고르는
     /// 깃발이 없다. `moai-tmux` 와 `moai-recover` 가 같은 잣대로 잰다 — 둘 다 사람의 tmux 서버에 친다.
     fn tmux_calls(text: &str) -> usize {
         let mut calls = 0;
@@ -6773,7 +6867,7 @@ stop sending outside work while a release runs",
                 calls += 1;
                 let words: Vec<&str> = cmd.split_whitespace().collect();
                 assert!(!words[1].starts_with("kill"), "tmux 스킬이 kill 을 가르친다 — {cmd}");
-                let free = matches!(words[1], "show" | "load-buffer")
+                let free = matches!(words[1], "show" | "load-buffer" | "list-panes")
                     || (words[1] == "set" && words.get(3).is_some_and(|w| w.starts_with("pane-border-")));
                 assert!(free || words.contains(&"-t"), "칸을 안 겨눈 tmux 줄 — {cmd}");
                 // 하위 명령 앞의 깃발(`-L`·`-S`)이 서버를 고른다 — 뒤의 `-S` 는 `capture-pane` 의 시작 줄이다.
@@ -6985,7 +7079,7 @@ stop sending outside work while a release runs",
 
     /// **`moai-tmux` 는 이름 댄 칸만 만진다**(2026-10-10 사용자 결정, moai-u99i). 사람의 tmux 서버라 맨 `kill-server` 하나가
     /// 그 사람의 세션을 다 죽인다(2026-09-18). 그래서 `tmux` 를 부르는 줄은 모두 칸을 `-t` 로 겨누거나, 칸을 안 건드리는
-    /// 넷(설정 읽기 `show`·테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer`) 중 하나다. `kill-*` 은 하지 말라는 줄에만
+    /// 읽기(`show`·`list-panes`)·테두리 둘을 쓰는 `set -g`·버퍼에 싣는 `load-buffer` 중 하나다. `kill-*` 은 하지 말라는 줄에만
     /// 선다. 칸을 열 때 `claude` 에 붙는 깃발은 `--model` 하나다 — `-p`·`--dangerously-*`·권한 모드가 서면 헤드리스가 된다.
     /// 치기 전의 잣대(빈 입력 칸)와 열기 전에 묻기도 글로 선다.
     #[test]
@@ -7068,6 +7162,49 @@ stop sending outside work while a release runs",
         ] {
             assert!(supervise.contains(line), "감독의 {step} 에 tmux 갈래가 없다");
         }
+    }
+
+    #[test]
+    fn the_tmux_codex_workers_use_panes_and_epic_reports() {
+        let text = tmux();
+        let codex = section(&text, "## Codex workers");
+        assert!(codex.contains(CODEX_EMPTY_BOX), "Codex 입력창 잣대가 공용 글과 다르다");
+        assert!(codex.contains(REPORT_WATCH), "Codex 보고 기다리기가 공용 글과 다르다");
+        for part in [
+            "tmux list-panes -a -F '#{pane_id}<TAB>#{pane_current_command}<TAB>#{pane_current_path}<TAB>#{pane_pid}'",
+            "`pane_current_command` is `codex`",
+            "`pane_current_path` is `<root>`",
+            "`ps -axo pid=,ppid=,args=`",
+            "one level of its children",
+            "a shell such as `zsh`",
+            "Repeat this check just before each input",
+            "`$TMUX_PANE`",
+            "tmux display -p -t <pane> '#{pane_in_mode}'",
+            "tmux capture-pane -p -e -t <pane>",
+            "ask the person **once**",
+            "only on their yes",
+            "'codex --model <codex>; exec bash'",
+            "`Report-checked:`",
+            "tmux send-keys -t <pane> /new\n",
+            "text and Enter in separate calls",
+            "`Where should the new conversation run?`",
+            "`Use current Git worktree` is selected",
+            "Do not send a fixed number of Enters blindly",
+            "tmux load-buffer -b moai-send <file>",
+            "tmux paste-buffer -p -d -b moai-send -t <pane>",
+            "tmux send-keys -t <pane> Enter",
+            "from: <your ListAgents name>",
+            "references/worker-codex.md",
+            "Label the pane",
+            "`@moai`",
+            "Do not assume cmux's wrapper",
+        ] {
+            assert!(codex.contains(part), "tmux 의 Codex 절에 없다 — {part}");
+        }
+        assert!(!codex.contains("/new Enter"), "Codex /new 와 Enter 를 한 호출에 친다");
+        assert!(tmux_calls(codex) >= 13, "새 Codex 절의 tmux 줄을 안 잰다");
+        let launches: Vec<_> = codex.lines().filter(|line| line.contains("'codex ")).collect();
+        assert_eq!(launches.len(), 1, "Codex 띄우는 줄이 하나가 아니다");
     }
 
     /// **되살리기는 Saycode 세션을 칸에서 되살리지 않고, `happy resume` 을 제가 치지 않는다**(moai-l244.nj6). 그 줄은
