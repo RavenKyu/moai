@@ -265,9 +265,12 @@ when `claude` exits. Then, as a separate call, look once: when its `❯` box sho
     tmux paste-buffer -p -d -b moai-recover -t <pane>
     tmux send-keys -t <pane> Enter
 
-If the box has not shown yet, look again after your next step. A prompt in the pane (trusting
-the folder, say) is the person's to answer — tell them which pane. When all are open, tell the
-person which pane is which session.
+In a pane you opened here, the session map's `pane` for the resumed session may stay `-`:
+Claude Code records its tmux pane once, as it starts, and can miss it under load. There its row
+reading that `sessionId` `alive` is what "alive in that pane" asks — the `%N` is the one
+`split-window` printed. If the box has not shown yet, look again after your next step. A prompt
+in the pane (trusting the folder, say) is the person's to answer — tell them which pane. When
+all are open, tell the person which pane is which session.
 
 ## 6. Inside cmux — open a tab each
 

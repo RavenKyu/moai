@@ -543,10 +543,11 @@ pub fn planted_exe(text: &str) -> Option<String> {
 /// 훅 한 번은 `moai` 자신이 28ms 를 쓰므로(`pre-tool-use` 30회 평균) 그 1.1~1.7% 다.
 /// 아래 "정상 갈래" 문단의 **프로세스를 안 늘린다는 말은 그대로 선다.**
 ///
-/// **치환 머리의 `set +e;`([`shell_line`], moai-xpa8.q9x)로 단순 명령이 아니게 됐다.** 그래도 dash 는 목록의 마지막
-/// 명령을 그 자식에서 그대로 exec 한다(2026-10-11 macOS 의 dash 로 잼 — 안쪽 프로세스의 부모가 바깥 껍데기다). macOS 의
-/// bash 3.2 는 `set +e;` 가 없을 때도 치환 자식이 한 번 더 띄워서 거기서도 늘지 않는다. 위 `strace` 의 bash(리눅스의
-/// bash 5)는 그 뒤로 다시 재지 않았다.
+/// **치환 머리의 `set +e &&`([`shell_line`], moai-xpa8.q9x)로 단순 명령이 아니게 됐다.** 그래도 dash·zsh 는 마지막
+/// 명령을 그 자식에서 그대로 exec 한다(2026-10-11 macOS 에서 잼 — 안쪽 프로세스의 부모가 바깥 껍데기다). bash 5.1 뒤와
+/// 5.0 은 `&&` 목록의 마지막 명령을 그 자리에서 exec 한다(`;` 로 이었던 첫 판은 5.0 에서 하나를 더 띄웠다 — 리뷰
+/// moai-xpa8.yv6 이 소스로 빌드해 잼). bash 4.4 뒤와 macOS 의 bash 3.2 는 `-c` 안의 치환에서 **원래부터** 한 번 더 띄운다
+/// — 그 둘에서 "프로세스를 안 늘린다" 는 위 말은 이 줄 전부터 맞지 않았다.
 ///
 /// **그 +0.30ms 는 바닥값이다** — `/bin/true` 는 0바이트를 낸다. 껍데기가 바이트를 읽어 다시
 /// 쓰므로 비용이 출력 크기를 따라 는다: dash 로 60번씩 재니(2026-09-23) 0B 와 17.5KB 는
@@ -822,6 +823,15 @@ fn shell_line(exe: &str, event: &str, dialect: Dialect) -> String {
     // 안에서 실행 비트가 빠진 파일을 만나면 126 이 아니라 **1** 을 낸다(2026-10-11 실측 — `set +e;` 를 주면 126
     // 이다). 1 은 "moai 가 스스로 끝냈다" 의 갈래라 그 판의 알림이 말없이 사라졌다 — 이 줄이 겨눈 첫 판이
     // 바로 실행 비트가 빠진 판이다. dash 와 bash 5 는 원래 126 이라 바뀌는 것이 없다.
+    //
+    // **`;` 가 아니라 `&&` 로 잇는다**(리뷰 moai-xpa8.yv6). 리눅스의 bash 5.0 은 치환 몸통이 `;` 목록이면 자식을 하나 더
+    // 띄우고(`optimize_fork` 가 `&&`·`||` 만 본다 — 5.1 부터 `;` 도 본다), `&&` 면 마지막 명령을 그 자리에서 exec 한다.
+    // 나오는 값은 셋 다 같다(dash·bash 3.2·bash 5·zsh 에서 `-c`·`-ec` 로 잼).
+    //
+    // **Codex 의 줄에는 안 넣는다**(리뷰 moai-xpa8.yv6) — 그 줄은 [`command_for`] 가 새 `sh -c '…'` 로 싸서 안쪽 껍데기에
+    // `-e` 가 설 길이 없다. 그런데 Codex 는 훅 손잡이마다 그 글의 해시로 믿음을 기억해(`/hooks`), 바뀌는 것 없이 글자만
+    // 달라지면 사람이 믿어 준 moai 의 훅 넷이 다시 믿을 때까지 하나도 안 돈다.
+    let errexit_off = if dialect == Dialect::Codex { "" } else { "set +e && " };
     let handoff = crate::cmd::hook::HANDOFF;
     // 세션을 가르는 값과 `moai` 에 붙일 말씨 — 까닭은 [`command_for`] 에 있다.
     let (sid, flag) = match dialect {
@@ -843,7 +853,7 @@ fn shell_line(exe: &str, event: &str, dialect: Dialect) -> String {
     format!(
         "command -v -- \"{exe}\" >/dev/null 2>&1{there} || exit 0; trap 'exit 0' PIPE; \
          h=\"${{TMPDIR:-/tmp}}/moai-hook-{sid}-$$.handoff\"; \
-         c=0; o=$(set +e; {handoff}=\"$h\" \"{exe}\" hook {event}{flag}) || c=$?; \
+         c=0; o=$({errexit_off}{handoff}=\"$h\" \"{exe}\" hook {event}{flag}) || c=$?; \
          set -C; \
          case \"$c\" in \
          0|1) [ -z \"$o\" ] || {{ printf '%s\\n' \"$o\" && [ -O \"$h\" ] && ! [ -h \"$h\" ] \
@@ -1923,7 +1933,9 @@ mod tests {
         // **치환 안의 `set +e` 는 글로도 맨다**(moai-xpa8.q9x) — 아래 `-ec` 의 126 이 그것 없이 1 로 무너지는 것은
         // bash 3.2(macOS 의 `/bin/sh`)뿐이라, 리눅스의 CI 껍데기(dash·bash 5)는 그 토막을 걷어도 푸르다. 아래의
         // 실행 비트 문지기가 일찍 돌아가는 기계에서도 서도록 맨 앞에 둔다.
-        assert!(command("/bin/moai", "pre-tool-use").contains("o=$(set +e; "), "치환 안의 `set +e` 가 빠졌다");
+        assert!(command("/bin/moai", "pre-tool-use").contains("o=$(set +e && "), "치환 안의 `set +e` 가 빠졌다");
+        // Codex 의 줄은 새 `sh -c` 에 싸여 `-e` 가 안 서니 안 넣는다 — 넣으면 Codex 가 기억한 훅의 믿음이 글자째 풀린다.
+        assert!(!command_for("/bin/moai", "pre-tool-use", Dialect::Codex).contains("set +e"), "Codex 의 줄이 바뀌었다");
         let scratch = crate::scratch::Scratch::new("skill-hookline");
         let at = scratch.path();
         // **복사로 심는다** — 까닭(ETXTBSY)은 [`planted`] 에 있다.
@@ -2106,7 +2118,9 @@ mod tests {
             assert_eq!(got, Some(0), "{sh}: `set -e` 에서 게이트가 됐다 — {said}");
             let (got, said) = run(sh, "-ec", &dead);
             assert_eq!(got, Some(0), "{sh}: `set -e` 에서 못 도는 판이 게이트가 됐다 — {said}");
-            assert!(said.contains("126"), "{sh}: `set -e` 에서 알림이 빠졌다 — {said}");
+            // 꼴째로 견준다 — 알림에 실린 스크래치 경로의 숫자(pid·ThreadId)가 `126` 을 품으면 맨 숫자는 `(exit 1)` 로
+            // 무너진 판도 지나간다(리뷰 moai-xpa8.yv6). 위 `-c` 갈래가 같은 까닭으로 `(exit {code})` 를 찾는다.
+            assert!(said.contains("(exit 126)"), "{sh}: `set -e` 에서 알림이 빠졌다 — {said}");
         }
     }
 

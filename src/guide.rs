@@ -2509,13 +2509,16 @@ under `~/.claude/sessions/`, and the lines below print one row per record, tab-s
   is not in tmux or runs on another tmux server than yours (pane ids are counted per server,
   so another server's `%4` is a different pane here), and then this skill has nothing for
   that worker
+- **No row at all, and a line saying no record reads alive:** this shell cannot tell live from
+  dead — act on no row, and tell the person what it said
 - `cwd` is where the session stands: the root, or one of the worktrees `git worktree list`
   names — wherever they stand. A row standing elsewhere is not a worker of this repository, whatever its name
 - `status` is `idle`, `busy` or another word. It has to agree with `ListAgents` where a step
   below asks for `idle`
 - Your own row is the one whose pane is `$TMUX_PANE`
 
-Run it when a step below needs a pane, once.
+Run it when a step below needs a pane, and once more just before you type into one — a reading
+from earlier in the round may be a worker that has died since (the next section).
 
 ## Is the input box empty
 
@@ -2604,8 +2607,9 @@ has read `busy` far longer than its work should take, look at its pane once:
     tmux capture-pane -p -t <pane> -S -40
 
 and read why it stopped — a permission prompt, a question (`AskUserQuestion`), an API or
-rate-limit error, or a process that ended (a shell prompt where the box was). **Tell the
-person** what the pane shows and which pane it is. Do not answer the prompt, do not press a
+rate-limit error, or a process that ended (a shell prompt where the box was, or under its last
+box — a killed Claude Code leaves its last screen behind); whether the session is still alive,
+the session map says. **Tell the person** what the pane shows and which pane it is. Do not answer the prompt, do not press a
 key, and do not look again in a loop. A process that ended is a dead session: bringing it
 back is `moai-recover`, once the person asks for it.
 
@@ -2799,7 +2803,8 @@ under `~/.claude/sessions/`, and the lines below print one row per record, tab-s
 - Your own row is the one whose pane is `$CMUX_SURFACE_ID` — when you were started with cmux's
   `claude-teams` it may read `-` instead (above)
 
-Run it when a step below needs a surface, once.
+Run it when a step below needs a surface, and once more just before you type into one — a
+reading from earlier in the round may be a worker that has died since (the next section).
 
 ## Is the input box empty
 
@@ -3126,9 +3131,12 @@ when `claude` exits. Then, as a separate call, look once: when its `❯` box sho
     tmux paste-buffer -p -d -b moai-recover -t <pane>
     tmux send-keys -t <pane> Enter
 
-If the box has not shown yet, look again after your next step. A prompt in the pane (trusting
-the folder, say) is the person's to answer — tell them which pane. When all are open, tell the
-person which pane is which session.
+In a pane you opened here, the session map's `pane` for the resumed session may stay `-`:
+Claude Code records its tmux pane once, as it starts, and can miss it under load. There its row
+reading that `sessionId` `alive` is what "alive in that pane" asks — the `%N` is the one
+`split-window` printed. If the box has not shown yet, look again after your next step. A prompt
+in the pane (trusting the folder, say) is the person's to answer — tell them which pane. When
+all are open, tell the person which pane is which session.
 
 ## 6. Inside cmux — open a tab each
 
@@ -5970,6 +5978,12 @@ stop sending outside work while a release runs",
         if !tmux(&["-V"]).is_ok_and(|o| o.status.success()) {
             return; // tmux 가 없는 기계 — 남의 서버를 거르는 것까지만 잰다.
         }
+        // **cmux 의 가짜 `$TMUX` 아래에서는 띄우지 않는다**(리뷰 moai-xpa8.yv6) — `cmux claude-teams` 의 `PATH` 에 선 `tmux`
+        // 는 cmux 의 shim 이라 `-S`·`-f` 를 버리고 `new-session` 을 사람의 cmux 에 워크스페이스로 세운다. `-V` 에도 "tmux 3.4"
+        // 로 답해 위의 문지기를 지난다. 그 판은 남의 서버를 거르는 것까지만 잰다.
+        if std::env::var("TMUX").is_ok_and(|t| t.starts_with(crate::skill::CMUX_STAND_IN)) {
+            return;
+        }
         struct Server<'a>(&'a dyn Fn(&[&str]) -> std::io::Result<std::process::Output>);
         impl Drop for Server<'_> {
             fn drop(&mut self) {
@@ -6268,10 +6282,8 @@ stop sending outside work while a release runs",
         assert!(paste.contains("paste-buffer -p"), "여러 줄을 붙이기(bracketed paste)로 안 싣는다");
         assert!(paste.contains("**Tell the person**"), "붙인 것을 사람에게 안 알린다");
         let stall = &text[text.find("## When a worker stalls").unwrap()..text.find("## No idle worker").unwrap()];
-        assert!(
-            stall.contains("**Tell the\nperson**") && stall.contains("do not press a\nkey"),
-            "멈춘 칸에 대신 답한다"
-        );
+        let stall = stall.replace('\n', " ");
+        assert!(stall.contains("**Tell the person**") && stall.contains("do not press a key"), "멈춘 칸에 대신 답한다");
         let open = &text[text.find("## No idle worker").unwrap()..];
         assert!(open.contains("ask the person **once**") && open.contains("only on their yes"), "묻지 않고 칸을 연다");
         // 이름표는 칸 옵션이고, 보이기는 도는 서버에만 — 사람의 설정 파일은 안 고친다.

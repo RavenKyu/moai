@@ -167,7 +167,8 @@ PY
 - Your own row is the one whose pane is `$CMUX_SURFACE_ID` — when you were started with cmux's
   `claude-teams` it may read `-` instead (above)
 
-Run it when a step below needs a surface, once.
+Run it when a step below needs a surface, and once more just before you type into one — a
+reading from earlier in the round may be a worker that has died since (the next section).
 
 ## Is the input box empty
 

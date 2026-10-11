@@ -352,13 +352,23 @@ mod tests {
         let inside = outer.join("tmp");
         std::fs::create_dir(&inside).unwrap();
         let away = Scratch::new("pick-away");
+        // **링크는 일부러 짓는다**(리뷰 moai-xpa8.yv6) — 뿌리가 이제 늘 풀린 철자라 `away` 를 그대로 넘기면 `pick` 이
+        // 링크를 안 풀어도 같은 값이 나와, 리눅스 CI 에서는 두 단언이 아무것도 못 지켰다.
+        let links = Scratch::new("pick-links");
+        let link = links.join("to-away");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(away.path(), &link).unwrap();
+        #[cfg(not(unix))]
+        let link = away.path().to_path_buf();
+        let resolved = std::fs::canonicalize(&link).unwrap();
+        #[cfg(unix)]
+        assert_ne!(link, resolved, "링크가 안 섰다 — 아래 단언이 아무것도 못 잰다");
 
         // 밖이면 준 자리를 쓴다 — 갈 곳을 안 줘도 그렇다. 그때도 **링크를 푼 철자로** 넘긴다(moai-xpa8.egv).
-        let kept = pick(away.path().to_path_buf(), &[]).unwrap();
-        assert_eq!(kept, std::fs::canonicalize(away.path()).unwrap(), "밖의 자리를 링크째 넘겼다");
+        assert_eq!(pick(link.clone(), &[]).unwrap(), resolved, "밖의 자리를 링크째 넘겼다");
         // 안이면 밖으로 옮긴다. **링크를 푼 철자로** 넘긴다.
-        let moved = pick(inside.clone(), &[away.path()]).unwrap();
-        assert_eq!(moved, std::fs::canonicalize(away.path()).unwrap(), "링크를 안 풀고 넘겼다");
+        let moved = pick(inside.clone(), &[link.as_path()]).unwrap();
+        assert_eq!(moved, resolved, "링크를 안 풀고 넘겼다");
         // 갈 곳이 못 쓰는 자리뿐이면 그 자리를 건너뛴다 — 있기만 한 것을 보고 옮기지 않는다.
         let gone = outer.join("없다");
         assert!(pick(inside.clone(), &[gone.as_path()]).is_err(), "못 쓰는 자리로 옮겼다");

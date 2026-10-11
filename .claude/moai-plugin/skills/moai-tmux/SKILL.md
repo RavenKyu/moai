@@ -130,13 +130,16 @@ PY
   is not in tmux or runs on another tmux server than yours (pane ids are counted per server,
   so another server's `%4` is a different pane here), and then this skill has nothing for
   that worker
+- **No row at all, and a line saying no record reads alive:** this shell cannot tell live from
+  dead — act on no row, and tell the person what it said
 - `cwd` is where the session stands: the root, or one of the worktrees `git worktree list`
   names — wherever they stand. A row standing elsewhere is not a worker of this repository, whatever its name
 - `status` is `idle`, `busy` or another word. It has to agree with `ListAgents` where a step
   below asks for `idle`
 - Your own row is the one whose pane is `$TMUX_PANE`
 
-Run it when a step below needs a pane, once.
+Run it when a step below needs a pane, and once more just before you type into one — a reading
+from earlier in the round may be a worker that has died since (the next section).
 
 ## Is the input box empty
 
@@ -239,8 +242,9 @@ has read `busy` far longer than its work should take, look at its pane once:
     tmux capture-pane -p -t <pane> -S -40
 
 and read why it stopped — a permission prompt, a question (`AskUserQuestion`), an API or
-rate-limit error, or a process that ended (a shell prompt where the box was). **Tell the
-person** what the pane shows and which pane it is. Do not answer the prompt, do not press a
+rate-limit error, or a process that ended (a shell prompt where the box was, or under its last
+box — a killed Claude Code leaves its last screen behind); whether the session is still alive,
+the session map says. **Tell the person** what the pane shows and which pane it is. Do not answer the prompt, do not press a
 key, and do not look again in a loop. A process that ended is a dead session: bringing it
 back is `moai-recover`, once the person asks for it.
 
