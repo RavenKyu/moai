@@ -894,6 +894,7 @@
   "backlog.will_close": "{id} goes to done",
   "backlog.milestone_deferred": "milestone {id} is deferred — the epic unfolded stands deferred with it, so it shows in `moai show --deferred`, not in `moai ready`. `moai defer {src} --undo` brings it back",
   "backlog.milestone_closed": "milestone {id} is already closed — the epic unfolded re-opens that release, since a group's column is read from its members",
+  "backlog.milestone_inherited": "milestone {id} comes from the epic {epic} this backlog stood under — the epic unfolded stands in that release; `moai edit <epic> --milestone none` takes it out",
   "backlog.closed": "→ done  (unfolded, so there is nothing left to look at)",
   "refuse.show_target": "`{target}` is neither an id nor a kind. Kinds: issue, epic, milestone, backlog",
   "refuse.show_target_how": "to look one up by id, write the prefix too",

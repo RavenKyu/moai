@@ -149,7 +149,7 @@ Options:
     status_review_days   = 3      days in review before it counts as rot
     status_wip_days      = 2      days untouched after pickup before forgotten
     status_blocked_days  = 3      days blocked before it counts as stuck
-    status_wip_limit     = 3      more than this opened at once
+    status_wip_limit     = 3      more than this opened at once, an epic as one
     status_no_epic_ratio = 0.15   issues with no epic from this ratio up
     status_no_epic_min   = 5      from this count up, even at a low ratio
     status_flow_days     = 7      the window the flow is measured over

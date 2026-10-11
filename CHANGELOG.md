@@ -12,6 +12,31 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- **`wip_overload` counts the members of one epic as one bundle.** The worker
+  steps pick up every member of an epic, so counting row by row raised the
+  warning, and the Stop hook held the turn, the moment a four-member epic was
+  picked up. A row with no epic counts as one bundle with the rows below it
+  (`--parent` children). In `moai status --json` `count` is now the number of
+  bundles, the figure compared with `status_wip_limit`, and `ids` stays every
+  row picked up. The board, `moai ready`, `moai prime` and the hook's focus still
+  count the rows. (moai-rs3o.nmu)
+- **`moai backlog promote` says on stderr when the milestone it carries was
+  inherited from the epic the backlog item stood under.** One line names the
+  milestone and that epic and points at `moai edit <epic> --milestone none`;
+  `--dry-run` and `--json` print the same line, and a milestone that is also
+  deferred or closed gets its own line as well. Nothing else changes: the rule for
+  which milestone is carried, and the exit code, are as they were. (moai-rs3o.fg4)
+
+### Fixed
+
+- **`moai stats` counted `GPT-6.1-Sol` and `gpt-6.1-sol` as two models.** Model
+  names, vendors and grades in the `model:` notes are now folded to lower case
+  when counted, so one model is one line in `work.by_model` and `(High)` joins
+  `(high)`, and the name shows in lower case. `moai show --json` still reads
+  `work` with the spelling that was written. (moai-rs3o.j6v)
+
 ## [0.15.1] - 2026-10-11
 
 ### Fixed

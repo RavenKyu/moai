@@ -136,7 +136,9 @@ uses the root branch. See [handing work to idle sessions](agents.md#hand-work-to
 The note that names the AI that did the work, left before an issue is closed:
 `model: <vendor>/<model> tokens=<count> (<grade> — <why>)`. Leave `tokens=` out
 when the count is unknown, and write it on one id only. `--json` reads it back as
-`work`, and `moai stats` adds it up. More in
+`work`, and `moai stats` adds it up — folding the case of the vendor, model and
+grade, so `GPT-6.1-Sol` and `gpt-6.1-sol` are one model shown in lower case,
+while `work` keeps the spelling that was written. More in
 [working with agents](agents.md#work-the-queue-from-a-session).
 
 ## `Next:` note
@@ -229,8 +231,8 @@ writes the main checkout's tracker.
 ## Warning
 
 A board line on `moai status` about how the plan stands — such as issues with no
-epic, a review stalled, too much started at once, work picked up and forgotten,
-or a milestone falling due. Warnings block nothing and never change the exit code;
+epic, a review stalled, too much started at once (the members of one epic count as
+one), work picked up and forgotten, or a milestone falling due. Warnings block nothing and never change the exit code;
 only broken data does that. Compare [notice](#notice).
 
 ## Worker

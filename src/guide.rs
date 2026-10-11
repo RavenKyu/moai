@@ -631,7 +631,13 @@ prints one line on stderr naming it, and nothing is blocked.
 
 The id in that line is {MILESTONE_FROM}. Only its shape is checked, so `moai-zzzz`
 goes in with exit 0 — but one line on stderr says there is no such milestone,
-and `moai status` counts the row as `dangling_milestone`."#
+and `moai status` counts the row as `dangling_milestone`.
+
+**A milestone inherited from an epic is said out loud too.** When the one it carries is
+not the backlog item's own field — it stood inside an epic, and that epic's release won —
+`promote` prints one line on stderr naming the milestone and that epic, living or dead
+(a dead one gets its own line as well), and `--dry-run` prints the same. Nothing is
+blocked and the exit code stays 0; `moai edit <epic> --milestone none` takes the epic you unfolded out of that release."#
     )
 }
 
