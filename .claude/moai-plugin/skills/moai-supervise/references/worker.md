@@ -483,8 +483,8 @@ never in the root
    `$(…)` as commands. If the text itself contains a single quote, stream it from stdin with `-b -`
 
     moai note <member> 'model: <vendor>/<model> (<difficulty> — <why>)'
-   **In a subagent, skip this step** — the supervisor writes the line on one member from your
-   report's `Model ran:` (12)
+   **In a subagent, skip this step** — the supervisor writes these lines from your report's
+   `Model ran:` (12)
 
 10. Close them after that. **Run `moai mv <member> done` only once that merge has really
     landed** — closed before it, a merge that stops on a conflict leaves them done on work

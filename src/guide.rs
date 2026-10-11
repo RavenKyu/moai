@@ -2439,8 +2439,8 @@ commit with a path — a supervisor that starts again reads that line, not this 
 
     moai note <epic> 'Report-checked: <merge hash>'
 
-**For a subagent worker, write the `model:` line yourself**, on one member and take it into
-the root the same way. The model is the report's `Model ran:` line — the real name the worker
+**For a subagent worker, write the `model:` line yourself**, one per member it did — not the
+members it left in the first column — and take them into the root the same way. The model is the report's `Model ran:` line — the real name the worker
 read in its own system prompt, not the alias you passed. Leave `tokens=` out: the count a
 subagent's notification carries is not what the work cost (the person's decision), and a
 false number is worse than none. A session worker writes its own line (its 9-1), and the
@@ -4319,8 +4319,8 @@ never in the root
    `$(…)` as commands. If the text itself contains a single quote, stream it from stdin with `-b -`
 
     moai note <member> 'model: <vendor>/<model> (<difficulty> — <why>)'
-   **In a subagent, skip this step** — the supervisor writes the line on one member from your
-   report's `Model ran:` (12)
+   **In a subagent, skip this step** — the supervisor writes these lines from your report's
+   `Model ran:` (12)
 
 10. Close them after that. **Run `moai mv <member> done` only once that merge has really
     landed** — closed before it, a merge that stops on a conflict leaves them done on work

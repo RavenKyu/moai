@@ -570,8 +570,8 @@ commit with a path — a supervisor that starts again reads that line, not this 
 
     moai note <epic> 'Report-checked: <merge hash>'
 
-**For a subagent worker, write the `model:` line yourself**, on one member and take it into
-the root the same way. The model is the report's `Model ran:` line — the real name the worker
+**For a subagent worker, write the `model:` line yourself**, one per member it did — not the
+members it left in the first column — and take them into the root the same way. The model is the report's `Model ran:` line — the real name the worker
 read in its own system prompt, not the alias you passed. Leave `tokens=` out: the count a
 subagent's notification carries is not what the work cost (the person's decision), and a
 false number is worse than none. A session worker writes its own line (its 9-1), and the
