@@ -601,10 +601,10 @@ Filters  (comma = or,  repeated = and):
   unknown are counted apart, and the median and p90 cover the measured
   ones only. It is wall clock, not effort.
 
-  AI work sums the `model:` lines, and recorded counts the rows that carry
-  one. Tokens add up over the lines that carry them (tokened), and tokens
-  is null when none does - unknown, not 0. Reviews are the rows tagged
-  review; the grade on their lines is the review grade.
+  AI work counts the `model:` lines, and recorded counts the rows that carry
+  one. Tokens are not added up: what a window or an agent shows was not
+  what the work cost. Reviews are the rows tagged review; the grade on
+  their lines is the review grade.
 
   moai stats                           the overview
   moai stats -e moai-1hka              one epic's members
@@ -630,9 +630,9 @@ Filters  (comma = or,  repeated = and):
      "lead_time":{"done":30,"measured":30,"unknown":0,
                   "median":95,"p90":4100},
      "cycle_time":{...the same keys...},
-     "work":{"recorded":25,"lines":31,"tokened":28,"tokens":5100000,
+     "work":{"recorded":25,"lines":31,
              "by_model":[{"provider":"anthropic","model":"opus-5",
-                          "lines":31,"tokened":28,"tokens":5100000}],
+                          "lines":31}],
              "by_grade":[{"grade":"high","lines":12,...},...]},
      "reviews":{"rows":6,"work":{...the same keys as work...}}}
 ```

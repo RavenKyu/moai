@@ -1,4 +1,4 @@
-<!-- moai:begin v:0.15.1 hash:335e64bc -->
+<!-- moai:begin v:0.15.1 hash:c499129f -->
 ## Issue tracker — moai
 
 This repository's work lives in `.moai/issues.jsonl`.
@@ -453,8 +453,8 @@ work. It is a note, not a field.
 - A list, `moai show [filters] --json`, gives the same `work` on every row — when you
   are adding several issues up, call the list once instead of calling per id, with
   `--archived` so every closed row is in (`--all` leaves out what has stood in done
-  for `archive_days`), or let `moai stats --json` add them up: its `work` sums tokens
-  by model and by grade and counts the lines that carry none apart
+  for `archive_days`), or let `moai stats --json` add them up: its `work` counts the
+  lines by model and by grade
 
 ### The five things the hook actually watches
 

@@ -2563,27 +2563,12 @@ pub(crate) fn span_counts(sp: &crate::report::stats::Spans, unread: bool, lang: 
     }
 }
 
-/// AI 작업의 머리 줄 — 줄 수와 토큰.
+/// AI 작업의 머리 줄 — 줄 수와 그 줄을 든 이슈 수. **토큰은 안 낸다**(moai-w9ui) — 세지 않는 값이다.
 pub(crate) fn work_said(sp: &crate::report::stats::Spend, lang: Lang) -> String {
     if sp.all.lines == 0 {
         return paint(style::DIM, say(lang, "stats.no_work"));
     }
-    let lines = fill(
-        say(lang, "stats.work_lines"),
-        &[("lines", &sp.all.lines.to_string()), ("rows", &sp.recorded.to_string())],
-    );
-    format!("{lines} · {}", tally_said(&sp.all, lang))
-}
-
-/// 토큰 한 덩이 — 적힌 줄만 더한 합과, 안 적힌 줄의 수. **하나도 안 적혔으면 합을 안 낸다** — 0 은 "공짜로
-/// 했다" 로 읽힌다.
-pub(crate) fn tally_said(t: &crate::report::stats::Tally, lang: Lang) -> String {
-    let Some(tokens) = t.tokens else { return paint(style::DIM, say(lang, "stats.tokens_none")) };
-    let sum = fill(say(lang, "stats.tokens"), &[("tokens", &grouped(tokens)), ("tokened", &t.tokened.to_string())]);
-    match t.lines - t.tokened {
-        0 => sum,
-        n => format!("{sum} {}", paint(style::DIM, &fill(say(lang, "stats.tokens_without"), &[("n", &n.to_string())]))),
-    }
+    fill(say(lang, "stats.work_lines"), &[("lines", &sp.all.lines.to_string()), ("rows", &sp.recorded.to_string())])
 }
 
 /// 회사·모델마다 한 줄, 그 밑에 등급 한 줄.
@@ -2597,10 +2582,7 @@ fn work_detail(sp: &crate::report::stats::Spend, lang: Lang) -> Vec<String> {
     let mut out: Vec<String> = names
         .iter()
         .zip(&lines)
-        .zip(&sp.by_model)
-        .map(|((n, l), m)| {
-            format!("    {}  {} · {}", pad(n, width(n), w), rcell(style::PLAIN, l, w_lines), tally_said(&m.tally, lang))
-        })
+        .map(|(n, l)| format!("    {}  {}", pad(n, width(n), w), rcell(style::PLAIN, l, w_lines)))
         .collect();
     out.extend(grade_line(sp, lang));
     out
@@ -2620,19 +2602,6 @@ pub(crate) fn grade_line(sp: &crate::report::stats::Spend, lang: Lang) -> Option
         })
         .collect();
     Some(format!("    {}  {}", paint(style::DIM, say(lang, "stats.grade")), grades.join(" · ")))
-}
-
-/// 큰 수를 세 자리마다 끊는다 — 토큰은 수백만이라 끊지 않으면 자릿수를 세어야 읽힌다.
-fn grouped(n: u64) -> String {
-    let digits = n.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (k, c) in digits.chars().enumerate() {
-        if k > 0 && (digits.len() - k).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(c);
-    }
-    out
 }
 
 /// 생성·수정 줄과 시작·끝 줄의 이름 칸을 **한 폭으로** 맞추는 두 자. 왼쪽 칸은

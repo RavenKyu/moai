@@ -11025,7 +11025,8 @@ fn stats_folds_the_case_of_model_names_but_show_keeps_what_was_written() {
     assert_eq!(by_model.len(), 1, "철자만 다른 둘이 두 모델로 섰다\n{json}");
     assert_eq!(by_model[0]["provider"], "openai");
     assert_eq!(by_model[0]["model"], "gpt-6.1-sol");
-    assert_eq!((by_model[0]["lines"].as_u64(), by_model[0]["tokens"].as_u64()), (Some(2), Some(150)));
+    // 토큰은 더하지 않는다(moai-w9ui) — 줄 수만 접힌 철자로 센다.
+    assert_eq!((by_model[0]["lines"].as_u64(), by_model[0].get("tokens")), (Some(2), None));
     let by_grade = json["work"]["by_grade"].as_array().unwrap();
     assert_eq!(by_grade.len(), 1, "(High) 와 (high) 가 두 등급으로 섰다\n{json}");
     assert_eq!(by_grade[0]["grade"], "high");
@@ -24518,20 +24519,22 @@ fn stats_measures_time_and_work_without_turning_unknown_into_zero() {
         value_at(&json, "flow"),
         r#"{"bucket":"week","zone":"UTC","buckets":[{"start":"2026-08-31","created":1,"done":0},{"start":"2026-09-07","created":2,"done":2}]}"#
     );
+    // **토큰은 더하지 않는다**(moai-w9ui, 2026-10-12 사용자 결정) — 옛 줄의 `tokens=1000` 도 합으로 안 선다.
     let work = value_at(&json, "work");
-    assert!(work.starts_with(r#"{"recorded":2,"lines":2,"tokened":1,"tokens":1000,"#), "{work}");
+    assert!(work.starts_with(r#"{"recorded":2,"lines":2,"by_model":"#), "{work}");
+    assert!(!work.contains("token"), "stats 가 토큰을 다시 더한다\n{work}");
     let reviews = value_at(&json, "reviews");
-    assert!(
-        reviews.starts_with(r#"{"rows":1,"work":{"recorded":1,"lines":1,"tokened":0,"tokens":null,"#),
-        "토큰을 안 적은 줄만 있으면 합은 0 이 아니라 null 이다\n{reviews}"
-    );
-    assert!(value_at(reviews, "by_grade").contains(r#"{"grade":"max","lines":1,"tokened":0,"tokens":null}"#));
+    assert!(reviews.starts_with(r#"{"rows":1,"work":{"recorded":1,"lines":1,"by_model":"#), "{reviews}");
+    assert!(value_at(reviews, "by_grade").contains(r#"{"grade":"max","lines":1}"#));
+    // 파서는 옛 줄을 그대로 읽는다 — 이력의 `work[].tokens` 는 남는다.
+    let row = ok(s.path(), &["show", "argos-0001", "--json"]);
+    assert!(value_at(&row, "work").contains(r#""tokens":1000"#), "옛 줄의 토큰을 못 읽는다\n{row}");
 
     // 사람 화면도 같은 수를 낸다 — 모르는 것을 따로 댄다.
     let screen = ok(s.path(), &["stats"]);
     assert!(screen.contains("중앙값 2시간 · p90 2시간"), "{screen}");
     assert!(screen.contains("모름 1"), "모르는 수를 안 댄다\n{screen}");
-    assert!(screen.contains("토큰 1,000"), "{screen}");
+    assert!(!screen.contains("토큰"), "화면이 토큰을 낸다\n{screen}");
 }
 
 /// **흐름의 날은 읽는 사람의 날이고, `--created <날>` 이 그날을 읽는 시간대와 같다.** 그래서 칸 하나의 수가 그날로

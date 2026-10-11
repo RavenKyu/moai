@@ -870,8 +870,8 @@ work. It is a note, not a field.
 - A list, `moai show [filters] --json`, gives the same `work` on every row — when you
   are adding several issues up, call the list once instead of calling per id, with
   `--archived` so every closed row is in (`--all` leaves out what has stood in done
-  for `archive_days`), or let `moai stats --json` add them up: its `work` sums tokens
-  by model and by grade and counts the lines that carry none apart"#;
+  for `archive_days`), or let `moai stats --json` add them up: its `work` counts the
+  lines by model and by grade"#;
 
 /// 통계(moai-1hka). **세는 자는 `report::stats` 하나다** — CLI 와 탐색기(`SPC g s`)가 같은 값을
 /// 읽으므로, 여기 적는 계약은 둘 다의 것이다. 읽는 것은 스냅샷의 필드와 노트의 `model:` 줄뿐이고
@@ -888,9 +888,9 @@ count of history that hides what closed would say nothing closed. In the explore
 `SPC g s` opens the same numbers as bars, narrowed by the filter that is hung.
 
 - **Unknown is not zero.** A done row with no `started_at` (it closed before that
-  field existed) is counted under `unknown` in `cycle_time`, never as 0 minutes;
-  `tokens` is `null` when no line carried a count, and the lines without one are
-  counted apart. Durations are wall clock in minutes, not effort
+  field existed) is counted under `unknown` in `cycle_time`, never as 0 minutes.
+  Durations are wall clock in minutes, not effort. AI work is counted in lines;
+  tokens are not added up
 - **When a row closed** is the time `--done` reads — rows standing in done now, at
   the time they got there. A reopened row is not counted as closed
 - **Flow buckets are cut in the screen's time zone**, the zone `--created <day>`
