@@ -46,8 +46,11 @@ a note on them; just finish the turn.
 
 **When sessions died** — a restart or an OOM kill took the workers or a supervisor down —
 and the person asks to bring them back, load `moai-recover`, inside tmux or not. A subagent
-worker lives inside your session and ends with it; its row stays picked up and comes back
-in 0 like any stalled work.
+worker lives inside your session and ends with it. Its rows stay picked up and its worktree
+stays, so 0 does not list them as `stranded` — the place still reads that worktree, and no
+window is there to ask about. So when you start again, a `Sent: subagent <agentId>` (1) with no
+`report:` after it is work whose worker has ended: hand it on from "Carrying on stalled work"
+as 0 does, once the person agrees that the session it ran in is gone.
 
 ## Workers in sessions
 
@@ -287,6 +290,10 @@ the work goes to Codex — then a session (below).
 
     Agent(subagent_type: "general-purpose", model: <model>, effort: <effort>, description: "<id>", prompt: <the message of 3>)
 
+`<model>` goes in as the person's table has it, and `Agent` takes only the model names its
+`model` parameter lists. **If `Agent` refuses the value**, the table holds a name Claude Code
+does not raise a subagent on — tell the person which role and value, and do not swap in a model
+of your own choosing: the table is theirs.
 It runs in the background, and a notification comes when it ends (4). **How many run side by
 side is the person's** — ask once a round (two unless they say otherwise); the ceiling is how
 many backlog items do not collide (1). Do not pass `isolation: "worktree"`: the worker raises
@@ -495,7 +502,10 @@ notification carries only numbers. Two other heads stop it before the work is do
   `SendMessage(to: <agentId>)` — the same worker wakes and carries on from its own record.
   With `Person: away` it settles that by its recommendation instead and does not stop
 - `Model: raise to complex — <why>` — it read the work as heavier than its model and picked nothing
-  up. Leave it, and raise a new worker on the `complex` model with the same message (2)
+  up. Leave it, and raise a new worker on the `complex` model and `effort_complex` with the same
+  message (2) — but with its `Model:` line naming that model and the difficulty the worker measured,
+  and its `Effort:` line the `effort_complex` value. Sent unchanged, the new worker reads the work as heavier
+  than `Model:` says too and hands the same line back
 
 Every wake ends in another notification; read the last. A subagent worker also leaves its
 report on the epic as a note before it hands back — a supervisor that started again has lost
@@ -571,8 +581,10 @@ commit with a path — a supervisor that starts again reads that line, not this 
     moai note <epic> 'Report-checked: <merge hash>'
 
 **For a subagent worker, write the `model:` line yourself**, one per member it did — not the
-members it left in the first column — and take them into the root the same way. The model is the report's `Model ran:` line — the real name the worker
-read in its own system prompt, not the alias you passed. Leave `tokens=` out: the count a
+members it left in the first column — and take them into the root the same way. `<model ran>` is
+the name after `anthropic/` on the report's `Model ran:` line — the real name the worker read in
+its own system prompt, not the alias you passed. Copy the vendor once: `anthropic/anthropic/…`
+is a line `work` never reads. Leave `tokens=` out: the count a
 subagent's notification carries is not what the work cost (the person's decision), and a
 false number is worse than none. A session worker writes its own line (its 9-1), and the
 review issue's line is the worker's either way (its 10).

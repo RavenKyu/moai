@@ -377,9 +377,11 @@ effort_complex = "high"   # complex
 `moai models` shows the table with the defaults marked; `moai models --json` is
 what the supervisor reads at the start of every round, so a change counts from the
 next one. A grade or an effort that is not one of the five words falls back to its
-default with one line on stderr, and an unknown key is named and skipped. The
-repository's `.moai/config.toml` does not carry models — what each one costs is
-yours.
+default with one line on stderr, and an unknown key is named and skipped. A
+model name is not checked: the Claude roles go to Claude Code's `Agent` as written,
+so write a name it raises a subagent on, and the supervisor tells you when one is
+refused. The repository's `.moai/config.toml` does not carry models — what each
+one costs is yours.
 
 ### One round
 
@@ -411,7 +413,8 @@ yours.
    comes back as `decision needed: <id>`; the supervisor asks you and wakes the
    same worker with your answer. Work that reads heavier than the model it was
    raised on comes back, before anything is picked up, as
-   `Model: raise to complex`, and the supervisor raises a new worker on that model
+   `Model: raise to complex`, and the supervisor raises a new worker on that model,
+   its message's `Model:` and `Effort:` lines changed to match
 5. **The supervisor checks the report** — the merge is on that work's base branch, the
    epic is done, the worktree is gone — writes the
    [model line](glossary.md#model-line) of a subagent worker from the report's
@@ -427,10 +430,11 @@ never starts another agent program.
 
 **The hook reads a subagent worker as the supervisor.** A subagent's tool calls
 carry the supervisor's session, so the rows it picks up are the supervisor's
-[focus](glossary.md#focus) as well, and the supervisor's turn ends held until they
-close. A row a session picked up stays its own even when a sibling worktree's
-name points at it — that is what keeps rule 1 guarding a subagent in the root
-and lets its review through rule 3 (moai-pxui).
+[focus](glossary.md#focus) as well, and the hook holds the supervisor's turn end on
+them — once a session, as it holds any session's. A row a session picked up
+stays its own even when a sibling worktree's name points at it — that is what
+keeps rule 1 guarding a subagent in the root and lets its review through rule 3
+once the worker has picked the review issue up (moai-pxui).
 
 **Stalled work** — a member picked up with no live session working it — the
 supervisor looks for before any new backlog, and it reads it from the tracker,

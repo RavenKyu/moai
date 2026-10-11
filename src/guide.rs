@@ -308,8 +308,9 @@ const WORKER_SLOT: &str = "Worker: <worker kind>";
 ///
 /// **서브에이전트는 제 모델을 못 바꾼다**(moai-9tqo.rsl, fxp). 모델과 effort 는 `Agent` 가 띄울 때 박히고, `/model`
 /// 을 칠 손도 물을 사람도 없다. 그래서 무거우면 **집기 전에** 멈춰 [`RAISE_HEAD`] 한 줄을 돌려준다 — 감독이 그
-/// 메시지 그대로 `complex` 역할의 모델로 새 일꾼을 세운다. 집은 뒤에 드러난 것은 그 일꾼이 그대로 하고 보고에 적는다:
-/// 집은 줄을 남기고 멈추면 그 줄이 주인 없이 선다.
+/// 메시지로 `complex` 역할의 모델로 새 일꾼을 세운다. **`Model:`·`Effort:` 줄은 고쳐 싣는다** — 그대로 실으면 새
+/// 일꾼도 같은 `Model:` 보다 무겁다고 읽어 같은 머리를 돌려주고, 올리기가 끝없이 돈다. 집은 뒤에 드러난 것은 그
+/// 일꾼이 그대로 하고 보고에 적는다: 집은 줄을 남기고 멈추면 그 줄이 주인 없이 선다.
 ///
 /// **역할이고 모델 이름이 아니다**(2026-10-12 사용자 결정) — 역할의 모델은 사람의 설정에 있고 스킬은 그것을 굽지 않는다.
 fn model_rule() -> String {
@@ -324,7 +325,8 @@ the model of that role, not one step at a time. Handed `low` but it is `high`, t
 **In a subagent** the model and the effort were fixed when you were raised, and nobody can
 change them. If it reads heavier than `Model:` says, stop before you pick anything up and hand
 back one line, `{RAISE_HEAD} — <why>`; the supervisor raises a new worker on the `{top}` model
-with the same message. What shows only after you picked up, you carry on and name in the report.
+with the same message, its `Model:` and `Effort:` lines changed to that role's. What shows only
+after you picked up, you carry on and name in the report.
 Whether the epic-end review (7) goes to `max` is measured on this same rubric, member by member"#
     )
 }
@@ -1942,8 +1944,11 @@ a note on them; just finish the turn.
 
 **When sessions died** — a restart or an OOM kill took the workers or a supervisor down —
 and the person asks to bring them back, load `moai-recover`, inside tmux or not. A subagent
-worker lives inside your session and ends with it; its row stays picked up and comes back
-in 0 like any stalled work.
+worker lives inside your session and ends with it. Its rows stay picked up and its worktree
+stays, so 0 does not list them as `stranded` — the place still reads that worktree, and no
+window is there to ask about. So when you start again, a `Sent: subagent <agentId>` (1) with no
+`report:` after it is work whose worker has ended: hand it on from "Carrying on stalled work"
+as 0 does, once the person agrees that the session it ran in is gone.
 
 ## Workers in sessions
 
@@ -2183,6 +2188,10 @@ the work goes to Codex — then a session (below).
 
     Agent(subagent_type: "general-purpose", model: <model>, effort: <effort>, description: "<id>", prompt: <the message of 3>)
 
+`<model>` goes in as the person's table has it, and `Agent` takes only the model names its
+`model` parameter lists. **If `Agent` refuses the value**, the table holds a name Claude Code
+does not raise a subagent on — tell the person which role and value, and do not swap in a model
+of your own choosing: the table is theirs.
 It runs in the background, and a notification comes when it ends (4). **How many run side by
 side is the person's** — ask once a round (two unless they say otherwise); the ceiling is how
 many backlog items do not collide (1). Do not pass `isolation: "worktree"`: the worker raises
@@ -2364,7 +2373,10 @@ notification carries only numbers. Two other heads stop it before the work is do
   `SendMessage(to: <agentId>)` — the same worker wakes and carries on from its own record.
   With `Person: away` it settles that by its recommendation instead and does not stop
 - `{RAISE_HEAD} — <why>` — it read the work as heavier than its model and picked nothing
-  up. Leave it, and raise a new worker on the `complex` model with the same message (2)
+  up. Leave it, and raise a new worker on the `complex` model and `effort_complex` with the same
+  message (2) — but with its `Model:` line naming that model and the difficulty the worker measured,
+  and its `Effort:` line the `effort_complex` value. Sent unchanged, the new worker reads the work as heavier
+  than `Model:` says too and hands the same line back
 
 Every wake ends in another notification; read the last. A subagent worker also leaves its
 report on the epic as a note before it hands back — a supervisor that started again has lost
@@ -2440,8 +2452,10 @@ commit with a path — a supervisor that starts again reads that line, not this 
     moai note <epic> 'Report-checked: <merge hash>'
 
 **For a subagent worker, write the `model:` line yourself**, one per member it did — not the
-members it left in the first column — and take them into the root the same way. The model is the report's `Model ran:` line — the real name the worker
-read in its own system prompt, not the alias you passed. Leave `tokens=` out: the count a
+members it left in the first column — and take them into the root the same way. `<model ran>` is
+the name after `anthropic/` on the report's `Model ran:` line — the real name the worker read in
+its own system prompt, not the alias you passed. Copy the vendor once: `anthropic/anthropic/…`
+is a line `work` never reads. Leave `tokens=` out: the count a
 subagent's notification carries is not what the work cost (the person's decision), and a
 false number is worse than none. A session worker writes its own line (its 9-1), and the
 review issue's line is the worker's either way (its 10).
@@ -4042,6 +4056,9 @@ never in the root
    and ask. Showing a split plan to a person once is a step of work a person asked for
    directly; what a supervisor hands you is work a person already passed on. Design
    decisions are asked in 4.
+   **In a subagent, measure before you unfold** — read the backlog against the rubric in 5
+   first, and if it reads heavier than `Model:` says, hand back `{RAISE_HEAD} — <why>` and end.
+   Nothing is unfolded yet, so the worker raised after you starts from step 1 as you did.
    If that backlog is already done (someone unfolded it), do not unfold: tell the supervisor —
    unfolding again puts up two epics. **Write a short new title** — a line in the plan
    becomes the issue title verbatim, so copying over a backlog item title that grew long while it
@@ -4065,9 +4082,6 @@ never in the root
    not in `ready`, not in `held`, no warning
 
        {MILESTONE_ATTACH}
-   **In a subagent, measure before you unfold** — read the backlog against the rubric in 5,
-   and if it reads heavier than `Model:` says, hand back `{RAISE_HEAD} — <why>` and end.
-   Nothing is unfolded yet, so the worker raised after you starts from step 1 as you did
 2. Pick the members up with `moai mv <member> in_progress --from todo` and commit in the root.
    **Pass the column you saw** — this is a place where several sessions share one `.moai`,
    and overwriting a row picked up beside you means two of you do the same work. A non-zero
@@ -4168,9 +4182,13 @@ never in the root
    **In a subagent** the review is a subagent of your own — still this session, not another
    agent program — because a review called from you runs on your model. Read the `review`
    model from `moai models --json`, create the review issue and stand the members in `review`
-   as below, then raise it on the review brief (the last section of this file), every slot
-   filled. It leaves its fixes uncommitted and the reviewer's words on the review issue, and
-   hands back what it fixed and what it left — take that in as below
+   as below, **pick the review issue up** —
+   `moai -C <root> mv <review id> in_progress --from todo` — and only then raise it on the
+   review brief (the last section of this file), every slot filled. You stand in the root, so
+   the hook reads a review issue nobody picked up under `.worktrees/<epic>` as that worktree's,
+   and rule 3 refuses the review it raises. It leaves its fixes uncommitted and the reviewer's
+   words on the review issue, and hands back what it fixed and what it left — take that in as
+   below
 
        Agent(subagent_type: "general-purpose", model: <review model>, description: "review <epic>", prompt: <the review brief>)
    Write the grade you picked and why in one line in the angle (`-b`). The diff runs from
@@ -4327,15 +4345,17 @@ never in the root
     that is not in. It closes a member from `review`, where 7 stood it, and from
     `in_progress` where there is no `review` column alike. Do not close the
     members left in the first column by 7-1 and 4-3 — those members keep the epic open. While
-    the worktree still stands, the hook reads this work as a sibling worktree's and cannot
-    refuse a review closed without `-m`. Close the review issue leaving what came out of it
+    the worktree still stands, the hook reads what this session did not pick up as a sibling
+    worktree's and cannot refuse such a review closed without `-m`. Close the review issue
+    leaving what came out of it
 
 {close}
 {over}
 
     **In a subagent** the review subagent already left the reviewer's words on the review
     issue, so write only your own call (`mv … done -m`), and one line naming the model it ran on —
-    the real name from the first line of its hand-back
+    `<model it ran>` is the name after `anthropic/` on the first line of its hand-back, so the
+    vendor stands once
 
         moai note <review id> 'model: anthropic/<model it ran> (<grade> — epic-end review)'
 
@@ -5961,9 +5981,20 @@ stop sending outside work while a release runs",
             let step = &brief[step_at(&brief, n)..step_at(&brief, next)];
             assert!(step.contains("**In a subagent"), "걸음 {n} 에 서브에이전트의 줄이 없다");
         }
-        // 집기 전에 멈춘다 — 집은 줄을 남기고 멈추면 그 줄이 주인 없이 선다.
+        // 집기 전에 멈춘다 — 집은 줄을 남기고 멈추면 그 줄이 주인 없이 선다. **펼치는 글보다 앞에 선다**(리뷰
+        // moai-9tqo.jdi 4번) — 뒤에 서면 펼친 뒤에 멈춰, 다음 일꾼이 이미 펼친 backlog 앞에서 선다.
         let one = &brief[step_at(&brief, "1")..step_at(&brief, "2")];
         assert!(one.contains(RAISE_HEAD) && one.contains("before you unfold"), "1 이 펼치기 전에 재지 않는다");
+        let measure = one.find("**In a subagent, measure before you unfold**").unwrap();
+        assert!(measure < one.find("If that backlog is already done").unwrap(), "재기가 펼치는 글 뒤에 섰다");
+        assert!(
+            measure < one.find(MILESTONE_ATTACH).expect("1 에 마일스톤을 다는 줄이 없다"),
+            "재기가 펼치는 글 뒤에 섰다"
+        );
+        // 올리기가 고리를 안 돈다(리뷰 moai-9tqo.jdi 2번) — 같은 `Model:` 을 실어 다시 세우면 새 일꾼도 같은 머리를
+        // 돌려준다. 감독은 `Model:`·`Effort:` 를 고쳐 싣는다.
+        let wait = &supervise()[supervise().find("**4. Wait.**").unwrap()..supervise().find("**5. Check").unwrap()];
+        assert!(wait.contains("`Model:` line naming that model"), "감독이 올린 일꾼에게 옛 `Model:` 을 싣는다");
         let four = &brief[step_at(&brief, "4")..step_at(&brief, "4-1")];
         assert!(four.contains(DECISION_HEAD) && four.contains("`SubagentHandback`"), "4 가 결정을 돌려주지 않는다");
         // 보고 — 노트가 handback 보다 먼저다. 둘째 줄이 실제로 돈 모델이다(감독이 9-1 의 줄을 적는다).
@@ -5988,6 +6019,10 @@ stop sending outside work while a release runs",
         let (brief, prompt) = (worker(), review_brief());
         let seven = &brief[step_at(&brief, "7")..step_at(&brief, "7-1")];
         let raise = seven.lines().find(|l| l.trim_start().starts_with("Agent(")).expect("7 에 리뷰를 세우는 줄이 없다");
+        // 리뷰 이슈를 먼저 집는다(리뷰 moai-9tqo.jdi 1번) — 루트에 선 일꾼이 안 집은 리뷰 줄은 훅에게 옆 워크트리의
+        // 것이라, 규칙 3 이 리뷰를 막고 리뷰 줄을 하나 더 세우라고 한다.
+        let pick = seven.find("**pick the review issue up**").expect("7 이 리뷰 이슈를 집지 않는다");
+        assert!(pick < seven.find(raise).unwrap(), "리뷰 이슈를 집기 전에 리뷰를 세운다");
         assert!(raise.contains("model: <review model>"), "리뷰가 `review` 역할의 모델로 안 선다 — {raise}");
         assert!(
             seven.contains("still this session, not another"),
@@ -6008,6 +6043,16 @@ stop sending outside work while a release runs",
         // 리뷰 이슈의 모델 줄은 일꾼이 적는다 — 리뷰 서브에이전트의 몫은 일꾼의 줄에 안 든다.
         let ten = &brief[step_at(&brief, "10")..step_at(&brief, "11")];
         assert!(ten.contains("moai note <review id> 'model: anthropic/<model it ran>"), "리뷰 이슈에 모델 줄이 없다");
+        // 회사는 한 번 선다(리뷰 moai-9tqo.jdi 3번) — `Model ran:` 은 이미 `anthropic/<이름>` 이라, 그대로 옮기면
+        // `anthropic/anthropic/…` 가 되어 파서가 못 읽고 통계에서 말없이 빠진다.
+        assert!(ten.contains("the name after `anthropic/`"), "리뷰 이슈의 모델 줄에 회사가 두 번 선다");
+        let check = supervise();
+        let check = &check[check.find("**5. Check the report").unwrap()..];
+        assert!(check.contains("the name after `anthropic/`"), "감독의 모델 줄에 회사가 두 번 선다");
+        assert!(
+            crate::model::parse_work("model: anthropic/anthropic/opus-5.5 (high — x)").is_none(),
+            "회사가 두 번 선 줄을 파서가 읽는다 — 위 두 단언이 지키는 것이 사라졌다"
+        );
     }
 
     /// **가르치는 자유 글은 작은따옴표로 싼다**(2026-09-18 사용자 결정). 큰따옴표로 가르친 `-m`·`-b`·

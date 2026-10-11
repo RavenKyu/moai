@@ -27,7 +27,8 @@ said yes to taking over a row that is not yours, say — belongs to the assignme
   **In a subagent** the model and the effort were fixed when you were raised, and nobody can
   change them. If it reads heavier than `Model:` says, stop before you pick anything up and hand
   back one line, `Model: raise to complex — <why>`; the supervisor raises a new worker on the `complex` model
-  with the same message. What shows only after you picked up, you carry on and name in the report.
+  with the same message, its `Model:` and `Effort:` lines changed to that role's. What shows only
+  after you picked up, you carry on and name in the report.
   Whether the epic-end review (7) goes to `max` is measured on this same rubric, member by member
 - `Effort:` — `<effort>`, the reasoning effort that goes with the model. Like the model, a
   subagent was raised on it and a session's person sets it — you do not
@@ -183,6 +184,9 @@ never in the root
    and ask. Showing a split plan to a person once is a step of work a person asked for
    directly; what a supervisor hands you is work a person already passed on. Design
    decisions are asked in 4.
+   **In a subagent, measure before you unfold** — read the backlog against the rubric in 5
+   first, and if it reads heavier than `Model:` says, hand back `Model: raise to complex — <why>` and end.
+   Nothing is unfolded yet, so the worker raised after you starts from step 1 as you did.
    If that backlog is already done (someone unfolded it), do not unfold: tell the supervisor —
    unfolding again puts up two epics. **Write a short new title** — a line in the plan
    becomes the issue title verbatim, so copying over a backlog item title that grew long while it
@@ -206,9 +210,6 @@ never in the root
    not in `ready`, not in `held`, no warning
 
        moai edit <epic> --milestone <milestone>
-   **In a subagent, measure before you unfold** — read the backlog against the rubric in 5,
-   and if it reads heavier than `Model:` says, hand back `Model: raise to complex — <why>` and end.
-   Nothing is unfolded yet, so the worker raised after you starts from step 1 as you did
 2. Pick the members up with `moai mv <member> in_progress --from todo` and commit in the root.
    **Pass the column you saw** — this is a place where several sessions share one `.moai`,
    and overwriting a row picked up beside you means two of you do the same work. A non-zero
@@ -315,9 +316,13 @@ never in the root
    **In a subagent** the review is a subagent of your own — still this session, not another
    agent program — because a review called from you runs on your model. Read the `review`
    model from `moai models --json`, create the review issue and stand the members in `review`
-   as below, then raise it on the review brief (the last section of this file), every slot
-   filled. It leaves its fixes uncommitted and the reviewer's words on the review issue, and
-   hands back what it fixed and what it left — take that in as below
+   as below, **pick the review issue up** —
+   `moai -C <root> mv <review id> in_progress --from todo` — and only then raise it on the
+   review brief (the last section of this file), every slot filled. You stand in the root, so
+   the hook reads a review issue nobody picked up under `.worktrees/<epic>` as that worktree's,
+   and rule 3 refuses the review it raises. It leaves its fixes uncommitted and the reviewer's
+   words on the review issue, and hands back what it fixed and what it left — take that in as
+   below
 
        Agent(subagent_type: "general-purpose", model: <review model>, description: "review <epic>", prompt: <the review brief>)
    Write the grade you picked and why in one line in the angle (`-b`). The diff runs from
@@ -491,8 +496,9 @@ never in the root
     that is not in. It closes a member from `review`, where 7 stood it, and from
     `in_progress` where there is no `review` column alike. Do not close the
     members left in the first column by 7-1 and 4-3 — those members keep the epic open. While
-    the worktree still stands, the hook reads this work as a sibling worktree's and cannot
-    refuse a review closed without `-m`. Close the review issue leaving what came out of it
+    the worktree still stands, the hook reads what this session did not pick up as a sibling
+    worktree's and cannot refuse such a review closed without `-m`. Close the review issue
+    leaving what came out of it
 
         moai note <review id> -b - < <review text>   the reviewer's own words (summarize past 64KB)
         moai mv <review id> done -m '<what you took in, what you handed on>'
@@ -501,7 +507,8 @@ never in the root
 
     **In a subagent** the review subagent already left the reviewer's words on the review
     issue, so write only your own call (`mv … done -m`), and one line naming the model it ran on —
-    the real name from the first line of its hand-back
+    `<model it ran>` is the name after `anthropic/` on the first line of its hand-back, so the
+    vendor stands once
 
         moai note <review id> 'model: anthropic/<model it ran> (<grade> — epic-end review)'
 

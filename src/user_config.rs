@@ -45,7 +45,8 @@ pub const COLOUR: &str = "colour";
 pub const AUTO: &str = "auto";
 
 /// 역할별 모델은 사람의 비용 선택이라 사용자 설정에만 둔다(moai-9tqo.3la).
-/// 나중에 저장소 표가 생겨도 사용자 설정이 이긴다. 기본값과 출력 차례는 이 한 자리다.
+/// 나중에 저장소 표가 생겨도 사용자 설정이 이긴다. 기본값과 사람 화면(`view::models`)의 차례는 이 한 자리다 —
+/// `--json` 의 키 차례는 [`Models::values`] 의 `BTreeMap` 이라 이름순이다.
 pub const MODELS_DEFAULT: &[(&str, &str)] = &[
     ("plan", "fable"),
     ("develop", "sonnet"),

@@ -58,7 +58,6 @@ does not tag — see `CONTRIBUTING.md`.
   <why>)`. A line written with `tokens=` before still reads, and `moai show --json`
   still gives it under `work[].tokens`. A subagent worker's line is written by the
   supervisor from the `Model ran:` line of its report. (moai-9tqo.p1p, moai-w9ui)
-
 - **`wip_overload` counts the members of one epic as one bundle.** The worker
   steps pick up every member of an epic, so counting row by row raised the
   warning, and the Stop hook held the turn, the moment a four-member epic was
