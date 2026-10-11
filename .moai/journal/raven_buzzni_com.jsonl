@@ -6317,3 +6317,5 @@
 {"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.egv","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
 {"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.1vt","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (medium — claude-teams 의 가짜 TMUX 조사와 갈래)"}
 {"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.1vt","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
+{"ts":"2026-10-11T07:09:45Z","id":"moai-6kl0","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"moai-p5sz.7q3 이 고쳤다 — macOS 는 LC_ALL=C TZ=UTC ps -o lstart= 로 살아 있음을 재고, tmux 칸은 tty 로 잇는다. v0.14.0 에 실려 나갔고, 리뷰(moai-p5sz.tkn·moai-xpa8.yv6)의 고침은 v0.15.1 에 실렸다. 같은 보고를 기록한 moai-kccu.l73 도 닫혔다."}
+{"ts":"2026-10-11T07:09:45Z","id":"moai-6kl0","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"todo","to":"done"}
