@@ -3276,7 +3276,7 @@ pub fn look_problems(reg: &crate::user_config::Registry, lang: Lang) -> Vec<Stri
     let reads = reg.read_problems.iter().map(|why| told(skipped(lang, why)));
     // 새 판 묻기의 틀린 값도 여기 선다(moai-d74q) — 그 설정이 서는 표면이 탐색기 하나다.
     let updates = reg.update_problems.iter().map(|why| told(update_trouble(lang, why)));
-    looks.chain(reads).chain(updates).collect()
+    looks.chain(reads).chain(updates).chain(models_problems(reg, lang)).collect()
 }
 
 /// 쓰기가 거절한 까닭의 글([`crate::model::Invalid`], moai-yve0).
@@ -3426,6 +3426,68 @@ pub fn update_trouble(lang: Lang, why: &crate::user_config::UpdateTrouble) -> St
         // 적힌 값은 따옴표로 싸 댄다 — 빈 글이나 공백이 든 값도 화면에서 보이게.
         UpdateTrouble::BadRepo { raw } => want(REPO, say(lang, "look.want_repo"), &format!("{raw:?}")),
     }
+}
+
+/// `[models]`의 까닭. 명령과 탐색기가 같은 글을 쓰고, 파일 자리는 부르는 쪽이 붙인다.
+pub fn models_trouble(lang: Lang, why: &crate::user_config::ModelsTrouble) -> String {
+    use crate::user_config::{MODEL_LEVELS, MODELS, ModelsTrouble};
+    let want = |key: &str, wanted: &str, found: &str| {
+        fill(say(lang, "look.want"), &[("key", &format!("{MODELS}.{key}")), ("want", wanted), ("found", found)])
+    };
+    match why {
+        ModelsTrouble::NotATable { found } => fill(say(lang, "look.not_a_table"), &[("key", MODELS), ("found", found)]),
+        ModelsTrouble::NotAWord { key, found } => want(key, say(lang, "look.want_word"), found),
+        ModelsTrouble::NotAGrade { key, raw } | ModelsTrouble::NotAnEffort { key, raw } => {
+            let levels = fill(say(lang, "models.want_level"), &[("known", &MODEL_LEVELS.join("|"))]);
+            want(key, &levels, &crate::text::one_line(&format!("{raw:?}")))
+        }
+        ModelsTrouble::UnknownKey { key } => {
+            fill(say(lang, "models.unknown_key"), &[("key", &crate::text::one_line(&format!("{MODELS}.{key}")))])
+        }
+    }
+}
+
+/// 모델의 알림만 편다 — 파일 자체의 탈은 `settings_problems`의 몫이다.
+pub fn models_problems(reg: &crate::user_config::Registry, lang: Lang) -> Vec<String> {
+    reg.models_problems
+        .iter()
+        .map(|why| {
+            let said = models_trouble(lang, why);
+            match reg.path.as_deref() {
+                Some(at) => format!("{}: {said}", crate::text::one_line(&at.display().to_string())),
+                None => said,
+            }
+        })
+        .collect()
+}
+
+/// 사람이 읽는 표. 등급·effort도 제 줄에 서야 어느 값이 기본값인지 가를 수 있다.
+pub fn models(reg: &crate::user_config::Registry, lang: Lang) -> Vec<String> {
+    use crate::user_config::MODELS_DEFAULT;
+    let mut out = Vec::new();
+    for &(key, _) in MODELS_DEFAULT {
+        let value = crate::text::one_line(&reg.models.values[key]);
+        let effort = match key {
+            "develop" | "docs" | "bulk" => Some("effort"),
+            "complex" => Some("effort_complex"),
+            "review" => Some("review_grade"),
+            _ => None,
+        };
+        let tail = effort.map(|k| format!("  ({})", reg.models.values[k])).unwrap_or_default();
+        let line = format!("{key:14}  {value}{tail}");
+        out.push(if reg.models.written.iter().any(|k| k == key) {
+            line
+        } else {
+            crate::style::paint(crate::style::DIM, &format!("{line}  {}", say(lang, "models.default")))
+        });
+    }
+    let path = reg
+        .path
+        .as_deref()
+        .map(|p| crate::text::one_line(&p.display().to_string()))
+        .unwrap_or_else(|| say(lang, "models.no_path").to_string());
+    out.push(fill(say(lang, "models.path"), &[("path", &path)]));
+    out
 }
 
 /// `moai update` 가 못 올리는 까닭 한 줄([`crate::update::Refusal`], moai-zsfr.2p9). **고칠 길을 함께 댄다** —

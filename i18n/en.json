@@ -1181,5 +1181,10 @@
   "wiki.linked_from_partial": "Unread in the wiki {n} — links from there are not counted here; `moai wiki ls` names them",
   "warn.tracking_unknown": "Git did not answer whether it tracks this tracker — dotfile rules could not be checked. Fix git or try again",
   "refuse.init_tracking_unknown": "Cannot determine whether git tracks this tracker. Fix git and run init again; nothing was planted",
-  "refuse.init_driver_without_tracking": "--driver requires --tracking commit; a tracker kept out of git has nothing for git to merge"
+  "refuse.init_driver_without_tracking": "--driver requires --tracking commit; a tracker kept out of git has nothing for git to merge",
+  "models.want_level": "one of {known}",
+  "models.unknown_key": "`{key}` is not a known model key — ignored",
+  "models.default": "default",
+  "models.path": "Config  {path}",
+  "models.no_path": "unknown"
 }

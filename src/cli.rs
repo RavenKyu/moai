@@ -866,6 +866,20 @@ Examples:
     )]
     Project(ProjectCmd),
 
+    /// Read the model per role from your user config
+    #[command(after_help = "  moai models           the model per role, with defaults marked
+  moai models --json    one object for skills, including written keys and path
+
+  Reads [models] in your user config. No .moai is needed; repository config
+  is not read. The place is MOAI_CONFIG, then $XDG_CONFIG_HOME/moai/config.toml,
+  then ~/.config/moai/config.toml. Missing files use the built-in defaults.
+
+  Model names are strings. review_grade, effort and effort_complex accept
+  low, medium, high, xhigh or max. Invalid values fall back per key and warn;
+  unknown keys warn. written lists only valid, known keys from the config.
+  This command only reads; edit the user config by hand to change the table.")]
+    Models,
+
     // **받고 돌리는 길은 `cmd::update`, 고르는 길은 `update` 다**(moai-zsfr.2p9). 저장소의 `.moai` 를 안
     // 찾는다 — 올리는 것은 이 바이너리지 트래커가 아니다.
     /// Upgrade the moai you are running with install.sh

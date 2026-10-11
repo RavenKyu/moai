@@ -46,6 +46,7 @@ Commands:
   merge-driver  Called by git. Merges issues.jsonl per issue, three-way
   skill         Plant skills for Claude, Codex, Antigravity (safe to run again)
   project       Register a directory to watch several projects from one moai
+  models        Read the model per role from your user config
   update        Upgrade the moai you are running with install.sh
   init          Put a .moai/ into this repository (safe to run again)
   help          Print this message or the help of the given subcommand(s)
@@ -3105,6 +3106,34 @@ Examples:
   It is written as `color = "green"` under `[[project]]` in the user config.
   Writing it by hand is fine - a wrong value is shown in one line by
   `moai project ls`, which then uses the colour picked by path.
+```
+
+## `moai models`
+
+```
+Read the model per role from your user config
+
+Usage: moai models [OPTIONS]
+
+Options:
+      --json                 Machine-readable output. Every human line goes away
+      --no-color             Turn colour off (same as `--color never`)
+      --color <how>          auto|always|never (auto by default, off when piped)
+  -C, --dir <path>           Run in this directory (same as `git -C`)
+      --user <name (email)>  Who is doing this (from `git config` when absent)
+  -h, --help                 Print help
+
+  moai models           the model per role, with defaults marked
+  moai models --json    one object for skills, including written keys and path
+
+  Reads [models] in your user config. No .moai is needed; repository config
+  is not read. The place is MOAI_CONFIG, then $XDG_CONFIG_HOME/moai/config.toml,
+  then ~/.config/moai/config.toml. Missing files use the built-in defaults.
+
+  Model names are strings. review_grade, effort and effort_complex accept
+  low, medium, high, xhigh or max. Invalid values fall back per key and warn;
+  unknown keys warn. written lists only valid, known keys from the config.
+  This command only reads; edit the user config by hand to change the table.
 ```
 
 ## `moai update`
