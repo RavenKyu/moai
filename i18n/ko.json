@@ -894,6 +894,7 @@
   "backlog.will_close": "{id} 는 done 으로 간다",
   "backlog.milestone_deferred": "마일스톤 {id} 는 미뤄져 있다 — 펼친 에픽도 함께 미뤄진 것으로 서서 `moai ready` 가 아니라 `moai show --deferred` 에 뜬다. 되돌리려면 `moai defer {src} --undo`",
   "backlog.milestone_closed": "마일스톤 {id} 는 이미 닫혔다 — 묶음의 칸은 멤버에서 읽으므로 펼친 에픽이 그 릴리스를 다시 연다",
+  "backlog.milestone_inherited": "마일스톤 {id} 는 이 backlog 가 담겨 있던 에픽 {epic} 에서 왔다 — 펼친 에픽도 그 릴리스에 선다. 빼려면 `moai edit <epic> --milestone none`",
   "backlog.closed": "→ done  (펼쳐졌으므로 더 볼 것이 없다)",
   "refuse.show_target": "`{target}` 는 id 도 종류도 아니다. 종류: issue, epic, milestone, backlog",
   "refuse.show_target_how": "id 로 찾으려면 접두어까지 적는다",

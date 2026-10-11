@@ -7500,17 +7500,81 @@ fn promote_carries_the_milestone_the_tool_shows_it_under() {
     // idea 는 목록에서 접히므로 `--type idea` 로 펴서 본다 — 접혔을 뿐 `m1` 밑이다.
     let ideas_under = ok(s.path(), &["show", "--milestone", &m1, "--type", "idea"]);
     assert!(ideas_under.contains("필드 없는 생각"), "화면이 m1 밑에 안 냈다\n{ideas_under}");
+    // 연습도 같은 줄을 낸다 — 물려받은 마일스톤과 담겨 있던 에픽을 stderr 로 댄다(moai-rs3o.fg4).
+    let dry =
+        from_stdin(s.path(), &["backlog", "promote", &bare, "--from", "-", "--dry-run"], "# 펼친 하나\n- 첫 일\n");
+    let said = String::from_utf8_lossy(&dry.stderr).to_string();
+    assert!(dry.status.success() && said.contains(&m1) && said.contains(&epic), "연습이 물려받음을 안 댔다\n{said}");
     let grown = from_stdin(s.path(), &["backlog", "promote", &bare, "--from", "-"], "# 펼친 하나\n- 첫 일\n");
     assert!(grown.status.success(), "{}", String::from_utf8_lossy(&grown.stderr));
+    let said = String::from_utf8_lossy(&grown.stderr).to_string();
+    assert!(said.contains(&m1) && said.contains(&epic), "물려받은 마일스톤을 안 댔다\n{said}");
     assert!(ok(s.path(), &["show", "--milestone", &m1]).contains("펼친 하나"), "릴리스 밖으로 펼쳤다");
 
     // 제 필드가 `m2` 인데 에픽의 `m1` 이 이기는 생각. 이긴 쪽을 데려간다.
     let lost = ok(s.path(), &["backlog", "add", "진 필드", "-e", &epic, "--milestone", &m2, "-q"]).trim().to_string();
+    let dry =
+        from_stdin(s.path(), &["backlog", "promote", &lost, "--from", "-", "--dry-run"], "# 펼친 둘\n- 둘째 일\n");
+    let said = String::from_utf8_lossy(&dry.stderr).to_string();
+    assert!(said.contains(&m1) && said.contains(&epic), "연습이 이긴 쪽을 안 댔다\n{said}");
     let grown = from_stdin(s.path(), &["backlog", "promote", &lost, "--from", "-"], "# 펼친 둘\n- 둘째 일\n");
     assert!(grown.status.success(), "{}", String::from_utf8_lossy(&grown.stderr));
+    let said = String::from_utf8_lossy(&grown.stderr).to_string();
+    assert!(said.contains(&m1) && said.contains(&epic), "이긴 마일스톤을 안 댔다\n{said}");
     let under2 = ok(s.path(), &["show", "--milestone", &m2]);
     assert!(!under2.contains("펼친 둘"), "아무 화면에도 없던 값을 데려갔다\n{under2}");
     assert!(ok(s.path(), &["show", "--milestone", &m1]).contains("펼친 둘"), "이긴 마일스톤을 안 데려갔다");
+}
+
+/// **물려받은 마일스톤만 알린다**(moai-rs3o.fg4) — 제 필드와 같은 값(사람이 고른 것)과 `-e <에픽>`(아무것도 안
+/// 데려간다)은 침묵하고, 물려받은 값이 죽은 릴리스면 두 사실이라 두 줄이 선다. `--json` 에서도 stderr 로 나가고
+/// 종료 코드는 0 이다. 둘 다 stderr 에서 `moai edit … --milestone none` 을 가리키는 `inherited` 글 하나로 센다.
+#[test]
+fn promote_says_an_inherited_milestone_only_when_it_was_inherited() {
+    let s = init("promoteinherited");
+    let m1 = ok(s.path(), &["milestone", "add", "v1", "-q"]).trim().to_string();
+    let inherited = |err: &str| err.matches("--milestone none").count();
+
+    // 제 필드가 `m1` 이고 에픽이 없는 생각 — 사람이 고른 값이라 침묵한다.
+    let own = ok(s.path(), &["backlog", "add", "제 필드", "--milestone", &m1, "-q"]).trim().to_string();
+    let out = from_stdin(s.path(), &["backlog", "promote", &own, "--from", "-"], "# 제 것\n- 일\n");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(inherited(&String::from_utf8_lossy(&out.stderr)), 0, "사람이 고른 값을 물려받았다고 댔다");
+
+    // `-e <에픽>` 으로 펼치면 아무것도 안 데려가니 침묵한다.
+    let epic = add(s.path(), &["담는 에픽", "--type", "epic", "--milestone", &m1]);
+    let held = ok(s.path(), &["backlog", "add", "에픽 안", "-e", &epic, "-q"]).trim().to_string();
+    let out = from_stdin(s.path(), &["backlog", "promote", &held, "-e", &epic, "--from", "-"], "- 멤버\n");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert_eq!(inherited(&String::from_utf8_lossy(&out.stderr)), 0, "-e 인데 물려받았다고 댔다");
+
+    // `--json` 에서도 stderr 로 서고, 연습(`--dry-run --json`)도 같다. 종료 코드는 0 이다.
+    let bare = ok(s.path(), &["backlog", "add", "필드 없음", "-e", &epic, "-q"]).trim().to_string();
+    for dry in [true, false] {
+        let mut argv = vec!["backlog", "promote", &bare, "--from", "-", "--json"];
+        if dry {
+            argv.push("--dry-run");
+        }
+        let out = from_stdin(s.path(), &argv, "# 펼친 것\n- 일\n");
+        assert!(out.status.success(), "막았다 — {}", String::from_utf8_lossy(&out.stderr));
+        let err = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            err.contains(&m1) && err.contains(&epic) && inherited(&err) == 1,
+            "dry={dry}: --json 에서 안 댔다\n{err}"
+        );
+    }
+
+    // 에픽에서 물려받은 마일스톤이 미뤄졌으면 두 줄 — 물려받음과 죽음은 다른 사실이다.
+    let put_off = ok(s.path(), &["milestone", "add", "미룬 v", "-q"]).trim().to_string();
+    ok(s.path(), &["defer", &put_off, "-m", "다음 분기"]);
+    let sleeping = add(s.path(), &["잠든 에픽", "--type", "epic", "--milestone", &put_off]);
+    let child = ok(s.path(), &["backlog", "add", "잠든 안", "-e", &sleeping, "-q"]).trim().to_string();
+    let out = from_stdin(s.path(), &["backlog", "promote", &child, "--from", "-"], "# 깨울 것\n- 일\n");
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(inherited(&err), 1, "물려받음을 안 댔다\n{err}");
+    assert!(err.contains("--undo"), "미뤄진 것을 안 댔다\n{err}");
+    assert_eq!(err.lines().filter(|l| l.contains(&put_off)).count(), 2, "두 줄이 안 섰다\n{err}");
 }
 
 /// **죽은 릴리스로 데려갈 때는 한 줄 알린다. 막지는 않는다**(같은 결정).
@@ -10942,6 +11006,33 @@ fn show_json_reads_who_did_the_work_from_model_notes() {
     assert_eq!(some.matches(r#""provider":"#).count(), 3, "오타 줄을 값으로 읽었다\n{some}");
     // 값이 안 된 줄도 이력에서 빠지지 않는다.
     assert!(ok(s.path(), &["show", &id]).contains("tokens 12"), "꼴에 안 맞는 노트가 이력에서 사라졌다");
+}
+
+/// **`stats` 는 모델 이름과 등급을 대소문자 없이 센다**(moai-rs3o.j6v) — 노트는 사람이 손으로 치니 철자가
+/// 갈린다. 세는 쪽만 접는다: 저장값과 `show --json` 의 `work` 는 적은 철자 그대로다(노트 원문 보존).
+#[test]
+fn stats_folds_the_case_of_model_names_but_show_keeps_what_was_written() {
+    let s = init("statscase");
+    let a = add(s.path(), &["하나"]);
+    let b = add(s.path(), &["둘"]);
+    ok(s.path(), &["note", &a, "model: OpenAI/GPT-6.1-Sol tokens=100 (High — 첫 철자)"]);
+    ok(s.path(), &["note", &b, "model: openai/gpt-6.1-sol tokens=50 (high — 둘째 철자)"]);
+
+    let json: serde_json::Value = serde_json::from_str(&ok(s.path(), &["stats", "--json"])).unwrap();
+    let by_model = json["work"]["by_model"].as_array().unwrap();
+    assert_eq!(by_model.len(), 1, "철자만 다른 둘이 두 모델로 섰다\n{json}");
+    assert_eq!(by_model[0]["provider"], "openai");
+    assert_eq!(by_model[0]["model"], "gpt-6.1-sol");
+    assert_eq!((by_model[0]["lines"].as_u64(), by_model[0]["tokens"].as_u64()), (Some(2), Some(150)));
+    let by_grade = json["work"]["by_grade"].as_array().unwrap();
+    assert_eq!(by_grade.len(), 1, "(High) 와 (high) 가 두 등급으로 섰다\n{json}");
+    assert_eq!(by_grade[0]["grade"], "high");
+
+    // 노트 원문은 그대로 — `work` 는 적은 철자를 든다.
+    let shown: serde_json::Value = serde_json::from_str(&ok(s.path(), &["show", &a, "--json"])).unwrap();
+    assert_eq!(shown["work"][0]["model"], "GPT-6.1-Sol");
+    assert_eq!(shown["work"][0]["provider"], "OpenAI");
+    assert_eq!(shown["work"][0]["grade"], "High");
 }
 
 /// **목록도 `work` 를 낸다**(moai-p8qj). 닫힌 500건의 토큰을 더하려고 `show <id> --json` 을
@@ -14914,6 +15005,46 @@ fn stop_does_not_count_notices_as_new_warnings() {
 
     let out = hook_out(&s, "stop", &event(&s, "s1"));
     assert!(!out.contains("경고가"), "알림을 경고로 셌다 — {out}");
+}
+
+/// **에픽의 멤버를 다 집어도 `wip_overload` 가 안 서고, `Stop` 이 경고가 늘었다고 붙들지 않는다**(moai-rs3o.nmu) —
+/// 일꾼 걸음이 멤버를 모두 집으라 하니, 줄마다 세면 멤버 넷짜리 에픽을 집는 순간 경고가 하나 늘었다.
+/// 에픽 없는 줄 넷은 여전히 넷이다 — 같은 보드에서 경고가 서고, `count` 는 묶음 수고 `ids` 는 줄 전부다.
+#[test]
+fn picking_up_a_whole_epic_is_not_started_at_once() {
+    let s = init("wipepic");
+    let plan = from_stdin(s.path(), &["add", "--from", "-", "--json"], "# 한 에픽\n- 하나\n- 둘\n- 셋\n- 넷\n");
+    assert!(plan.status.success(), "{}", String::from_utf8_lossy(&plan.stderr));
+    let made: serde_json::Value = serde_json::from_slice(&plan.stdout).unwrap();
+    let members: Vec<String> = made
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["kind"] == "issue")
+        .map(|r| r["id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(members.len(), 4);
+    hook_out(&s, "session-start", &event(&s, "s1"));
+
+    for id in &members {
+        ok(s.path(), &["mv", id, "in_progress", "--from", "todo"]);
+    }
+    let board: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    let kinds: Vec<&str> = board["warnings"].as_array().unwrap().iter().map(|w| w["kind"].as_str().unwrap()).collect();
+    assert!(!kinds.contains(&"wip_overload"), "에픽 하나의 멤버 넷을 넷으로 셌다 — {kinds:?}");
+
+    // 붙든다면 집은 줄이 있어서다(위 `the_close_holds_once_and_then_lets_go`) — 경고가 늘었다는 말은 없어야 한다.
+    let out = hook_out(&s, "stop", &event(&s, "s1"));
+    assert!(!out.contains("경고가"), "에픽의 멤버를 집은 것을 늘어난 경고로 셌다 — {out}");
+
+    // 에픽 없는 줄 넷은 넷이다. 기존 에픽 멤버 넷까지 집은 채여도 묶음은 다섯이고, `ids` 는 줄 여덟이다.
+    for n in 0..4 {
+        let id = add(s.path(), &[&format!("떠도는 {n}")]);
+        ok(s.path(), &["mv", &id, "in_progress", "--from", "todo"]);
+    }
+    let board: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    let w = board["warnings"].as_array().unwrap().iter().find(|w| w["kind"] == "wip_overload").expect("경고가 없다");
+    assert_eq!((w["count"].as_u64(), w["ids"].as_array().unwrap().len()), (Some(5), 8), "{w}");
 }
 
 /// `SessionStart` 는 아무것도 싣지 않고 기준선만 적는다.

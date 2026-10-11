@@ -94,7 +94,9 @@ puts an issue under it. Each issue gets an id under the epic's own,
   up and the group stands `in_progress`, finish them all and it stands `done`
 - **Something for later is a [backlog item](glossary.md#backlog)**, not an issue — `moai backlog add`. Backlog items stay
   off the board and out of `moai ready`, and `moai backlog promote <id> --from -`
-  unfolds one into an epic and issues when its time comes
+  unfolds one into an epic and issues when its time comes. When the milestone
+  it carries came from the epic the backlog item stood under, `promote` says so on
+  stderr in one line
 - **A [running milestone](glossary.md#running-milestone) is the person's to fill.** A milestone runs once any of
   its members has started; from then `moai ready` hands out its work plus anything
   `p0`, and nothing else is pulled into it unless the person says so

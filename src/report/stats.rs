@@ -517,8 +517,14 @@ fn spans<'x>(counted: &[&'x Issue], wh: &'x Where, now: &str, from: impl Fn(&'x 
 /// 같은 토큰이 두 번 선다.
 fn spend(rows: &[&Issue], work: &BTreeMap<String, Vec<Work>>) -> Spend {
     let mut out = Spend::default();
-    let mut models: BTreeMap<(Option<&str>, &str), Tally> = BTreeMap::new();
-    let mut grades: BTreeMap<Option<&str>, Tally> = BTreeMap::new();
+    // **키는 소문자로 접은 값이다**(moai-rs3o.j6v) — `model:` 노트는 사람이 손으로 쳐 `GPT-6.1-Sol` 과
+    // `gpt-6.1-sol` 이 갈리고, 등급도 `(High — …)` 와 `(high — …)` 로 갈린다. 둘을 다른 모델·다른 등급으로
+    // 세면 같은 모델이 두 줄로 서서 줄 수도 토큰도 반으로 쪼개진다. 모델·회사 이름은 ASCII 라
+    // `to_ascii_lowercase` 면 된다. **화면에는 접은 값이 선다** — "처음 본 철자" 를 보이면 줄의 차례(id 순)에
+    // 따라 같은 데이터가 다른 이름으로 서고, 규약이 적는 꼴(`anthropic/opus-5`)은 이미 소문자다.
+    // 저장값은 그대로다: `model::parse_work` 와 `moai show --json` 의 `work` 는 노트 원문의 철자를 든다.
+    let mut models: BTreeMap<(Option<String>, String), Tally> = BTreeMap::new();
+    let mut grades: BTreeMap<Option<String>, Tally> = BTreeMap::new();
     let mut seen: BTreeSet<&str> = BTreeSet::new();
     for i in rows {
         if !seen.insert(i.id.as_str()) {
@@ -528,22 +534,15 @@ fn spend(rows: &[&Issue], work: &BTreeMap<String, Vec<Work>>) -> Spend {
         out.recorded += 1;
         for w in lines {
             out.all.add(w);
-            models.entry((w.provider.as_deref(), w.model.as_str())).or_default().add(w);
-            grades.entry(w.grade.as_deref()).or_default().add(w);
+            let key = (w.provider.as_deref().map(str::to_ascii_lowercase), w.model.to_ascii_lowercase());
+            models.entry(key).or_default().add(w);
+            grades.entry(w.grade.as_deref().map(str::to_ascii_lowercase)).or_default().add(w);
         }
     }
-    out.by_model = models
-        .into_iter()
-        .map(|((provider, model), tally)| ModelTally {
-            provider: provider.map(str::to_string),
-            model: model.to_string(),
-            tally,
-        })
-        .collect();
+    out.by_model = models.into_iter().map(|((provider, model), tally)| ModelTally { provider, model, tally }).collect();
     // 이름 차례로 모은 것을 **줄 수로** 다시 세운다 — 안정 정렬이라 같은 수는 이름 차례가 남는다.
     out.by_model.sort_by_key(|m| std::cmp::Reverse(m.tally.lines));
-    out.by_grade =
-        grades.into_iter().map(|(grade, tally)| GradeTally { grade: grade.map(str::to_string), tally }).collect();
+    out.by_grade = grades.into_iter().map(|(grade, tally)| GradeTally { grade, tally }).collect();
     out.by_grade.sort_by(|a, b| a.grade.is_none().cmp(&b.grade.is_none()).then(b.tally.lines.cmp(&a.tally.lines)));
     out
 }
@@ -860,6 +859,28 @@ mod tests {
 
         let json = serde_json::to_string(&st.work.by_model[1]).unwrap();
         assert_eq!(json, r#"{"provider":null,"model":"opus-5","lines":1,"tokened":0,"tokens":null}"#);
+    }
+
+    /// **모델 이름과 등급은 대소문자를 접어 센다**(moai-rs3o.j6v) — `model:` 노트는 사람이 손으로 치니 철자가
+    /// 갈린다. 화면(과 `--json`)에는 접은 소문자가 선다. 회사 없는 줄은 여전히 따로다.
+    #[test]
+    fn model_names_and_grades_fold_their_case() {
+        let all =
+            vec![row("argos-0001", "todo", "2026-09-01T00:00:00Z"), row("argos-0002", "todo", "2026-09-01T00:00:00Z")];
+        let work: BTreeMap<String, Vec<Work>> = [
+            ("argos-0001".to_string(), vec![line(Some("OpenAI"), "GPT-6.1-Sol", Some(100), Some("High"))]),
+            ("argos-0002".to_string(), vec![line(Some("openai"), "gpt-6.1-sol", Some(50), Some("high"))]),
+        ]
+        .into_iter()
+        .collect();
+        let st = count(&all, &Ask::default(), &work);
+        assert_eq!(st.work.by_model.len(), 1, "철자만 다른 둘이 두 모델로 섰다");
+        let m = &st.work.by_model[0];
+        assert_eq!((m.provider.as_deref(), m.model.as_str()), (Some("openai"), "gpt-6.1-sol"));
+        assert_eq!(m.tally, Tally { lines: 2, tokened: 2, tokens: Some(150) });
+        assert_eq!(st.work.by_grade.len(), 1, "(High) 와 (high) 가 두 등급으로 섰다");
+        assert_eq!(st.work.by_grade[0].grade.as_deref(), Some("high"));
+        assert_eq!(st.work.by_grade[0].tally.lines, 2);
     }
 
     /// **앞날로 멀리 적힌 줄은 소요도 흐름도 안 끌고 간다** — 보드가 `future_timestamp` 로 짚는 그 줄이다
