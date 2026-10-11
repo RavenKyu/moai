@@ -4102,6 +4102,94 @@ notes), then
     )
 }
 
+/// Codex 일꾼의 차이만 — Claude 걸음은 그대로 읽고, 보고와 리뷰의 길만 바꾼다(moai-uzhx.65h).
+pub fn worker_codex() -> String {
+    let review = make_review("--parent <epic>");
+    format!(
+        r#"# Codex worker steps
+
+Read `worker.md` beside this file first, at the absolute path supplied by the supervisor.
+Follow its assignment and step numbers; this file changes only the rows below.
+You are Codex, a session in a tab or pane. The person watching this window comes first.
+The supervisor skill remains Claude Code only; reading this file does not install it here.
+
+| Instead of (worker.md) | Do this here |
+|---|---|
+| `EnterWorktree(path)` | Work in the worktree's absolute path on every command call (`workdir` or `cd`). |
+| `ExitWorktree(keep)` | Return to the assignment's `Root:` absolute path on every root command call. |
+| `AskUserQuestion` | Ask this window's person with the available question tool; otherwise ask in conversation and wait. |
+| `/code-review` (7) | Send the review readiness note below and wait for the supervisor's review. |
+| `TaskStop` | No equivalent step here; the supervisor manages its review subagent. |
+| `SendMessage(to: <supervisor>, …)` | Write an epic note and commit the tracker in the root, as below. |
+| `/clear` | The person or supervisor sends `/new`, then handles the work directory menu. |
+
+`/model` exists in Codex too. The person changes the model; use the assignment's `Model:`
+as the suggestion, and record the model that actually ran. Do not change it yourself.
+A question tool can depend on the mode: use `request_user_input_async` when available,
+or `request_user_input` in Plan mode; without either, ask in conversation and wait.
+One call's `cd` may not persist into the next: always supply the absolute command directory.
+
+## Steps 2–6
+
+Keep worker.md's pick-up, worktree, design questions, root tracker, test server and file
+ownership rules (2, 3, 4, 4-1, 4-2, 4-3, 5, 6). Never set `MOAI_HERE`.
+The root branch check and path-only tracker commits apply here too. Return to `Root:`
+before `git symbolic-ref -q HEAD`, `git status -- .moai/` and each root tracker commit.
+The assignment's base branch is where the worktree splits and eventually merges.
+Hooks may be words only here: keep the five yourself. The person trusts moai in `/hooks`;
+check that screen rather than assuming a wrapper or another installation enabled them.
+
+## Step 7: hand the review to the supervisor
+
+When the members are finished, pull the base branch as in 6, test and commit in the worktree.
+Create the review issue using the shared command, called with `moai -C <root>` (4-1):
+
+    {review}
+
+Fill the angle with the grade, why, and "review by the supervisor's review subagent".
+Do not run the review yourself. Move each finished member to review, one id per call:
+
+    {TO_REVIEW}
+
+Keep worker.md's handling of missing review columns and members left in todo.
+Record the worktree absolute path, branch, `git merge-base <base branch> HEAD` hash and
+review issue id in a note whose first line is `Review-ready: <epic>`:
+
+```sh
+moai -C <root> note <epic> -b - <<'CODEX_REVIEW'
+Review-ready: <epic>
+- Worktree: <absolute path>; branch: <branch>; merge-base: <hash>
+- Review issue: <review id>; tested: <checks and results>
+CODEX_REVIEW
+```
+
+Return to the root, check its branch and tracker diff, then commit only `.moai/`.
+Stop. Resume 8–11 only when the supervisor pastes "merge and close — review <id> done".
+The supervisor uses `REVIEW_BRIEF` and its review model in this worktree.
+
+## Step 9-1: name the model that did the work
+
+Use the actual OpenAI model name from the assignment's `Model:`; correct it if different.
+The person's decision here is to omit token counts. Leave one line per finished member:
+
+    moai note <member> 'model: openai/<model> (<difficulty> — <why>)'
+
+Do not write the review issue's model line: the supervisor's reviewer writes its own.
+
+## Step 12: report by epic note
+
+Put worker.md's final report details in `moai note <epic> -b -`, called with
+`moai -C <root>` from the worktree. Its first line is `report: <epic>`.
+Return to the root, check its branch and tracker diff, and commit only `.moai/`.
+For a decision needed during work, use the same note-and-commit path, starting with
+`Decision needed:` or `진행 중 결정이 필요합니다`, and ask this window's person too.
+The supervisor watches these notes; a note does not grant permission for a decision.
+When the report is complete, tell the person here they may clear this window with `/new`.
+Do not clear it yourself; directory menus and permission prompts belong to the person.
+"#
+    )
+}
+
 /// 줄마다 앞에 붙인다. 빈 줄은 빈 채로 둔다 — 꼬리 공백은 diff 를 더럽힌다.
 fn indent(text: &str, by: &str) -> String {
     text.lines().map(|l| if l.is_empty() { String::new() } else { format!("{by}{l}") }).collect::<Vec<_>>().join("\n")
@@ -5523,6 +5611,17 @@ stop sending outside work while a release runs",
     /// 토큰을 모를 때 `tokens=<수>` 를 통째로 빼도 읽혀야 한다 — 0 을 적게 두면 통계가 "공짜" 로 읽는다.
     #[test]
     fn the_taught_model_line_is_the_one_the_parser_reads() {
+        // Codex 는 사람의 결정대로 토큰을 쓰지 않는다(moai-uzhx.65h).
+        let codex = worker_codex();
+        let line =
+            codex.lines().map(str::trim).find(|l| l.starts_with("moai note ") && l.contains("'model: ")).unwrap();
+        let said = &line[line.find("'model: ").unwrap() + 1..line.rfind('\'').unwrap()];
+        let filled =
+            said.replace("<model>", "gpt-6.1-sol").replace("<difficulty>", "high").replace("<why>", "several files");
+        let work = crate::model::parse_work(&filled).expect("Codex 의 모델 줄을 못 읽는다");
+        assert_eq!(work.provider.as_deref(), Some("openai"));
+        assert_eq!(work.tokens, None);
+        assert_eq!((work.grade.as_deref(), work.why.as_deref()), (Some("high"), Some("several files")));
         let texts = [("브리프 9-1", worker()), ("AGENTS 블록", agents()), ("스킬 참고 문서", reference())];
         for (whose, text) in &texts {
             let line = text
@@ -5991,6 +6090,38 @@ stop sending outside work while a release runs",
                 assert!(!cell.trim().is_empty(), "{vendor} 의 `{}` 칸이 비었다 — 없으면 {NO_VERB} 로 적는다", v.step);
             }
         }
+    }
+
+    #[test]
+    fn codex_worker_changes_the_claude_steps_without_repeating_them() {
+        let text = worker_codex();
+        assert!((60..=100).contains(&text.lines().count()), "차이 글이 짧은 참고 파일의 길이를 벗어났다");
+        for word in
+            ["EnterWorktree", "ExitWorktree", "AskUserQuestion", "/code-review", "TaskStop", "SendMessage(", "/clear"]
+        {
+            let lines: Vec<_> = text.lines().filter(|l| l.contains(word)).collect();
+            assert_eq!(lines.len(), 1, "Claude 낱말이 표 밖에도 섰다 — {word}");
+            let columns: Vec<_> = lines[0].split('|').collect();
+            assert!(columns[1].contains(word) && !columns[2].contains(word), "대체 동작에 Claude 낱말이 섰다 — {word}");
+        }
+        for part in [
+            "`worker.md`",
+            "Review-ready:",
+            "report:",
+            "moai note <epic> -b -",
+            "/new",
+            "Root:",
+            "request_user_input_async",
+            "keep the five yourself",
+            "review by the supervisor's review subagent",
+            TO_REVIEW,
+        ] {
+            assert!(text.contains(part), "Codex 차이 글에 없다 — {part}");
+        }
+        assert!(text.contains(&make_review("--parent <epic>")));
+        assert!(!text.contains("tokens="), "사람이 걷은 토큰 항목이 남았다");
+        assert!(!text.contains("gpt-"), "모델 이름을 구웠다");
+        assert!(text.contains("`/model` exists") && text.contains("Return to the assignment's `Root:`"));
     }
 
     /// **표는 두 스킬에 같은 글로 서고, 규칙 3 이 그것을 가리킨다**(사용자 결정 2026-10-04). 규칙 3 은 AGENTS 블록에도
