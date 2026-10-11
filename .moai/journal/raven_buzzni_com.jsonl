@@ -6307,3 +6307,13 @@
 {"ts":"2026-10-11T04:33:07Z","id":"moai-9uin","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"done"}
 {"ts":"2026-10-11T04:33:57Z","id":"moai-2o4o","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: release PR https://github.com/buzzni/moai/pull/29 (develop -> main, 915c8342). After it is merged (no squash): git fetch origin && git tag v0.15.0 origin/main && git push origin v0.15.0; then remove .worktrees/milestone-moai-2o4o, branch milestone/moai-2o4o and /tmp/cargo-target/milestone-moai-2o4o."}
 {"ts":"2026-10-11T05:03:40Z","id":"moai-2o4o","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Released: v0.15.0 tagged on 60b64a6e (PR #29 merge commit). Milestone worktree, branch and build output removed."}
+{"ts":"2026-10-11T06:58:20Z","id":"moai-xpa8.p56","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (medium — tmux 빈 칸 잣대에 짝 재확인)"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.p56","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.f0b","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (low — tests/cli.rs 의 openpty·ioctl 꼴)"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.f0b","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.q9x","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (high — 시험 넷과 훅 줄의 macOS sh -e 버그)"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.q9x","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.egv","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (medium — scratch 뿌리 링크 풀기와 첫 실행 지연)"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.egv","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.1vt","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (medium — claude-teams 의 가짜 TMUX 조사와 갈래)"}
+{"ts":"2026-10-11T06:58:21Z","id":"moai-xpa8.1vt","kind":"status","by":"Raven","by_email":"raven@buzzni.com","from":"review","to":"done"}
