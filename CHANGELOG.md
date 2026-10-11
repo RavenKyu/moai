@@ -12,8 +12,54 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+### Added
+
+- **`[models]` in the user config names the model for each role, and `moai models`
+  prints the table.** The roles are `plan`, `develop`, `complex`, `review`, `docs`,
+  `bulk` and `codex`, with `review_grade`, `effort` and `effort_complex` beside
+  them; a key left out keeps its default, and `moai models --json` gives one object
+  for the supervisor skill, `written` naming the keys you set. A value that is not a
+  grade or an effort falls back to its default with one line on stderr, and an
+  unknown key is named and skipped. The table lives in the user config only — the
+  model is your own spending choice, so the repository's `.moai/config.toml` does
+  not carry it. (moai-9tqo.3la)
+
 ### Changed
 
+- **The supervisor raises its workers as subagents, each on the model its role
+  calls for.** `moai-supervise` reads `moai models --json` once a round, sorts
+  each backlog into a role (`develop` or `complex` by the difficulty word, `docs`,
+  `bulk`) and raises `Agent` with that role's model and effort. A subagent worker
+  works the worktree by absolute paths, hands a design question back to the
+  supervisor instead of asking, and leaves its report on the epic before it hands
+  back. Sessions stay workers when you ask to watch their windows, and for a Codex
+  worker — that path, with `moai-tmux`, `moai-cmux` and `moai-saycode`, is as it
+  was. (moai-9tqo.rsl, moai-9tqo.p1p)
+- **The epic-end review runs on the `review` model at `review_grade`** — `opus` at
+  `xhigh` unless your `[models]` says otherwise, and `max` when a member touched the
+  write path, concurrency, the storage format or hooks, or the worktree carries two
+  epics. "One step above the heaviest member" is gone, and with it a review that
+  ran on a cheaper model because the window that called it did. A subagent worker
+  runs the review in a subagent of its own on the review model. (moai-9tqo.rsl,
+  moai-9tqo.p1p)
+- **A row this session picked up stays its own when a sibling worktree's name
+  points at it.** A subagent worker stands in the main checkout and its pick-ups
+  carry the supervisor's session, so once `.worktrees/<epic>` stood the hook read
+  that epic as someone else's: rule 1 stopped guarding the worker and rule 3
+  refused a review whose review issue was picked up with its angle. Only a pick
+  the hook saw run for certain counts — one written after `&&`, which may not have
+  run, still loses to the name — and rows another session picked last are still
+  read by the worktree's name. The price: the
+  supervisor's turn-end holds what its subagent workers hold, and the session that
+  picked a row can edit the main checkout while that row's worktree stands.
+  (moai-pxui)
+- **A `model:` note carries no `tokens=` any more.** The count a window or an
+  agent shows was not what the work cost — for a subagent it is closer to the last
+  context size and leaves its nested review out — so the AGENTS block, the `moai`
+  skill, the worker steps and `moai prime` teach `model: <vendor>/<model> (<grade> —
+  <why>)`. A line written with `tokens=` before still reads, and `moai show --json`
+  still gives it under `work[].tokens`. A subagent worker's line is written by the
+  supervisor from the `Model ran:` line of its report. (moai-9tqo.p1p, moai-w9ui)
 - **`wip_overload` counts the members of one epic as one bundle.** The worker
   steps pick up every member of an epic, so counting row by row raised the
   warning, and the Stop hook held the turn, the moment a four-member epic was
@@ -28,6 +74,14 @@ does not tag — see `CONTRIBUTING.md`.
   `--dry-run` and `--json` print the same line, and a milestone that is also
   deferred or closed gets its own line as well. Nothing else changes: the rule for
   which milestone is carried, and the exit code, are as they were. (moai-rs3o.fg4)
+
+### Removed
+
+- **`moai stats` no longer adds up tokens.** `tokened` and `tokens` are gone from
+  `work`, `work.by_model`, `work.by_grade` and `reviews.work` in `--json`, and the
+  screen and the explorer's `SPC g s` count the `model:` lines only. With notes no
+  longer carrying a count, the sum would have stood on old lines alone.
+  (moai-w9ui)
 
 ### Fixed
 
