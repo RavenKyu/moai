@@ -2987,6 +2987,100 @@ note that the session last asked the person something — a permission prompt, a
 it can stay `true` after an API error or an interrupt. None of these is a box to type into, and
 neither is an error or an answer without `state`."#;
 
+/// Codex 보고만 트래커에서 기다린다. 두 손(cmux·tmux)이 같은 스크립트를 싣는다(moai-uzhx.yv8).
+// 소비자는 다음 멤버(2mq·fk1)에서 붙는다. 공용 조각만의 커밋도 dev 빌드가 된다.
+#[allow(dead_code)]
+pub const REPORT_WATCH: &str = r#"### Watch the epic for the Codex report
+
+Use one `Monitor` per epic, on the supervisor's side only:
+`Monitor(description: "codex report on <epic>", timeout_ms: 1800000, command: <script below>)`.
+Save the script in the scratchpad; the command is `bash <script> <root> <epic> <last-seen-ts>`.
+Before pasting the assignment, read `moai -C <root> show <epic> --json` once and save the
+latest `journal[].ts` as `<last-seen-ts>` (an empty journal uses `1970-01-01T00:00:00Z`).
+Arm the monitor with that cursor so a quick report cannot arrive between send and baseline.
+
+```sh
+python3 - "$1" "$2" "$3" <<'MOAI_CODEX_WATCH'
+import datetime, json, subprocess, sys, time
+root, epic, cursor = sys.argv[1:]
+def stamp(ts):
+    return datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+heads = ("report:", "Review-ready:", "Decision needed:", "진행 중 결정이 필요합니다")
+try:
+    since = stamp(cursor)
+    while True:
+        result = subprocess.run(["moai", "-C", root, "show", epic, "--json"],
+                                capture_output=True, text=True)
+        if result.returncode:
+            print(f"{epic}\t{cursor}\tshow failed ({result.returncode}): "
+                  + (result.stderr or result.stdout).strip().replace("\n", " "), flush=True)
+            sys.exit(1)
+        row = json.loads(result.stdout)
+        if row.get("journal_error"):
+            raise ValueError("journal_error: " + json.dumps(row["journal_error"]))
+        finished = False
+        latest, latest_ts = since, cursor
+        for note in row["journal"]:
+            at = stamp(note["ts"])
+            if at <= since:
+                continue
+            if at > latest:
+                latest, latest_ts = at, note["ts"]
+            if note["kind"] != "note":
+                continue
+            lines = (note.get("text") or "").splitlines()
+            head = lines[0] if lines else ""
+            if head.startswith(heads):
+                print(f"{epic}\t{note['ts']}\t{head}", flush=True)
+                finished = finished or head.startswith("report:")
+        since, cursor = latest, latest_ts
+        if finished:
+            sys.exit(0)
+        time.sleep(30)
+except (OSError, ValueError, KeyError, TypeError) as error:
+    print(f"{epic}\t{cursor}\twatch failed: {error}", flush=True)
+    sys.exit(1)
+MOAI_CODEX_WATCH
+```
+
+This reads our own tracker every 30 seconds; session discovery can knock on other sessions.
+It watches `journal` entries with `kind=note`, `text` and `ts`, not history or notes keys.
+`Review-ready:` asks for the supervisor's review; decision heads ask for the person. Read the
+whole note with `moai show <epic>` and act on it. A failed read is an alert, never success.
+When the monitor says `expired` after 30 minutes, re-arm it from the last processed timestamp;
+keep that cursor, not a new baseline that could skip a report written at expiry. Duplicate
+alerts after re-arming are harmless: check the note and its timestamp before acting again.
+After the review, paste "merge and close — review <id> done" and re-arm for the second report,
+using the saved cursor. A `report:` ends this watch. For the final report use the supervisor's
+5 and write `Report-checked:` only after its checks. This watch never runs on the Claude
+session path, which already has `notify_when_idle` and report messages."#;
+
+/// 화면을 읽은 뒤의 Codex 입력창 잣대 — 읽는 명령은 각 손이 앞에 둔다(moai-uzhx.yv8).
+#[allow(dead_code)]
+pub const CODEX_EMPTY_BOX: &str = r#"The lowest current composer starts with `›` (U+203A) and an ordinary space (U+0020).
+Its empty placeholder is `Ask Codex to do anything`. A past user message also starts with
+`›`: read the bottom input area, not any matching line in the conversation.
+
+The placeholder alone is not an idle box. During a response it can remain visible beside
+`Working` and a spinner; a past `Worked for …` is different. Do not type while a current
+response, draft (including continued lines), approval prompt, unanswered question, slash
+menu or work directory menu is visible. A cropped or contradictory screen is the person's:
+do not type; tell them which tab or pane and what could not be read.
+
+Codex is absent from the Claude session map. Just before typing, re-read the process list
+and check a live Codex PID: use cmux top's `cmux_process_pids`, or tmux's `pane_pid` and
+its process tree, with `ps -p <pid> -o args=`. Check the first executable's basename is
+`codex`; a truncated `comm` or a child such as `codex-code-mode-host` is not that proof.
+Require that PID, a clear empty composer and the completed report checked by the supervisor
+(or a fresh startup screen before its first assignment) together. A shell under a dead
+Codex's old composer is not a box to send work into.
+
+cmux's `surface.input_state` can partly recognize Codex drafts and dialogs, and guards can
+refuse a paste. They can also leave stale lifecycle values, miss questions or menus, or read
+`empty` while Codex is working. Do not use that state as the Codex idle test and do not rely
+on a paste refusal to protect a draft: a fresh unregistered agent can accept text over it.
+If any check is unclear or any input is refused, do not type again; ask the person."#;
+
 /// 선택 스킬 `moai-cmux` 의 SKILL.md — cmux 안에서 도는 감독의 손이다(2026-10-10 사용자 결정, moai-p5sz). `moai-tmux`
 /// ([`tmux`])의 cmux 짝이라 그 글과 결정을 그대로 옮긴다 — 칸을 비우고, 닿지 않은 메시지를 붙이고, 사람이 그러라고 한
 /// 뒤에 새 일꾼 칸을 연다. 바이너리는 아무것도 띄우거나 몰지 않고(새 명령이 없다), 헤드리스·`-p`·`--dangerously-*`·
@@ -6122,6 +6216,55 @@ stop sending outside work while a release runs",
         assert!(!text.contains("tokens="), "사람이 걷은 토큰 항목이 남았다");
         assert!(!text.contains("gpt-"), "모델 이름을 구웠다");
         assert!(text.contains("`/model` exists") && text.contains("Return to the assignment's `Root:`"));
+    }
+
+    #[test]
+    fn codex_report_watch_reads_the_actual_journal_and_is_valid_shell() {
+        for part in [
+            "Monitor(",
+            "timeout_ms: 1800000",
+            "moai -C <root> show <epic> --json",
+            "report:",
+            "Review-ready:",
+            "Decision needed:",
+            "진행 중 결정이 필요합니다",
+            "row[\"journal\"]",
+            "note[\"kind\"]",
+            "note.get(\"text\")",
+            "note[\"ts\"]",
+            "journal_error",
+            "time.sleep(30)",
+            "sys.exit(1)",
+        ] {
+            assert!(REPORT_WATCH.contains(part), "보고 기다리기에 없다 — {part}");
+        }
+        assert!(!REPORT_WATCH.contains("ListAgents"), "보고를 세션 훑기로 기다린다");
+        let script = REPORT_WATCH.split("```sh\n").nth(1).unwrap().split("```").next().unwrap();
+        let out = std::process::Command::new("bash").args(["-n", "-c", script]).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    }
+
+    #[test]
+    fn codex_empty_box_requires_liveness_and_a_finished_response() {
+        for part in [
+            "U+203A",
+            "U+0020",
+            "Ask Codex to do anything",
+            "Working",
+            "Worked for",
+            "draft",
+            "approval",
+            "unanswered question",
+            "work directory menu",
+            "cmux_process_pids",
+            "pane_pid",
+            "-o args=",
+            "completed report",
+            "do not type",
+        ] {
+            assert!(CODEX_EMPTY_BOX.contains(part), "Codex 빈 칸 잣대에 없다 — {part}");
+        }
+        assert!(!CODEX_EMPTY_BOX.contains("--force"));
     }
 
     /// **표는 두 스킬에 같은 글로 서고, 규칙 3 이 그것을 가리킨다**(사용자 결정 2026-10-04). 규칙 3 은 AGENTS 블록에도
