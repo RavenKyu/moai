@@ -6505,3 +6505,17 @@
 {"ts":"2026-10-11T19:12:25Z","id":"moai-uzhx.g74","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (xhigh — C 에픽 끝 리뷰, 감독 세션이 워크트리에서 돌렸다)"}
 {"ts":"2026-10-11T19:12:25Z","id":"moai-uzhx","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"Report-checked: e55599d6 (milestone/moai-fmge 에 병합, 에픽·멤버·리뷰 done, 워크트리 걷힘)"}
 {"ts":"2026-10-11T19:17:03Z","id":"moai-pdl6","kind":"note","by":"Raven","by_email":"raven@buzzni.com","text":"같은 결의 둘째 자리(2026-10-12, 릴리스 전 milestone/moai-fmge 전체 시험): src/cmd/merge_driver.rs:2983 the_probe_calls_the_command_instead_of_reading_its_mode 의 \"126·127 을 딴 도구라고 했다\" 가 한 번 졌고, 단독으로 세 번 돌려 다 통과했다. 이것도 막 쓴 스크립트를 재는 자리다 — 부하 아래 첫 실행이 늦어 probe 의 시간 제한에 걸리는 것으로 짐작한다(안 쟀다)"}
+{"ts":"2026-10-12T02:17:52Z","id":"moai-q8p9","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"v0.17.0"}
+{"ts":"2026-10-12T02:17:53Z","id":"moai-c12a","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"v0.17.0"}
+{"ts":"2026-10-12T02:18:03Z","id":"moai-q8p9","kind":"rm","by":"레이븐","by_email":"raven@buzzni.com","title":"v0.17.0"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"Windows 를 낸다 — msvc 빌드·CI·zip 릴리스·install.ps1·update"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.mbp","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"Windows 타깃에서 clippy -D warnings 와 --all-targets 가 선다"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.ae7","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"CI 에 Windows 잡 — windows-latest 에서 clippy 와 cargo test"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.ukd","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"릴리스에 x86_64-pc-windows-msvc 칸 — zip·SHA256SUMS·install.ps1·짝 시험"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.cl6","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"sh 와 HOME 없이 도는 길 — 설정 자리·TUI 편집기·PATH 찾기"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.4c1","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"skill install 과 merge-driver 가 Windows 경로를 적는다"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.3fl","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"moai update 가 Windows 에서 install.ps1 로 올린다"}
+{"ts":"2026-10-12T02:18:17Z","id":"moai-j9gv.vhg","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"문서 — README·CONTRIBUTING·위키·CHANGELOG 의 Windows 줄"}
+{"ts":"2026-10-12T02:19:25Z","id":"moai-gl9k","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"Windows 시간대 오프셋 — 지금은 UTC 와 한 줄로 내려앉는다"}
+{"ts":"2026-10-12T02:19:26Z","id":"moai-5ino","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"Windows 코드 서명과 PE 메타데이터"}
+{"ts":"2026-10-12T02:19:26Z","id":"moai-hg88","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"aarch64 Windows 릴리스 칸"}
