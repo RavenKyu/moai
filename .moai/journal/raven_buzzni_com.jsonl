@@ -6538,3 +6538,12 @@
 {"ts":"2026-10-12T02:56:24Z","id":"moai-j9gv.3fl","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":".old 처리 결정: moai 는 다음 실행에서 moai.exe.old 를 걷지 않는다. install.ps1 이 새 판을 놓은 직후 .old 를 지워 보고(아무도 안 돌리면 그 자리에서 사라진다), moai update 처럼 도는 중이라 못 지운 것은 다음 install.ps1 이 놓기 전에 걷는다. 다른 길(모든 moai 실행이 시작에 곁의 .old 를 찾아 지운다)은 읽기만 하는 명령까지 파일 시스템 걸음을 하나 더 얹어서 안 갔다. 남는 값은 다음 올림까지 10MB 남짓의 파일 하나다."}
 {"ts":"2026-10-12T02:59:08Z","id":"moai-j9gv.vhg","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"CHANGELOG 은 moai-l3mn 의 세 줄(Windows 릴리스·install.ps1·moai update)만 적었다. 본문이 든 moai-j9gv 쪽 줄(CI 잡·USERPROFILE 설정 자리·sh 없는 편집기·훅과 드라이버의 경로 철자)은 그 에픽의 일꾼이 7-3 으로 제 워크트리에서 적는다 — 여기서 함께 적으면 두 가지가 같은 줄을 두 번 들이고, 아직 안 선 동작을 미리 적게 된다."}
 {"ts":"2026-10-12T02:59:54Z","id":"moai-e8gx","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"Windows 개발 환경 — 준비 스크립트와 CONTRIBUTING 절"}
+{"ts":"2026-10-12T03:01:19Z","id":"moai-e8gx","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-12T03:05:18Z","id":"moai-l3mn.dm1","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"review — moai-l3mn Windows 릴리스 배포"}
+{"ts":"2026-10-12T03:05:27Z","id":"moai-l3mn.dm1","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-12T03:05:28Z","id":"moai-j9gv.ukd","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-12T03:05:30Z","id":"moai-j9gv.3fl","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-12T03:05:31Z","id":"moai-j9gv.vhg","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-12T03:05:33Z","id":"moai-e8gx","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-12T03:06:04Z","id":"moai-l3mn.dm1","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: epic-end /code-review xhigh --fix running in background on .worktrees/moai-l3mn — when it returns, take fixes in as fix: commits, leave the reviewer text here, then merge into milestone/moai-c12a after moai-j9gv.mbp lands, push worktree-moai-l3mn, close members."}
+{"ts":"2026-10-12T03:06:06Z","id":"moai-rle0","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"codex_report_watch 시험이 세션의 BASH_ENV 에 따라 진다"}
