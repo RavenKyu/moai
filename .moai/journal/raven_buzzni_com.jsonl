@@ -6592,3 +6592,6 @@
 {"ts":"2026-10-12T06:10:09Z","id":"moai-e8gx","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"review","to":"done"}
 {"ts":"2026-10-12T06:10:16Z","id":"moai-l3mn","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: merged into milestone/moai-c12a as 31b43e85; branch worktree-moai-l3mn pushed to origin and kept (with its worktree) for a real-Windows checkout. Real-machine checklist is in CONTRIBUTING \"Developing on Windows\". moai-g1a7, moai-vaj4, moai-j74g are with moa-issue-af."}
 {"ts":"2026-10-12T06:10:36Z","id":"moai-l3mn","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: 31b43e85 (milestone/moai-c12a). worktree-moai-l3mn pushed to origin, worktree kept per person."}
+{"ts":"2026-10-12T06:10:45Z","id":"moai-g1a7","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-12T06:10:46Z","id":"moai-vaj4","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-12T06:10:46Z","id":"moai-j74g","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
