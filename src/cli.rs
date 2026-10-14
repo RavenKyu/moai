@@ -738,14 +738,14 @@ BACKLOG
   it away). This is the one write to an issue — editing is done on the CLI.
   `--json` prints only that directory's listing, with no screen (outside a
   `.moai`, the rows of the layer). Each milestone and epic row carries
-  progress, {\"done\": n, \"total\": n} - the n/n of the counts column, read
-  from every row under it whatever the filters keep. The filters of
+  progress, {\"done\": 3, \"total\": 5} — what the counts column shows as
+  3/5, read from every row under it whatever the filters keep. The filters of
   `moai show` (-s, -t, -e, -g, --filter, --all, --archived, --deferred and
   the rest) shape that listing: given any, a row stands when `moai show`
   with the same filters would list it, and a milestone or epic stands too
-  when something under it does - so done is hidden unless asked for, as in
+  when something under it does — so done is hidden unless asked for, as in
   `moai show`. Without them the listing is every row, as before. --sort and
-  --reverse order it in the words of `moai show --sort`; folders still come
+  --reverse order it in the words of `moai show --sort`, and folders still come
   first and the baskets last. These shape --json only, and only inside a
   `.moai`.
 
@@ -1645,7 +1645,7 @@ pub struct ShowArgs {
     pub removed: bool,
 
     // **거르개가 아니다** — 무엇을 고르는지는 안 바꾸고 줄마다 어느 키를 내는지만 정한다(moai-wk7i.vsk).
-    /// Keep only these keys of each --json row (comma separated)
+    /// Keep only these keys of each --json row
     #[arg(long, value_name = "keys", value_delimiter = ',')]
     pub fields: Vec<String>,
 
@@ -2010,7 +2010,7 @@ pub struct TuiArgs {
 #[derive(Args, Debug, Default)]
 #[command(next_help_heading = "Order")]
 pub struct OrderArgs {
-    /// Order the listing by these fields, the words of `moai show --sort`
+    /// Order the listing by these fields (as `show --sort`)
     #[arg(long, value_name = "fields", value_parser = sort_fields)]
     pub sort: Option<SortFields>,
 
