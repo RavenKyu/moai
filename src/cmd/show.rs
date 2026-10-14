@@ -48,7 +48,7 @@ fn resolve(target: Option<&str>, lang: crate::i18n::Lang) -> R<Target> {
 ///
 /// **필드를 다 푼다**(`..` 없이, moai-7dmq 리뷰) — `FilterArgs` 에 거르개가 더해지면 여기가 컴파일되지 않아
 /// 이 목록에 넣을지 정하게 된다. 필드를 이름으로 짚던 때는 빠뜨린 것을 아무도 못 봤다(아래 `--milestone`).
-fn first_given(a: &crate::cli::FilterArgs) -> Option<&'static str> {
+pub(crate) fn first_given(a: &crate::cli::FilterArgs) -> Option<&'static str> {
     let crate::cli::FilterArgs {
         status,
         tag,

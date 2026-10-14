@@ -6840,6 +6840,48 @@ fn archived_pages_in_id_order_join_into_the_whole_list() {
     assert_eq!(got, whole, "쪽으로 받은 것이 한 번에 받은 것과 다르다");
 }
 
+/// `tui --json` 의 목록은 묶음 줄에 `n/n` 셈을 늘 달고, `show` 의 거르개와 차례를 받는다(moai-wk7i.5wx).
+/// 거르개를 주면 `show` 가 고를 줄이 서고 그 밑에 걸린 것이 있는 폴더가 선다 — 셈은 거르개와 상관없이 다 센다.
+#[test]
+fn tui_json_counts_groups_and_takes_the_show_filters() {
+    let s = init("tuishape");
+    let epic = field(&ok(s.path(), &["epic", "add", "저장 계층", "--json"]), "id");
+    let done = field(&ok(s.path(), &["add", "끝난 일", "-e", &epic, "--json"]), "id");
+    let open = field(&ok(s.path(), &["add", "남은 일 zqx", "-e", &epic, "-p", "0", "--json"]), "id");
+    let other = field(&ok(s.path(), &["add", "에픽 밖", "-p", "3", "--json"]), "id");
+    ok(s.path(), &["mv", &done, "done"]);
+    let rows = |args: &[&str]| -> Vec<serde_json::Value> {
+        let mut all = vec!["tui", "--json"];
+        all.extend(args);
+        serde_json::from_str(&ok(s.path(), &all)).unwrap()
+    };
+    let ids = |rows: &[serde_json::Value]| -> Vec<String> {
+        rows.iter().filter_map(|r| r["id"].as_str().map(str::to_string)).collect()
+    };
+
+    // 거르개 없이는 전처럼 다 — 묶음 줄에는 셈이 선다.
+    let top = rows(&[]);
+    let e = top.iter().find(|r| r["id"] == epic.as_str()).unwrap();
+    assert_eq!(e["progress"], serde_json::json!({"done": 1, "total": 2}), "{e}");
+    assert!(top.iter().find(|r| r["id"] == other.as_str()).unwrap().get("progress").is_none());
+    assert_eq!(ids(&rows(&["--path", &epic])), vec![open.clone(), done.clone()]);
+
+    // `show` 의 말 — 기본으로 done 을 숨기고, `-g` 에 걸린 줄의 폴더가 선다. 셈은 그대로다.
+    assert_eq!(ids(&rows(&["--path", &epic, "-s", "todo"])), vec![open.clone()]);
+    assert_eq!(ids(&rows(&["--path", &epic, "--all", "-s", "done"])), vec![done.clone()]);
+    let found = rows(&["-g", "zqx"]);
+    assert_eq!(ids(&found), vec![epic.clone()], "걸린 줄의 폴더만 서야 한다");
+    assert_eq!(found[0]["progress"], serde_json::json!({"done": 1, "total": 2}));
+
+    // 차례는 `show --sort` 의 말이다.
+    assert_eq!(ids(&rows(&["--path", &epic, "--sort", "priority:desc"])), vec![done.clone(), open.clone()]);
+
+    // 화면에서는 말없이 먹지 않는다.
+    let refused = moai(s.path(), &["tui", "-s", "todo"]);
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("-s"), "{refused:?}");
+}
+
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.
 #[test]
 fn time_alone_surfaces_rot() {

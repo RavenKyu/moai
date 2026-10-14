@@ -737,7 +737,20 @@ BACKLOG
   keeps it. Esc closes it, asking once if you had typed something (y throws
   it away). This is the one write to an issue — editing is done on the CLI.
   `--json` prints only that directory's listing, with no screen (outside a
-  `.moai`, the rows of the layer).
+  `.moai`, the rows of the layer). Each milestone and epic row carries
+  progress, {\"done\": n, \"total\": n} - the n/n of the counts column, read
+  from every row under it whatever the filters keep. The filters of
+  `moai show` (-s, -t, -e, -g, --filter, --all, --archived, --deferred and
+  the rest) shape that listing: given any, a row stands when `moai show`
+  with the same filters would list it, and a milestone or epic stands too
+  when something under it does - so done is hidden unless asked for, as in
+  `moai show`. Without them the listing is every row, as before. --sort and
+  --reverse order it in the words of `moai show --sort`; folders still come
+  first and the baskets last. These shape --json only, and only inside a
+  `.moai`.
+
+    moai tui --path <milestone> -g parser --all --json
+    moai tui --sort updated --json
 
   `--path` takes an issue id, or one of the two baskets by the word this
   tool uses for them: none (no milestone) and lost.")]
@@ -1984,6 +1997,26 @@ pub struct TuiArgs {
     /// Open here - a directory opens inside it
     #[arg(long, value_name = "id|basket")]
     pub path: Option<String>,
+
+    // **`--json` 의 목록만 거르고 늘어놓는다**(moai-wk7i.5wx) — 화면은 `SPC f`·`SPC s` 가 한다. 말은 `show` 의 것이다.
+    #[command(flatten)]
+    pub filter: FilterArgs,
+
+    #[command(flatten)]
+    pub order: OrderArgs,
+}
+
+/// 차례만 — 쪽(`-n`·`--after`)은 없다. 디렉터리 목록은 한 자리를 통째로 낸다(moai-wk7i.5wx).
+#[derive(Args, Debug, Default)]
+#[command(next_help_heading = "Order")]
+pub struct OrderArgs {
+    /// Order the listing by these fields, the words of `moai show --sort`
+    #[arg(long, value_name = "fields", value_parser = sort_fields)]
+    pub sort: Option<SortFields>,
+
+    /// Turn the order around, ties included
+    #[arg(long)]
+    pub reverse: bool,
 }
 
 #[derive(Args, Debug)]
