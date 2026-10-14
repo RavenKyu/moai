@@ -21,6 +21,34 @@ does not tag — see `CONTRIBUTING.md`.
   tell who you are, or cannot read your read marks, no row carries the key and
   the exit code stays 0. The explorer and the CLI share one helper, so the two
   never disagree. (moai-cqwy)
+- **`moai config` prints this repository's settings with the defaults filled in.**
+  prefix, statuses in board order, naming, archive_days, wiki_dir and the
+  `status_*` thresholds, under the names `.moai/config.toml` uses; `--json`
+  gives one object with `path` added. A surface drawing the board reads the
+  values this binary acts on instead of parsing the file again. It only reads.
+  (moai-wk7i.qtq)
+- **`moai status --json` carries `statuses`, the columns in the order the config
+  lists them.** `counts` is a map in name order, so the board's order was lost
+  there. (moai-wk7i.7yy)
+- **`moai show --json` names where a row stands without it being written on the
+  row** — `derived_milestone` (the milestone `--milestone` stands it under,
+  inherited from its epic included), `shelved_by` on the list as well as on
+  `show <id>` (the nearest row that took it out of the plan, its own id when it
+  was deferred itself) and `archived: true` on a row `--all` hides as the
+  archive. Each stands only when it holds. (moai-wk7i.rmc)
+- **`moai show --fields id,title,… --json` keeps only those keys of each row**, in
+  that order; a key a row does not carry stays out. Leaving `work` out skips
+  reading the journals, so `moai show -g <word> --all --fields id --json` is a
+  cheap list of the ids a search found, notes included. It refuses to run
+  without `--json`. (moai-wk7i.vsk, moai-wk7i.3it)
+- **`moai tui --json` puts `progress` (`done`, `total`) on every milestone and epic
+  row and takes the filters and `--sort` of `moai show`.** Given filters, a row
+  stands when `moai show` would list it and a folder stands when something
+  under it does; without them the listing is every row, as before. The flags
+  are refused on the screen and outside a `.moai`. (moai-wk7i.5wx)
+- **`moai show --help` says `--archived` pages like any list**: archived and live
+  rows share one order, so `--sort id -n <count> --after <last id>` reads a long
+  list whole. A test now holds that. (moai-wk7i.gkd)
 
 ### Changed
 
