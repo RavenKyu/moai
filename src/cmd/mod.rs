@@ -883,6 +883,9 @@ pub const OURS: &[&str] = &[
     "spent",
     // `show --json`(목록도 하나도)이 안 읽은 줄에 다는 것(moai-cqwy).
     "unread",
+    // `show --json`(목록도 하나도)이 곁들이는 선 마일스톤과 아카이브(moai-wk7i.rmc).
+    "derived_milestone",
+    "archived",
     // `edit --json` 이 곁들이는 남은 소속.
     "inherited_epic",
     "inherited_milestone",

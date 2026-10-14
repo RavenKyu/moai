@@ -1463,7 +1463,11 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
-  output, where derived_status and derived_epic are worked out already:
+  output, where they are worked out already: derived_status, derived_epic,
+  derived_milestone (the milestone --milestone stands the row under),
+  shelved_by (the nearest row that took it out of the plan - its own id when
+  it was deferred itself) and archived (true on a row --all hides as the
+  archive). The last three stand only when they hold:
 
     moai show --type issue --json |
       jq -r '.[] | .derived_epic // \"none\"' | sort | uniq -c

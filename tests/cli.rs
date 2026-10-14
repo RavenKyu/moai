@@ -6732,6 +6732,42 @@ fn config_json_fills_defaults_and_keeps_written_values() {
     assert!(human.contains("archive_days         = 5"), "{human}");
 }
 
+/// `show --json` 은 파일에 안 적힌 자리 셋을 낸다(moai-wk7i.rmc) — 물려받은 마일스톤, 계획에서 뺀 줄,
+/// 아카이브. 목록과 하나를 펼칠 때가 같은 답이어야 한다.
+#[test]
+fn show_json_names_the_inherited_milestone_the_shelf_and_the_archive() {
+    let s = init("derivedjson");
+    std::fs::write(s.path().join(".moai/config.toml"), "prefix = \"argos\"\narchive_days = 1\n").unwrap();
+    let stone = field(&ok(s.path(), &["milestone", "add", "v0.1", "--json"]), "id");
+    let epic = field(&ok(s.path(), &["epic", "add", "저장 계층", "--milestone", &stone, "--json"]), "id");
+    let member = field(&ok(s.path(), &["add", "안의 일", "-e", &epic, "--json"]), "id");
+    let shelf = field(&ok(s.path(), &["epic", "add", "미룬 에픽", "--json"]), "id");
+    let parked = field(&ok(s.path(), &["add", "미룬 것 밑", "-e", &shelf, "--json"]), "id");
+    ok(s.path(), &["defer", &shelf, "-m", "다음 판"]);
+    let old = add(s.path(), &["오래 닫힌 것"]);
+    assert!(at(s.path(), "2026-01-01T00:00:00Z", &["mv", &old, "done"]).status.success());
+
+    let one = |id: &str| -> serde_json::Value { serde_json::from_str(&ok(s.path(), &["show", id, "--json"])).unwrap() };
+    let list: Vec<serde_json::Value> =
+        serde_json::from_str(&ok(s.path(), &["show", "--archived", "--json"])).unwrap();
+    let row = |id: &str| list.iter().find(|r| r["id"] == id).unwrap_or_else(|| panic!("{id} 가 목록에 없다")).clone();
+
+    // 마일스톤은 에픽에서 물려받는다 — 줄의 `milestone` 은 비어 있다.
+    for r in [one(&member), row(&member)] {
+        assert_eq!(r["derived_milestone"], stone.as_str(), "{r}");
+        assert!(r.get("milestone").is_none(), "{r}");
+        assert!(r.get("archived").is_none() && r.get("shelved_by").is_none(), "{r}");
+    }
+    // 미룬 에픽 밑의 줄은 그 에픽이 계획에서 뺐다.
+    for r in [one(&parked), row(&parked)] {
+        assert_eq!(r["shelved_by"], shelf.as_str(), "{r}");
+        assert!(r.get("derived_milestone").is_none(), "{r}");
+    }
+    // done 에 archive_days 넘게 선 줄은 아카이브다.
+    assert_eq!(one(&old)["archived"], true);
+    assert_eq!(row(&old)["archived"], true);
+}
+
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.
 #[test]
 fn time_alone_surfaces_rot() {

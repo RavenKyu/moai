@@ -223,7 +223,7 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
         if args.as_plan {
             return plan(ctx, &load.issues, issue, args.raw);
         }
-        return one(ctx, &repo, &load.issues, issue, args.raw, &origin, args.worktree.worktree);
+        return one(ctx, &repo, &load.issues, issue, args.raw, &origin, args.worktree.worktree, &live);
     }
 
     // **`--raw` 도 조용히 버리지 않는다.** 본문은 하나를 펼칠 때만 나오므로
@@ -438,6 +438,7 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
                 // 옛 `work` 가 그 자리에서 거짓을 싣는다.
                 work: work.get(i.id.as_str()).map_or(&[], Vec::as_slice),
                 unread: fresh.contains(i.id.as_str()),
+                derived: Derived::of(&wh, i, &now),
             })
             .collect();
         return super::json_line(&rows);
@@ -605,6 +606,40 @@ struct Listed<'a> {
     /// 설 때만 단다(`true`) — `journal_error` 와 같은 약속이라 없는 것이 곧 "안 읽은 줄이 아니다" 다.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     unread: bool,
+    #[serde(flatten)]
+    derived: Derived<'a>,
+}
+
+/// 줄이 **어디에 선 것으로 읽히는가** — 파일에 안 적힌, 소속·미룸·아카이브를 타고 온 값(moai-wk7i.rmc).
+/// 웹 패널이 탐색기와 같은 화면을 그리려고 `nav`·`query` 의 규칙을 다시 짜야 했던 셋이다.
+///
+/// **읽는 자는 거름망 하나다**([`crate::query::Where`]) — `--milestone`·`--deferred`·`--archived` 가 고르는
+/// 그 자로 값을 낸다. 여기서 따로 재면 `show --milestone <id>` 가 고른 줄의 `derived_milestone` 이 다른 답을
+/// 한다. 목록과 하나를 펼칠 때([`one`])가 이 한 그릇을 함께 쓴다.
+#[derive(serde::Serialize)]
+struct Derived<'a> {
+    /// 그 줄이 **선 마일스톤** — 적었든 에픽에서 물려받았든(`Where::milestone_of`). `derived_epic` 과 같은 결이다:
+    /// `milestone` 은 파일에 적힌 그대로고, 없다는 것이 곧 "어느 릴리스에도 안 섰다" 다.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    derived_milestone: Option<&'a str>,
+    /// 그 줄을 계획에서 뺀 **가장 가까운 줄**(`Shelved::root`) — 제 줄을 미뤘으면 제 id 다. 하나를 펼칠 때
+    /// 늘 내던 키를 목록에도 같은 이름, 같은 뜻으로 낸다. 물려받은 미룸은 이 값이 제 id 가 아닐 때다.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shelved_by: Option<&'a str>,
+    /// 목록이 아카이브로 숨기는 줄이다(`Where::archived`) — done 에 `archive_days` 넘게 섰거나 아카이브 파일에서
+    /// 왔다. 설 때만 단다(`true`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    archived: bool,
+}
+
+impl<'a> Derived<'a> {
+    fn of(wh: &'a crate::query::Where<'_>, i: &'a Issue, now: &str) -> Derived<'a> {
+        Derived {
+            derived_milestone: wh.milestone_of(i),
+            shelved_by: wh.shelved.root(i),
+            archived: wh.archived(i, now),
+        }
+    }
 }
 
 /// 이 판에서 **[NEW] 가 서는 id** — 탐색기와 같은 자([`crate::query::unread_held`])로 가른다(moai-cqwy).
@@ -755,6 +790,7 @@ fn one(
     raw: bool,
     origin: &crate::worktree::Origin,
     worktree: bool,
+    live: &BTreeSet<String>,
 ) -> R<Vec<String>> {
     let twins = report::duplicate_lines(all, &issue.id);
     let children = report::children_of(all, &issue.id);
@@ -859,6 +895,18 @@ fn one(
         // 컴파일이 안 잡는다.
         if let Some(by) = seen.roots.root(issue) {
             extra.push(("shelved_by", serde_json::to_string(by).map_err(|e| Fail::new(e.to_string()))?));
+        }
+        // **목록과 한 그릇으로 낸다**([`Derived`], moai-wk7i.rmc) — 선 마일스톤과 아카이브. 거름망을 여기서만
+        // 짓는다: 사람 화면은 이 둘을 안 그리므로, 일 하나를 펼치는 흔한 길에서 저장소 전부를 다시 걷지 않는다.
+        // 미룸은 위 `shelved_by` 가 이미 같은 자(`Shelved::root`)로 냈다.
+        let mut wh = crate::query::Where::from_soil(all, &repo.config, report::Soil::of(all));
+        wh.stored = all.iter().map(|i| i.id.as_str()).filter(|id| !live.contains(*id)).collect();
+        let derived = Derived::of(&wh, issue, &model::now());
+        if let Some(m) = derived.derived_milestone {
+            extra.push(("derived_milestone", serde_json::to_string(m).map_err(|e| Fail::new(e.to_string()))?));
+        }
+        if derived.archived {
+            extra.push(("archived", "true".to_string()));
         }
         if let Some(n) = twins {
             extra.push(("duplicate_lines", n.to_string()));
@@ -1044,10 +1092,15 @@ mod tests {
             journal_error: &[],
             // 설 때만 서는 키라 세워서 잰다 — `false` 면 직렬화에서 빠져 이 시험이 그 이름을 못 본다.
             unread: true,
+            // 셋 다 설 때만 서는 키라 세워서 잰다.
+            derived: Derived { derived_milestone: Some("argos-0002"), shelved_by: Some("argos-0003"), archived: true },
         };
         let added = super::super::keys_beyond(&i, &listed);
         assert!(added.iter().any(|k| k == "work"), "곁들인 키를 못 셌다 — {added:?}");
         assert!(added.iter().any(|k| k == "unread"), "안 읽음 키를 못 셌다 — {added:?}");
+        for k in ["derived_milestone", "shelved_by", "archived"] {
+            assert!(added.iter().any(|a| a == k), "{k} 를 못 셌다 — {added:?}");
+        }
         for k in &added {
             assert!(super::super::OURS.contains(&k.as_str()), "`Listed` 가 곁들이는 {k} 가 `OURS` 에 없다");
         }
