@@ -6693,3 +6693,4 @@
 {"ts":"2026-10-14T06:13:02Z","id":"moai-cqwy","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"review","to":"done"}
 {"ts":"2026-10-14T06:13:10Z","id":"moai-lh6m","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"explorer shows no [NEW] at launch with no config location, show --json does (agree after first reload)"}
 {"ts":"2026-10-14T06:13:10Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: none — merged 83210273 into develop. Review moai-cqwy.lbc finding 6 parked as backlog."}
+{"ts":"2026-10-14T06:13:25Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: 83210273 (develop). Worktree, branch, target removed."}
