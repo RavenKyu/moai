@@ -6693,6 +6693,19 @@ fn status_json_is_machine_shaped() {
     assert!(out.contains(&epic), "{out}");
 }
 
+/// `counts` 는 이름순 맵이라 칸 차례를 잃는다 — `statuses` 가 설정에 적힌 차례 그대로 낸다(moai-wk7i.7yy).
+/// 이름순과 갈리는 차례를 골라야 되돌리면 붉어진다.
+#[test]
+fn status_json_keeps_the_column_order_of_the_config() {
+    let s = init("statusorder");
+    std::fs::write(s.path().join(".moai/config.toml"), "prefix = \"argos\"\nstatuses = \"todo,wip,blocked,done\"\n")
+        .unwrap();
+    add(s.path(), &["하나"]);
+    let v: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    assert_eq!(v["statuses"], serde_json::json!(["todo", "wip", "blocked", "done"]), "{v}");
+    assert_eq!(v["counts"]["todo"], 1, "{v}");
+}
+
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.
 #[test]
 fn time_alone_surfaces_rot() {
