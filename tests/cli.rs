@@ -6768,6 +6768,35 @@ fn show_json_names_the_inherited_milestone_the_shelf_and_the_archive() {
     assert_eq!(row(&old)["archived"], true);
 }
 
+/// `--fields` 는 줄마다 고른 키만 고른 차례로 낸다(moai-wk7i.vsk) — 없는 키는 안 세운다. 노트로 찾은 줄의
+/// id 목록이 그 한 꼴로 나온다(moai-wk7i.3it).
+#[test]
+fn show_fields_keeps_only_the_keys_asked_for() {
+    let s = init("fieldsjson");
+    let a = add(s.path(), &["첫째"]);
+    let b = add(s.path(), &["둘째"]);
+    ok(s.path(), &["note", &b, "노트에만 적힌 낱말 qzxv"]);
+
+    // 차례는 고른 차례다 — 파일의 차례(id 먼저)와 갈리게 골라야 되돌리면 붉어진다.
+    let out = ok(s.path(), &["show", "--fields", "title,id,nope", "--json"]);
+    one_json_value(&out);
+    assert!(out.contains(&format!("{{\"title\":\"첫째\",\"id\":\"{a}\"}}")), "{out}");
+    assert!(!out.contains("nope") && !out.contains("status"), "{out}");
+
+    // 노트로 찾은 줄의 id 목록.
+    let found = ok(s.path(), &["show", "-g", "qzxv", "--all", "--fields", "id", "--json"]);
+    assert_eq!(found.trim(), format!("[{{\"id\":\"{b}\"}}]"), "{found}");
+
+    // 하나를 펼칠 때도 같다.
+    let one = ok(s.path(), &["show", &a, "--fields", "id,derived_status,priority", "--json"]);
+    assert_eq!(one.trim(), format!("{{\"id\":\"{a}\",\"priority\":2}}"), "{one}");
+
+    // 키는 --json 에만 있다 — 말없이 먹지 않는다.
+    let refused = moai(s.path(), &["show", "--fields", "id"]);
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("--fields"), "{refused:?}");
+}
+
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.
 #[test]
 fn time_alone_surfaces_rot() {

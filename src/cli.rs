@@ -1461,6 +1461,14 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   moai cannot tell who you are, or cannot read your read marks, no row
   carries it.
 
+  Fields: --fields id,title,status keeps only those keys of each --json
+  row, in that order - a key the row does not carry stays out. It picks
+  keys, not rows: the filters pick the rows. Keys it leaves out are not
+  worked out at all, so --fields id skips reading the journals that work
+  needs. It stands only with --json.
+
+    moai show -g parser --all --fields id --json
+
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
   output, where they are worked out already: derived_status, derived_epic,
@@ -1619,6 +1627,11 @@ pub struct ShowArgs {
     /// Removed issues, from the journal (see below)
     #[arg(long)]
     pub removed: bool,
+
+    // **거르개가 아니다** — 무엇을 고르는지는 안 바꾸고 줄마다 어느 키를 내는지만 정한다(moai-wk7i.vsk).
+    /// Keep only these keys of each --json row (comma separated)
+    #[arg(long, value_name = "keys", value_delimiter = ',')]
+    pub fields: Vec<String>,
 
     #[command(flatten)]
     pub worktree: WorktreeArg,

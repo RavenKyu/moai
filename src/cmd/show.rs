@@ -175,7 +175,68 @@ fn sort_of(p: &crate::cli::PageArgs) -> crate::query::Sort {
     crate::query::Sort { fields, reversed: p.reverse }
 }
 
-pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String>> {
+pub fn run(ctx: &Ctx, mut args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String>> {
+    // **키를 고르는 것은 낸 뒤에 한 자리에서 한다**(moai-wk7i.vsk) — 목록·하나·지운 줄·되뽑기가 저마다 고르면
+    // 한쪽이 빠진다. 안 고른 키를 짓지 않는 것은 값이 큰 자리(`work` 의 저널 읽기)에서만 [`Keys::wants`] 로 묻는다.
+    let keys = Keys(std::mem::take(&mut args.fields));
+    if !keys.0.is_empty() && !ctx.json {
+        return Err(Fail::coded(
+            format!(
+                "{}\n      {}",
+                crate::i18n::say(ctx.lang(), "refuse.fields_without_json"),
+                crate::i18n::say(ctx.lang(), "refuse.fields_without_json_how"),
+            ),
+            super::code::BAD_FILTER,
+        ));
+    }
+    let out = listed(ctx, args, kind_filter, &keys)?;
+    keys.pick(out)
+}
+
+/// `--fields` 가 고른 키(moai-wk7i.vsk). 비었으면 다 낸다.
+struct Keys(Vec<String>);
+
+impl Keys {
+    /// 그 키를 낼 것인가 — 안 낼 키는 짓지도 않는다.
+    fn wants(&self, key: &str) -> bool {
+        self.0.is_empty() || self.0.iter().any(|k| k == key)
+    }
+
+    /// 낸 JSON 의 객체마다 고른 키만 **고른 차례로** 남긴다. 배열이면 원소마다다. 줄에 없는 키는 안 세운다 —
+    /// `null` 을 세우면 "없다" 와 "값이 null 이다" 가 한 값이 된다.
+    fn pick(&self, lines: Vec<String>) -> R<Vec<String>> {
+        if self.0.is_empty() {
+            return Ok(lines);
+        }
+        let one = |o: &serde_json::Map<String, serde_json::Value>| -> String {
+            let kept: Vec<String> = self
+                .0
+                .iter()
+                .filter_map(|k| o.get(k).map(|v| format!("{}:{v}", serde_json::Value::from(k.as_str()))))
+                .collect();
+            format!("{{{}}}", kept.join(","))
+        };
+        lines
+            .into_iter()
+            .map(|line| {
+                let v: serde_json::Value = serde_json::from_str(&line).map_err(|e| Fail::new(e.to_string()))?;
+                Ok(match &v {
+                    serde_json::Value::Object(o) => one(o),
+                    serde_json::Value::Array(rows) => format!(
+                        "[{}]",
+                        rows.iter()
+                            .map(|r| r.as_object().map_or_else(|| r.to_string(), one))
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    ),
+                    _ => line,
+                })
+            })
+            .collect()
+    }
+}
+
+fn listed(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>, keys: &Keys) -> R<Vec<String>> {
     let repo = super::open_repo(ctx)?;
     // **스냅샷보다 먼저 가른다** — 지운 줄은 스냅샷에 없으니 읽을 까닭이 없다.
     if args.removed {
@@ -403,9 +464,11 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
         // **일한 AI 는 목록에서도 나온다**(moai-p8qj). 닫힌 500건의 토큰을 더하려고
         // `show <id> --json` 을 500번 부르면 저널 전체를 500번 읽는다 — 여기서는 뿌리마다
         // 한 번 읽어 id 로 가른다. `-g` 가 이미 읽었으면 그것을 쓴다.
+        // **안 고른 `work` 는 저널을 안 연다**(moai-wk7i.vsk) — `--fields id` 로 id 만 묻는 쪽이 저널 전부를 풀던 자리다.
         let work = match &journal {
             Some(journal) => work_in(journal, &shown),
-            None => work_by_id(&repo, &origin, &shown),
+            None if keys.wants("work") => work_by_id(&repo, &origin, &shown),
+            None => Default::default(),
         };
         // **못 읽은 저널은 저널을 읽은 **뒤**에 묻는다** — `work_by_id`(`-g` 면 위의 한 번)가 그 읽기다. 뿌리마다
         // 한 번 접어 두고 줄마다 그 줄의 뿌리 것을 빌린다(`home`): 줄 수만큼 글을 다시 짓지 않고,
@@ -421,7 +484,11 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
         // **안 읽은 줄은 판마다 한 번 가른다**(moai-cqwy) — 사람·읽음 파일을 줄마다 다시 열지 않는다.
         // 걸러지기 전의 줄 전부로 잰다: "내게 온 것" 은 에픽·조상으로 번지므로 보이는 줄만으로는 못 잰다.
         // **빈 목록에서는 안 연다** — 키를 달 줄이 없는데 `git config` 둘과 읽음 파일을 열 까닭이 없다.
-        let fresh = if shown.is_empty() { BTreeSet::new() } else { unread_here(ctx, &repo, &load.issues) };
+        let fresh = if shown.is_empty() || !keys.wants("unread") {
+            BTreeSet::new()
+        } else {
+            unread_here(ctx, &repo, &load.issues)
+        };
         let rows: Vec<Listed> = shown
             .iter()
             .map(|i| Listed {
@@ -499,6 +566,8 @@ fn removed(ctx: &Ctx, repo: &Repo, args: ShowArgs, kind_filter: Option<Kind>) ->
         tree,
         as_plan,
         removed: _,
+        // 고른 키는 [`run`] 이 낸 뒤에 고른다 — 지운 줄도 같은 자리를 지난다.
+        fields: _,
         worktree: crate::cli::WorktreeArg { worktree },
         mut filter,
         page,
