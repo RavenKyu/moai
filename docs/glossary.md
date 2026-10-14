@@ -67,6 +67,15 @@ The work a session holds: rows assigned to you that have left the first
 [column](#column) and are not closed yet. While you hold something, new issues
 go inside it — rule 1 of the [hook rules](#hook-rules).
 
+It is counted per session, not per person. A row a sibling worktree's name points
+at, or one another session picked up last, is not this session's focus. When
+another session has picked something up in the same tracker within the last 12
+hours, a started row that no session's hook recorded picking up — moved in a
+terminal, or by a session that runs without the moai hook — is not counted
+either — leaving them out only ever lets a call through, it never adds a
+refusal. Working alone, such a row is still yours. A refusal and the turn-end
+question end with one line per row on why this session holds it.
+
 ## Group
 
 An [epic](#epic) or a [milestone](#milestone). Belonging is inherited: a child
