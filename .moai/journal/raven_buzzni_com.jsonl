@@ -6676,3 +6676,5 @@
 {"ts":"2026-10-14T05:47:40Z","id":"moai-nzmp.fi4","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"세션 일꾼의 model: 줄 기록 누락 방지"}
 {"ts":"2026-10-14T05:47:40Z","id":"moai-nzmp.x2h","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"감독이 일꾼에게 맡기는 내부 서브에이전트 모델 사다리를 메시지 슬롯으로 정식화"}
 {"ts":"2026-10-14T05:47:49Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Attached to moai-wk7i (v0.18.0, moai-832f) on 2026-10-14 — person approved the plan with this line folded in."}
+{"ts":"2026-10-14T05:50:25Z","id":"moai-pyi4","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-af"}
+{"ts":"2026-10-14T05:50:25Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-98 (review + merge into develop, person decision 2026-10-14)"}
