@@ -443,7 +443,7 @@ and if the message does not arrive, deliver it into the tab —
 `moai-cmux`, "Label the tab" and "When a message does not arrive".
 Inside Saycode, a worker Saycode lists gets the message as a prompt instead of `SendMessage` —
 `moai-saycode`, "Send work".
-Fill in `<id>`, `<title>`, `<steps file>`, `<root branch>`, `<base branch>`, `<milestone>`, `<model>`, `<difficulty>`, `<why>`, `<effort>`, `<worker kind>`, `<other work>`, `<root>`, `<person>` and — only for a subdirectory project — `<subdir>`.
+Fill in `<id>`, `<title>`, `<steps file>`, `<root branch>`, `<base branch>`, `<milestone>`, `<model>`, `<difficulty>`, `<why>`, `<effort>`, `<worker kind>`, `<subagent ladder>`, `<other work>`, `<root>`, `<person>` and — only for a subdirectory project — `<subdir>`.
 `<root>` is the `root dir` from 2. **Leave it unfilled** and the worker, inside its worktree,
 reads its own place as the root. With no `subdir` line in 2, leave the `Subdir:` line out
 of the message.
@@ -463,6 +463,11 @@ you measured and your reason; `<effort>` is that role's effort (2-1), the same v
 to `Agent`. **Leave them unfilled** and those placeholders travel as they are, so the note
 left at the close says `<model>` instead of what actually did the work.
 `<worker kind>` is `subagent` or `session` — how you raised it in 2.
+`<subagent ladder>` is the models the worker may hand pieces of the work to, copied from the
+`moai models --json` of this round — `bulk <model> · develop <model> · complex <model>`, the
+person's table as it stands. The worker does not read the table again. It is `none` only when
+the person said the workers do their work themselves; a word of your own about subagents does
+not go in the message beyond this line.
 Do not use a single quote inside `<why>` — it closes the single quote in the worker's 9-1
 and the rest of the text leaks into the shell.
 `<other work>` is the sibling worktrees you measured in 1, the work you send in this same
@@ -482,6 +487,7 @@ a session worker's 9-1).
     Model: <model> (<difficulty> — <why>)
     Effort: <effort>
     Worker: <worker kind>
+    Subagents: <subagent ladder>
     Work running alongside: <other work> — do not touch those files (4-3)
     Root branch: <root branch>
     Base branch: <base branch>
@@ -565,6 +571,14 @@ as work holding that file.
 Like the ones from 7-1, that member is right even when it is not done — it keeps the epic
 open, so the epic is not done either.
 
+**A `member refused:` line** is a member the hook kept the worker from creating (the worker's
+4-3): it stands as a backlog item under the epic. Unfold it into that epic before you send the
+next, and take it into the root with a commit with a path — it then stands in the first column
+like a member from 4-3 and keeps the epic open. If the hook refuses you as well, pass the line
+and the refusal to the person; do not create it under another epic
+
+    moai -C <root> backlog promote <backlog id> -e <epic> --from -
+
 A member the report says was left in the first column by the worker's 7-1 is right even
 when it is not done — that member keeps the epic open, so the epic is not done either. It
 is not a backlog item and it does not show in 1's list, so pass it to the person along with the
@@ -590,6 +604,13 @@ false number is worse than none. A session worker writes its own line (its 9-1),
 review issue's line is the worker's either way (its 10).
 
     moai note <member> 'model: anthropic/<model ran> (<difficulty> — <why>)'
+
+**For a session worker, check that its lines stand** — the worker writes them, and a member
+closed without one counts as nobody's work. Each id the line below prints, other than a member
+left in the first column, is a line it missed: ask the worker with a message to write it. Do
+not write it in its place — the model that ran in that window is the worker's to name.
+
+    moai -C <root> show -e <epic> --all --json | jq -r '.[] | select(.work == []) | .id'
 
 Then send the next backlog to a worker. **A subagent needs no clearing** — it ended with its
 hand-back. Raise a new one for the next backlog rather than waking a finished one with new
@@ -626,6 +647,11 @@ subject — that has actually happened. So in the root, supervisor and worker al
 - Work inside a milestone does not merge in the root at all — it merges in the milestone's
   worktree (the worker's 8), and the root branch takes the milestone branch in at the
   release. Branches go in with `--no-ff` as they stand, never rebased or squashed
+- **A repository can keep the tracker out of git** — `.moai` in `.gitignore` or
+  `.git/info/exclude`. Ask once a round, in the root:
+  `git ls-files --error-unmatch -- .moai/issues.jsonl`. On a non-zero code every tracker commit here, yours
+  and the worker's, does not exist — the notes stand in the root's file alone. The worker asks the same line itself ("Before the steps"), so the
+  message needs no word about it
 
 ## When to stop
 
