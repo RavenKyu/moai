@@ -23,9 +23,10 @@ and look each count up in `counts`.
 
 `moai tui --json` prints one directory of the explorer — the project root, or
 the milestone, epic or basket given with `--path`. Each row says whether it is
-a folder (`dir`) and the handle to go into it (`path`). Milestone and epic rows
-carry `progress`, the done and total the explorer's counts column shows,
-counted over everything under them.
+a folder (`dir`) and the handle to go into it (`path`). Folder rows with an id —
+a milestone, an epic, an issue with children — carry `progress`, the done and
+total the explorer's counts column shows, counted over everything under them.
+The two baskets (`none`, `lost`) carry none.
 
 To show the same filtered list a person would see, pass the filters of
 `moai show` — `-s`, `-g`, `--filter`, `--all`, `--archived` and the rest — and
@@ -47,17 +48,21 @@ row it carries what the row inherits:
 - `archived` — `true` on a row the list hides as the archive
 
 The last three stand only when they hold. `epic` and `milestone` are what the
-file says, so read membership from the `derived_` keys.
+file says, so read membership from the `derived_` keys. A closed row is in no
+plan, so it carries no `shelved_by` even when it was deferred — `--deferred`
+picks it by its own `deferred_at`. A row is deferred when it carries either.
 
 ## Keep the payload small
 
 A whole tracker with bodies runs to megabytes — this repository's
 `moai show --archived --json` is over 2 MB. Two things cut it down:
 
-- `--fields id,title,status` keeps only those keys of each row, in that order.
-  Leaving `work` out also skips reading the journals, so
-  `moai show -g <word> --all --fields id --json` is a cheap list of the ids a
-  search found, notes included
+- `--fields id,title,status` keeps only those keys of each row, in that order
+  and each once. The costly keys it leaves out are not worked out: without
+  `work` a list skips the journals, and `moai show <id>` asks git only for
+  `commits`. `moai show -g <word> --all --fields id --json` is a small list of
+  the ids a search found, notes included — `-g` still reads the notes it
+  searches
 - Paging: `--sort id -n <count> --after <last id>` reads the list a page at a
   time. Archived rows and live rows share one order, and an edit between pages
   does not move a row in id order, so the pages join into the whole list

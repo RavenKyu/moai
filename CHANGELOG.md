@@ -34,15 +34,19 @@ does not tag — see `CONTRIBUTING.md`.
   row** — `derived_milestone` (the milestone `--milestone` stands it under,
   inherited from its epic included), `shelved_by` on the list as well as on
   `show <id>` (the nearest row that took it out of the plan, its own id when it
-  was deferred itself) and `archived: true` on a row `--all` hides as the
+  was deferred itself — a closed row is in no plan, so `--deferred` picks it by
+  `deferred_at` alone) and `archived: true` on a row `--all` hides as the
   archive. Each stands only when it holds. (moai-wk7i.rmc)
 - **`moai show --fields id,title,… --json` keeps only those keys of each row**, in
-  that order; a key a row does not carry stays out. Leaving `work` out skips
-  reading the journals, so `moai show -g <word> --all --fields id --json` is a
-  cheap list of the ids a search found, notes included. It refuses to run
-  without `--json`. (moai-wk7i.vsk, moai-wk7i.3it)
-- **`moai tui --json` puts `progress` (`done`, `total`) on every milestone and epic
-  row and takes the filters and `--sort` of `moai show`.** Given filters, a row
+  that order and each once; a key a row does not carry stays out. The costly
+  keys it leaves out are not worked out — without `work` a list skips the
+  journals, and `show <id>` asks git only for `commits` — so
+  `moai show -g <word> --all --fields id --json` is a small list of the ids a
+  search found, notes included. It refuses to run without `--json`.
+  (moai-wk7i.vsk, moai-wk7i.3it)
+- **`moai tui --json` puts `progress` (`done`, `total`) on every folder row — a
+  milestone, an epic, an issue with children — and takes the filters and
+  `--sort` of `moai show`.** Given filters, a row
   stands when `moai show` would list it and a folder stands when something
   under it does; without them the listing is every row, as before. The flags
   are refused on the screen and outside a `.moai`. (moai-wk7i.5wx)

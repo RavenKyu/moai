@@ -737,12 +737,13 @@ BACKLOG
   keeps it. Esc closes it, asking once if you had typed something (y throws
   it away). This is the one write to an issue — editing is done on the CLI.
   `--json` prints only that directory's listing, with no screen (outside a
-  `.moai`, the rows of the layer). Each milestone and epic row carries
-  progress, {\"done\": 3, \"total\": 5} — what the counts column shows as
-  3/5, read from every row under it whatever the filters keep. The filters of
-  `moai show` (-s, -t, -e, -g, --filter, --all, --archived, --deferred and
-  the rest) shape that listing: given any, a row stands when `moai show`
-  with the same filters would list it, and a milestone or epic stands too
+  `.moai`, the rows of the layer). Each folder row (a milestone, an epic,
+  an issue with children) carries progress, {\"done\": 3, \"total\": 5} —
+  what the counts column shows as 3/5, read from every row under it whatever
+  the filters keep. The filters of `moai show` (-s, -t, -e, -g, --filter,
+  --all, --archived, --deferred and the rest; the time filters read as in
+  `moai show --help`) shape that listing: given any, a row stands when
+  `moai show` with the same filters would list it, and a folder stands too
   when something under it does — so done is hidden unless asked for, as in
   `moai show`. Without them the listing is every row, as before. --sort and
   --reverse order it in the words of `moai show --sort`, and folders still come
@@ -1478,10 +1479,10 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   carries it.
 
   Fields: --fields id,title,status keeps only those keys of each --json
-  row, in that order - a key the row does not carry stays out. It picks
-  keys, not rows: the filters pick the rows. Keys it leaves out are not
-  worked out at all, so --fields id skips reading the journals that work
-  needs. It stands only with --json.
+  row, in that order, each once - a key the row does not carry stays out.
+  It picks keys, not rows: the filters pick the rows. The costly keys it
+  leaves out are not worked out - without work a list skips the journals,
+  and show <id> asks git only for commits. It stands only with --json.
 
     moai show -g parser --all --fields id --json
 
@@ -1490,7 +1491,8 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   output, where they are worked out already: derived_status, derived_epic,
   derived_milestone (the milestone --milestone stands the row under),
   shelved_by (the nearest row that took it out of the plan - its own id when
-  it was deferred itself) and archived (true on a row --all hides as the
+  it was deferred itself; a closed row is in no plan, so --deferred picks
+  it by deferred_at alone) and archived (true on a row --all hides as the
   archive). The last three stand only when they hold:
 
     moai show --type issue --json |

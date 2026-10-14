@@ -6748,8 +6748,7 @@ fn show_json_names_the_inherited_milestone_the_shelf_and_the_archive() {
     assert!(at(s.path(), "2026-01-01T00:00:00Z", &["mv", &old, "done"]).status.success());
 
     let one = |id: &str| -> serde_json::Value { serde_json::from_str(&ok(s.path(), &["show", id, "--json"])).unwrap() };
-    let list: Vec<serde_json::Value> =
-        serde_json::from_str(&ok(s.path(), &["show", "--archived", "--json"])).unwrap();
+    let list: Vec<serde_json::Value> = serde_json::from_str(&ok(s.path(), &["show", "--archived", "--json"])).unwrap();
     let row = |id: &str| list.iter().find(|r| r["id"] == id).unwrap_or_else(|| panic!("{id} 가 목록에 없다")).clone();
 
     // 마일스톤은 에픽에서 물려받는다 — 줄의 `milestone` 은 비어 있다.
@@ -6768,6 +6767,33 @@ fn show_json_names_the_inherited_milestone_the_shelf_and_the_archive() {
     assert_eq!(row(&old)["archived"], true);
 }
 
+/// **아카이브 파일로 옮긴 줄은 시계와 상관없이 `archived` 다**(리뷰) — `--all` 이 그 줄을 안 내는 자
+/// (`Where::stored`)와 같은 답이어야 한다. 하나를 펼치는 길은 그 집합을 따로 싣는데, 시계로 아카이브인 줄만 재던
+/// 시험은 그 한 줄을 빼도 푸르렀다. `archive_days = 0` 으로 시계를 꺼서 옮긴 것만으로 서게 한다.
+#[test]
+fn show_json_marks_a_moved_row_archived_with_the_clock_off() {
+    let s = init("storedjson");
+    let old = add(s.path(), &["옮길 것"]);
+    let kept = add(s.path(), &["남길 것"]);
+    assert!(at(s.path(), "2026-01-01T00:00:00Z", &["mv", &old, "done"]).status.success());
+    ok_at(s.path(), "2026-10-01T00:00:00Z", &["archive"]);
+    let config = s.path().join(".moai/config.toml");
+    let mut text = std::fs::read_to_string(&config).unwrap();
+    text.push_str("archive_days = 0\n");
+    std::fs::write(&config, text).unwrap();
+
+    let one: serde_json::Value = serde_json::from_str(&ok(s.path(), &["show", &old, "--json"])).unwrap();
+    assert_eq!(one["archived"], true, "{one}");
+    let list: Vec<serde_json::Value> = serde_json::from_str(&ok(s.path(), &["show", "--archived", "--json"])).unwrap();
+    let row = list.iter().find(|r| r["id"] == old.as_str()).unwrap_or_else(|| panic!("{old} 가 목록에 없다"));
+    assert_eq!(row["archived"], true, "{row}");
+    // 산 줄에는 안 선다 — 그리고 `--all` 은 옮긴 줄을 안 낸다.
+    let live: serde_json::Value = serde_json::from_str(&ok(s.path(), &["show", &kept, "--json"])).unwrap();
+    assert!(live.get("archived").is_none(), "{live}");
+    let all = ok(s.path(), &["show", "--all", "--fields", "id", "--json"]);
+    assert!(!all.contains(&old), "{all}");
+}
+
 /// `--fields` 는 줄마다 고른 키만 고른 차례로 낸다(moai-wk7i.vsk) — 없는 키는 안 세운다. 노트로 찾은 줄의
 /// id 목록이 그 한 꼴로 나온다(moai-wk7i.3it).
 #[test]
@@ -6782,6 +6808,9 @@ fn show_fields_keeps_only_the_keys_asked_for() {
     one_json_value(&out);
     assert!(out.contains(&format!("{{\"title\":\"첫째\",\"id\":\"{a}\"}}")), "{out}");
     assert!(!out.contains("nope") && !out.contains("status"), "{out}");
+    // 키는 한 번씩만, 앞뒤 빈칸은 벗긴다 — 한 객체에 같은 키가 둘 서지 않는다(리뷰).
+    let twice = ok(s.path(), &["show", "--fields", "id, title,id", "--json"]);
+    assert!(twice.contains(&format!("{{\"id\":\"{a}\",\"title\":\"첫째\"}}")), "{twice}");
 
     // 노트로 찾은 줄의 id 목록.
     let found = ok(s.path(), &["show", "-g", "qzxv", "--all", "--fields", "id", "--json"]);
@@ -6873,13 +6902,24 @@ fn tui_json_counts_groups_and_takes_the_show_filters() {
     assert_eq!(ids(&found), vec![epic.clone()], "걸린 줄의 폴더만 서야 한다");
     assert_eq!(found[0]["progress"], serde_json::json!({"done": 1, "total": 2}));
 
-    // 차례는 `show --sort` 의 말이다.
+    // 차례는 `show --sort` 의 말이다. `--reverse` 만 주면 기본 차례(우선순위)를 뒤집는다.
     assert_eq!(ids(&rows(&["--path", &epic, "--sort", "priority:desc"])), vec![done.clone(), open.clone()]);
+    assert_eq!(ids(&rows(&["--path", &epic, "--reverse"])), vec![done.clone(), open.clone()]);
 
     // 화면에서는 말없이 먹지 않는다.
     let refused = moai(s.path(), &["tui", "-s", "todo"]);
     assert!(!refused.status.success());
     assert!(String::from_utf8_lossy(&refused.stderr).contains("-s"), "{refused:?}");
+
+    // `.moai` 밖에서는 화면이든 `--json` 이든 **같은 말로** 거절한다(리뷰) — 화면의 거절이 "--json 을 더하라" 를
+    // 대면, 그대로 친 판이 다시 거절된다.
+    let outside = Scratch::new("tuishape-outside");
+    for args in [&["tui", "-s", "todo"][..], &["tui", "-s", "todo", "--json"][..]] {
+        let out = moai(outside.path(), args);
+        assert!(!out.status.success(), "{args:?}");
+        let said = format!("{}{}", String::from_utf8_lossy(&out.stderr), String::from_utf8_lossy(&out.stdout));
+        assert!(said.contains("moai -C <dir> tui"), "{args:?}: {said}");
+    }
 }
 
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.

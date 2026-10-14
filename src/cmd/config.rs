@@ -97,8 +97,7 @@ pub fn run(ctx: &Ctx) -> R<Vec<String>> {
         ("status_backlog_pile", t(&out.status_backlog_pile)),
         ("status_due_days", t(&out.status_due_days)),
     ];
-    let mut lines: Vec<String> =
-        pairs.iter().map(|(k, v)| crate::text::one_line(&format!("{k:20} = {v}"))).collect();
+    let mut lines: Vec<String> = pairs.iter().map(|(k, v)| crate::text::one_line(&format!("{k:20} = {v}"))).collect();
     lines.push(crate::i18n::fill(
         crate::i18n::say(ctx.lang(), "models.path"),
         &[("path", &crate::text::one_line(&path.display().to_string()))],

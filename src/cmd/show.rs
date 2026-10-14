@@ -177,8 +177,9 @@ fn sort_of(p: &crate::cli::PageArgs) -> crate::query::Sort {
 
 pub fn run(ctx: &Ctx, mut args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String>> {
     // **키를 고르는 것은 낸 뒤에 한 자리에서 한다**(moai-wk7i.vsk) — 목록·하나·지운 줄·되뽑기가 저마다 고르면
-    // 한쪽이 빠진다. 안 고른 키를 짓지 않는 것은 값이 큰 자리(`work` 의 저널 읽기)에서만 [`Keys::wants`] 로 묻는다.
-    let keys = Keys(std::mem::take(&mut args.fields));
+    // 한쪽이 빠진다. 안 고른 키를 짓지 않는 것은 값이 큰 자리(저널·`git log`·옆 워크트리·거름망·읽음 파일)에서만
+    // [`Keys::wants`] 로 묻는다.
+    let keys = Keys::of(std::mem::take(&mut args.fields));
     if !keys.0.is_empty() && !ctx.json {
         return Err(Fail::coded(
             format!(
@@ -197,6 +198,19 @@ pub fn run(ctx: &Ctx, mut args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<St
 struct Keys(Vec<String>);
 
 impl Keys {
+    /// argv 의 키를 **앞뒤 빈칸을 벗기고 한 번씩만** 든다(리뷰) — `--fields id,id` 가 한 객체에 같은 키를 둘
+    /// 세웠고, `--fields 'id, title'` 의 ` title` 은 어느 줄에도 없는 키라 말없이 빠졌다. `--sort` 가 칸 앞뒤의
+    /// 빈칸을 벗기는 것(`query::parse_order`)과 같은 자다. 차례는 처음 선 자리의 것이다.
+    fn of(raw: Vec<String>) -> Keys {
+        let mut keys: Vec<String> = Vec::with_capacity(raw.len());
+        for k in raw.iter().map(|k| k.trim()) {
+            if !keys.iter().any(|seen| seen == k) {
+                keys.push(k.to_string());
+            }
+        }
+        Keys(keys)
+    }
+
     /// 그 키를 낼 것인가 — 안 낼 키는 짓지도 않는다.
     fn wants(&self, key: &str) -> bool {
         self.0.is_empty() || self.0.iter().any(|k| k == key)
@@ -284,7 +298,7 @@ fn listed(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>, keys: &Keys) -> 
         if args.as_plan {
             return plan(ctx, &load.issues, issue, args.raw);
         }
-        return one(ctx, &repo, &load.issues, issue, args.raw, &origin, args.worktree.worktree, &live);
+        return one(ctx, &repo, &load.issues, issue, args.raw, &origin, args.worktree.worktree, &live, keys);
     }
 
     // **`--raw` 도 조용히 버리지 않는다.** 본문은 하나를 펼칠 때만 나오므로
@@ -703,11 +717,7 @@ struct Derived<'a> {
 
 impl<'a> Derived<'a> {
     fn of(wh: &'a crate::query::Where<'_>, i: &'a Issue, now: &str) -> Derived<'a> {
-        Derived {
-            derived_milestone: wh.milestone_of(i),
-            shelved_by: wh.shelved.root(i),
-            archived: wh.archived(i, now),
-        }
+        Derived { derived_milestone: wh.milestone_of(i), shelved_by: wh.shelved.root(i), archived: wh.archived(i, now) }
     }
 }
 
@@ -860,14 +870,22 @@ fn one(
     origin: &crate::worktree::Origin,
     worktree: bool,
     live: &BTreeSet<String>,
+    keys: &Keys,
 ) -> R<Vec<String>> {
+    // **`--fields` 가 안 고른 값비싼 키는 짓지 않는다**(리뷰) — 도움말이 "안 고른 키는 셈하지 않는다" 고 대는데
+    // 하나를 펼치는 이 길만 저널·`git log`·옆 워크트리·거름망·읽음 파일을 늘 다 읽었다. 사람 화면은 다 쓴다.
+    let wants = |any: &[&str]| !ctx.json || any.iter().any(|k| keys.wants(k));
     let twins = report::duplicate_lines(all, &issue.id);
     let children = report::children_of(all, &issue.id);
     // **이력은 줄이 온 워크트리의 저널에서 읽는다** (`Origin::root`). 스냅샷은
     // 옆 워크트리의 줄을 내는데 이력만 이쪽에서 읽으면, 거기서 옮긴 칸이 이력에
     // 없어 상세의 머리글과 이력이 서로 다른 말을 한다.
     let journal_root = home(repo, origin, &issue.id);
-    let journal = at_home(repo, journal_root).journal_of(&issue.id);
+    // `journal_error` 는 읽은 **뒤에** 못 읽은 파일을 묻는 키라 그것을 고른 판도 읽는다.
+    let journal = match wants(&["journal", "work", "journal_error"]) {
+        true => at_home(repo, journal_root).journal_of(&issue.id),
+        false => Vec::new(),
+    };
     // 이 줄과 자식을 계획에서 뺀 줄. **물려받은 미룸까지** — 미룬 에픽의 멤버를
     // 펼쳤을 때 표가 없으면 상세가 답하기로 한 "왜 ready 에 안 나오나" 가 빈다.
     // 묶음의 읽은 칸은 **이 줄과 자식에 대해서만** 센다 — 일 하나를 펼치는 흔한 길에서
@@ -896,7 +914,7 @@ fn one(
     // **에픽도 뒷줄로 푼다** — 펼친 줄을 고른 자(`Load::get`)와 같다(moai-e0ro).
     let named = issue.epic.as_deref().or(stood_in);
     let epic = named.and_then(|e| all.iter().rfind(|i| i.id == e));
-    let trees: Vec<report::Workplace> = if report::placeable_in(&footing, issue) {
+    let trees: Vec<report::Workplace> = if wants(&["workplaces", "place"]) && report::placeable_in(&footing, issue) {
         // **자리는 세션이 선 체크아웃에서 잰다**(리뷰 moai-71ht.jlh 사용자 결정) — 트래커는 루트로
         // 옮겨 가지만(`Repo::find_from`) "여기가 어디냐" 는 여전히 이 체크아웃이다. 루트로 재던 판은
         // 워크트리 안에서도 자리를 파고 제 워크트리를 옆으로 세어, 겹쳐 보지 않을 때는 안 판다는
@@ -930,9 +948,12 @@ fn one(
     // **기계에게는 그 침묵을 가른다**(moai-rzsv) — `--json` 은 `commits` 를 늘 내고, git 을 못 읽었을
     // 때만 `commits_error` 를 단다. 사람 화면은 그대로다.
     let root = commit_home(repo, origin, &issue.id);
-    let (commits, commits_error) = match crate::git::table(root, &[issue.id.as_str()]) {
-        Ok(mut by_id) => (by_id.remove(&issue.id).unwrap_or_default(), None),
-        Err(e) => (Vec::new(), Some(e.told(root, ctx.lang()))),
+    let (commits, commits_error) = match wants(&["commits", "commits_error"]) {
+        false => (Vec::new(), None),
+        true => match crate::git::table(root, &[issue.id.as_str()]) {
+            Ok(mut by_id) => (by_id.remove(&issue.id).unwrap_or_default(), None),
+            Err(e) => (Vec::new(), Some(e.told(root, ctx.lang()))),
+        },
     };
 
     if ctx.json {
@@ -967,15 +988,18 @@ fn one(
         }
         // **목록과 한 그릇으로 낸다**([`Derived`], moai-wk7i.rmc) — 선 마일스톤과 아카이브. 거름망을 여기서만
         // 짓는다: 사람 화면은 이 둘을 안 그리므로, 일 하나를 펼치는 흔한 길에서 저장소 전부를 다시 걷지 않는다.
-        // 미룸은 위 `shelved_by` 가 이미 같은 자(`Shelved::root`)로 냈다.
-        let mut wh = crate::query::Where::from_soil(all, &repo.config, report::Soil::of(all));
-        wh.stored = all.iter().map(|i| i.id.as_str()).filter(|id| !live.contains(*id)).collect();
-        let derived = Derived::of(&wh, issue, &model::now());
-        if let Some(m) = derived.derived_milestone {
-            extra.push(("derived_milestone", serde_json::to_string(m).map_err(|e| Fail::new(e.to_string()))?));
-        }
-        if derived.archived {
-            extra.push(("archived", "true".to_string()));
+        // 미룸은 위 `shelved_by` 가 이미 같은 자(`Shelved::root`)로 냈다. 저장소 전부를 재는 걸음이라 두 키를 다
+        // 안 고른 `--fields` 에서는 안 짓는다.
+        if wants(&["derived_milestone", "archived"]) {
+            let mut wh = crate::query::Where::from_soil(all, &repo.config, report::Soil::of(all));
+            wh.stored = all.iter().map(|i| i.id.as_str()).filter(|id| !live.contains(*id)).collect();
+            let derived = Derived::of(&wh, issue, &model::now());
+            if let Some(m) = derived.derived_milestone {
+                extra.push(("derived_milestone", serde_json::to_string(m).map_err(|e| Fail::new(e.to_string()))?));
+            }
+            if derived.archived {
+                extra.push(("archived", "true".to_string()));
+            }
         }
         if let Some(n) = twins {
             extra.push(("duplicate_lines", n.to_string()));
@@ -1032,7 +1056,7 @@ fn one(
         }
         // **나에게 안 읽은 줄이면 단다**(moai-cqwy) — 목록의 `unread` 와 같은 자([`unread_here`])다. 설 때만
         // 단다. 펼쳤다고 읽음이 서지 않는다(`cmd::read` 머리글) — 내리는 것은 `moai read` 다.
-        if unread_here(ctx, repo, all).contains(issue.id.as_str()) {
+        if keys.wants("unread") && unread_here(ctx, repo, all).contains(issue.id.as_str()) {
             extra.push(("unread", "true".to_string()));
         }
         return super::json_with(
