@@ -369,15 +369,20 @@ worktree go back in with `EnterWorktree(path)`"#;
 ///
 /// **무시되는가가 아니라 추적되는가를 묻는다.** 제외 줄을 나중에 더한 저장소는 이미 추적되던 파일을 계속 추적하고, 그때
 /// 커밋은 그대로 돈다 — `check-ignore` 는 그 판을 "건너뛰라" 로 잘못 읽는다. 루트는 `.moai` 가 선 자리라(감독 2) 모노레포
-/// 하위 프로젝트에서도 상대 경로가 같다. 감독과 일꾼이 **같은 줄**을 싣는다 — 한쪽만 건너뛰면 감독의 `Sent:` 커밋이나
-/// 일꾼의 집기 커밋 하나가 진다.
-const TRACKER_IN_GIT: &str = "git ls-files --error-unmatch -- .moai/issues.jsonl";
+/// 하위 프로젝트에서도 상대 경로가 같다 — **`-C <root>` 로 그 자리에 맨다**(리뷰 moai-nzmp.nfj): 감독 2 의 뿌리 찾기는
+/// 뿌리 밑 어디서든 위로 걸어 올라가니 감독이 하위 디렉터리에 설 수 있고, 거기서 맨 상대 경로는 추적되는 트래커를
+/// "git 밖" 으로 읽어 모든 트래커 커밋을 건너뛴다. 감독과 일꾼이 **같은 줄**을 싣는다 — 한쪽만 건너뛰면 감독의 `Sent:`
+/// 커밋이나 일꾼의 집기 커밋 하나가 진다.
+const TRACKER_IN_GIT: &str = "git -C <root> ls-files --error-unmatch -- .moai/issues.jsonl";
 
-/// 그 답을 일꾼이 어떻게 읽는가 — "Before the steps" 에 한 번 선다.
+/// 그 답을 일꾼이 어떻게 읽는가 — "Before the steps" 에 한 번 선다. **2 의 커밋에 매지 않는다**(리뷰 moai-nzmp.nfj) —
+/// `from "Carrying on stalled work"` 로 든 일꾼은 2 를 안 지나, "2 의 첫 트래커 커밋 앞" 이면 묻지 않은 채 8·10 의 커밋에서
+/// "pathspec did not match" 로 진다.
 fn tracker_out_of_git() -> String {
     format!(
         r#"**Some repositories keep the tracker out of git** — `.moai` in `.gitignore` or
-`.git/info/exclude`. Ask once, in the root, before the first tracker commit in 2
+`.git/info/exclude`. Ask once, in the root, before your first tracker commit — the one in 2,
+or whichever comes first when the message starts you past 2
 
     {TRACKER_IN_GIT}      a non-zero code: the tracker is not in git
 On a non-zero code every tracker commit in these steps — each "commit with a path, as in 2" —
@@ -2379,10 +2384,12 @@ to `Agent`. **Leave them unfilled** and those placeholders travel as they are, s
 left at the close says `<model>` instead of what actually did the work.
 `<worker kind>` is `subagent` or `session` — how you raised it in 2.
 `<subagent ladder>` is the models the worker may hand pieces of the work to, copied from the
-`moai models --json` of this round — `bulk <model> · develop <model> · complex <model>`, the
-person's table as it stands. The worker does not read the table again. It is `none` only when
-the person said the workers do their work themselves; a word of your own about subagents does
-not go in the message beyond this line.
+`moai models --json` of this round, each role with the effort 2-1 reads for it —
+`bulk <model> (<effort>) · develop <model> (<effort>) · complex <model> (<effort>)`, the
+person's table as it stands. The worker does not read the table again. It is `none` for a Codex
+worker — `Agent` is Claude Code's — and otherwise only when the person said the workers do
+their work themselves; a word of your own about subagents does not go in the message beyond
+this line.
 Do not use a single quote inside `<why>` — it closes the single quote in the worker's 9-1
 and the rest of the text leaks into the shell.
 `<other work>` is the sibling worktrees you measured in 1, the work you send in this same
@@ -2476,9 +2483,12 @@ open, so the epic is not done either.
 
 **A `member refused:` line** is a member the hook kept the worker from creating (the worker's
 4-3): it stands as a backlog item under the epic. Unfold it into that epic before you send the
-next, and take it into the root with a commit with a path — it then stands in the first column
-like a member from 4-3 and keeps the epic open. If the hook refuses you as well, pass the line
-and the refusal to the person; do not create it under another epic
+next — write only `- issue` lines in the plan — and take it into the root with a commit with a
+path; it then stands in the first column like a member from 4-3 and keeps the epic open.
+**If the line says the worker reclaimed it itself, or that backlog is already done, do not
+unfold it** — promote unfolds a closed backlog too, and the same member stands twice. If the
+hook refuses you as well, pass the line and the refusal to the person; do not create it under
+another epic
 
     {RECALL}
 
@@ -2501,7 +2511,9 @@ commit with a path — a supervisor that starts again reads that line, not this 
 members it left in the first column — and take them into the root the same way. `<model ran>` is
 the name after `anthropic/` on the report's `Model ran:` line — the real name the worker read in
 its own system prompt, not the alias you passed. Copy the vendor once: `anthropic/anthropic/…`
-is a line `work` never reads. Leave `tokens=` out: the count a
+is a line `work` never reads. Each `Subagent ran: anthropic/<model> on <member>` line below it
+is a subagent the worker raised itself (its `Subagents:`) — write that on the member too, the
+same form with `subagent` in the reason. Leave `tokens=` out: the count a
 subagent's notification carries is not what the work cost (the person's decision), and a
 false number is worse than none. A session worker writes its own line (its 9-1), and the
 review issue's line is the worker's either way (its 10).
@@ -2510,8 +2522,9 @@ review issue's line is the worker's either way (its 10).
 
 **For a session worker, check that its lines stand** — the worker writes them, and a member
 closed without one counts as nobody's work. Each id the line below prints, other than a member
-left in the first column, is a line it missed: ask the worker with a message to write it. Do
-not write it in its place — the model that ran in that window is the worker's to name.
+left in the first column or one an earlier worker finished before this one was sent, is a line
+it missed: ask the worker with a message to write it. Do not write it in its place — the model
+that ran in that window is the worker's to name.
 
     {UNWRITTEN}
 
@@ -4303,8 +4316,9 @@ Root: <root>
    scratchpad and run moai -C <root> note <review id> -b - < <that file>
 {over}
 5. Hand back with SubagentHandback. The first line is Model ran: anthropic/<your real model
-   name> — the name in your system prompt, not an alias. Then what was fixed (finding number,
-   file) and what was left, by finding number"#
+   name> — the name in your system prompt, not an alias. When 1 ran the review by hand, the
+   second line is Manual review. Then what was fixed (finding number, file) and what was left,
+   by finding number"#
     )
 }
 
@@ -4385,8 +4399,9 @@ said yes to taking over a row that is not yours, say — belongs to the assignme
 - `Worker:` — `subagent` or `session`, how you were raised. A step that differs between the
   two says so in the step
 - `Subagents:` — `<subagent ladder>`, the models you may raise subagents of your own on, one
-  per role, for a piece of the work: `Agent(subagent_type: "general-purpose", model: <that
-  role's model>, …)`. Hand a piece to the role it reads as on the rubric in 5 — searching,
+  per role with its effort, for a piece of the work: `Agent(subagent_type: "general-purpose",
+  model: <that role's model>, effort: <its effort>, …)`. If `Agent` refuses a model, do that
+  piece yourself. Hand a piece to the role it reads as on the rubric in 5 — searching,
   summing up and the same mechanical fix many times to `bulk`; a piece of code to the role for
   development, or to `complex` when it touches the write path, concurrency, the storage format
   or hooks. Never to a lighter role than the piece reads as. What has to be decided stays in
@@ -4624,7 +4639,8 @@ never in the root
    as **a member left because the work beside it holds the file**, together with that other
    work. The supervisor sends it once that work is done. Do not defer it.
    **If the hook refuses that line** (rule 1), read the refusal's `Why this session holds them:`
-   lines — they name the rows the hook reads as this session's, and why. Do not take the
+   lines — they name the rows the hook reads as this session's, and why. That head comes in the
+   screen's language, and a refusal that would run too long carries none. Do not take the
    `-e` or `--parent` it offers for another epic or another row, and do not work around it.
    Park it instead — a backlog item is free of rule 1, and `-e <epic>` lets 7-1 find it
    (`{PARKED_MEMBER}`), then name it in 12 in one line
@@ -4690,8 +4706,9 @@ never in the root
    **If the review stays refused** — the review issue stands with its angle, you picked it up
    (`moai -C <root> mv <review id> in_progress --from todo`), you ran what each refusal handed
    you, and rule 3 still ties the review to a row that is not this epic's (its
-   `Why this session holds them:` lines say which, and why) — do not work around the hook and do
-   not start another agent program. **Review by hand, in this session**: read the diff from the
+   `Why this session holds them:` lines, when it carries them, say which and why) —
+   do not work around the hook and do not start another agent program.
+   **Review by hand, in this session**: read the diff from the
    merge-base yourself at the grade you picked, against the angle and the five places below, fix
    what you find in the working tree, and write your words to a file whose first line is
 
@@ -4827,7 +4844,7 @@ never in the root
    that member, the same form, by the real name it handed back and with `subagent` in the
    reason — a member can carry several lines, one per model that worked on it.
    **In a subagent, skip this step** — the supervisor writes these lines from your report's
-   `Model ran:` (12)
+   `Model ran:` and `Subagent ran:` lines (12)
 
 10. Close them after that. **Run `moai mv <member> done` only once that merge has really
     landed** — closed before it, a merge that stops on a conflict leaves them done on work
@@ -4843,7 +4860,8 @@ never in the root
 
     Leave one line on the review issue too, naming the model the review ran on. In a session
     that is this window's model, by its real name — a review agent inherits the window's model —
-    and `manual` joins the reason when 7 ran it by hand
+    and `manual` joins the reason when the review ran by hand (7, or a review subagent's
+    hand-back whose second line says `Manual review`)
 
         {REVIEW_WORK}
     **In a subagent** the review subagent already left the reviewer's words on the review
@@ -4853,8 +4871,10 @@ never in the root
 
     **Then look for a member left without its line** — 9-1 is the step that gets skipped, and a
     member closed without it is counted as nobody's work. Every id this prints, other than the
-    members left in the first column, is a member 9-1 missed: write its line now. In a subagent
-    skip this — the members' lines are the supervisor's, from your report's `Model ran:`
+    members left in the first column and the ones finished before this epic came to you, is a
+    member 9-1 missed: write its line now. A row this window never worked on stays without a
+    line — your model on it is a false line. In a subagent skip this — the members' lines are
+    the supervisor's, from your report's `Model ran:`
 
         {UNWRITTEN}
     Leave the tests passing in the root with a commit with a path, as in 2
@@ -4889,7 +4909,9 @@ never in the root
     reads the note. Then hand back the same text with `SubagentHandback`, and your turn ends.
     Its second line is `Model ran: anthropic/<your real model name>` — the name in your own
     system prompt (`opus-5.5`), not the alias in `Model:`; the supervisor writes 9-1's line
-    from it. Nothing about clearing a window is yours
+    from it. Below it goes one `Subagent ran: anthropic/<its real name> on <member>` line for each
+    subagent of your own (`Subagents:`) that did a share of a member — 9-1's line of its own.
+    Nothing about clearing a window is yours
 
 ## Carrying on stalled work
 
@@ -4955,6 +4977,8 @@ The supervisor skill remains Claude Code only; reading this file does not instal
 as the suggestion, and record the model that actually ran. Do not change it yourself.
 `Model:` names the Codex model (`[models] codex`); worker.md's Claude models and their ladder
 do not apply here — when the work reads harder than its difficulty, say so in 9-1's reason.
+`Subagents:` names Claude models raised with Claude Code's `Agent`; it does not apply here —
+do the work yourself.
 A question tool can depend on the mode: use `request_user_input_async` when available,
 or `request_user_input` in Plan mode; without either, ask in conversation and wait.
 One call's `cd` may not persist into the next: always supply the absolute command directory.
@@ -8410,22 +8434,23 @@ stop sending outside work while a release runs",
         let shared = supervise();
         let shared = &shared[shared.find("## The shared root").unwrap()..];
         assert!(shared.contains(TRACKER_IN_GIT), "감독이 같은 줄로 안 묻는다 — 감독의 트래커 커밋 하나가 진다");
+        // 2 를 안 지나는 이어받기 일꾼도 묻는다 — "2 의 첫 커밋 앞" 에 매면 그 일꾼은 8·10 의 커밋에서 진다.
+        assert!(before.contains("before your first tracker commit"), "묻는 때를 2 의 커밋에 맸다");
 
         let s = crate::scratch::Scratch::new("tracker-in-git");
-        let git = |args: &[&str]| {
-            crate::git::isolated(s.path())
-                .args(args)
-                .output()
-                .expect("git 이 없다")
-                .status
-                .success()
-        };
+        let git =
+            |args: &[&str]| crate::git::isolated(s.path()).args(args).output().expect("git 이 없다").status.success();
+        // 줄의 `<root>` 는 감독이 채우는 자리라 시험의 저장소로 채운다. **그 밑의 하위 디렉터리에서 묻는다** — 맨 상대
+        // 경로로 묻던 판은 뿌리 밑에 선 감독이 추적되는 트래커를 git 밖으로 읽었다(리뷰 moai-nzmp.nfj).
+        let root = s.path().to_str().expect("시험 자리가 UTF-8 이 아니다").to_string();
+        let below = s.path().join("src");
         let asks = || {
-            let mut words = TRACKER_IN_GIT.split(' ');
+            let mut words = TRACKER_IN_GIT.split(' ').map(|w| if w == "<root>" { root.as_str() } else { w });
             assert_eq!(words.next(), Some("git"));
-            git(&words.collect::<Vec<_>>())
+            crate::git::isolated(&below).args(words).output().expect("git 이 없다").status.success()
         };
         assert!(git(&["init", "-q"]));
+        std::fs::create_dir_all(&below).unwrap();
         std::fs::create_dir_all(s.path().join(".moai")).unwrap();
         std::fs::write(s.path().join(".moai/issues.jsonl"), "").unwrap();
         std::fs::write(s.path().join(".git/info/exclude"), ".moai/\n").unwrap();
@@ -8448,7 +8473,14 @@ stop sending outside work while a release runs",
         for piece in [PARKED_MEMBER, REFUSED_MEMBER, "Why this session holds them:"] {
             assert!(four3.contains(piece), "4-3 에 {piece} 가 없다");
         }
-        assert!(include_str!("hook.rs").contains("Why this session holds them:"), "훅의 근거 줄 머리가 바뀌었다");
+        // 훅이 실제로 내는 머리와 견준다 — `hook.rs` 의 글자를 찾던 판은 그 파일의 시험 단언에 걸려 푸르렀다.
+        assert_eq!(
+            crate::i18n::say(crate::i18n::Lang::En, "hook.vouch_head"),
+            "Why this session holds them:",
+            "훅의 근거 줄 머리가 바뀌었다"
+        );
+        // 그 머리는 화면 말로 오고, 넘치는 거절에는 없다 — 영어 머리만 찾는 일꾼은 한국어 화면에서 근거를 못 읽는다.
+        assert!(four3.contains("screen's language"), "4-3 이 근거 줄 머리가 화면 말로 온다고 안 한다");
         let head = REFUSED_MEMBER.split(':').next().unwrap();
         let twelve = &steps[step_at(steps, "12")..];
         assert!(twelve.contains(&format!("`{head}:`")), "보고가 막힌 멤버 줄을 안 싣는다");
@@ -8456,6 +8488,9 @@ stop sending outside work while a release runs",
         let check = &check[check.find("**5. Check the report").unwrap()..];
         assert!(check.contains(&format!("**A `{head}:` line**")), "감독이 막힌 멤버 줄을 안 읽는다");
         assert!(check.contains(RECALL), "감독이 막힌 멤버를 에픽으로 안 펼친다");
+        // 일꾼이 7-1 에서 스스로 되찾은 것을 감독이 또 펼치면 같은 멤버가 둘 선다 — promote 는 닫힌 backlog 도 펼친다.
+        let refused = &check[check.find(&format!("**A `{head}:` line**")).unwrap()..check.find(RECALL).unwrap()];
+        assert!(refused.contains("do not\nunfold it"), "감독이 일꾼이 되찾은 막힌 멤버를 또 펼친다");
     }
 
     /// **리뷰 명령이 끝내 막히면 손으로 보고, 손으로 봤다고 첫 줄에 밝힌다**(moai-nzmp.ayq). 세션 길(7)과 서브에이전트의
@@ -8470,6 +8505,16 @@ stop sending outside work while a release runs",
         assert!(seven.contains("do not work around the hook"), "7 이 훅을 비켜 가지 말라고 안 한다");
         assert!(review_brief().contains(MANUAL_REVIEW), "리뷰 브리프가 손 리뷰의 머리를 안 싣는다");
         assert!(!MANUAL_REVIEW.contains("/code-review"), "머리가 리뷰 명령을 글자로 들어 브리프의 셈을 늘린다");
+        // 서브에이전트 길의 일꾼은 손으로 봤다는 것을 돌려받은 글로만 안다 — 첫 줄(`Model ran:`)은 10 이 모델 이름으로
+        // 베끼니 둘째 줄에 싣는다. 거기 덧붙이면 `anthropic/<모델> manual` 이 `work` 가 못 읽는 줄이 된다.
+        assert!(
+            review_brief().contains("second line is Manual review"),
+            "리뷰 서브에이전트가 손 리뷰를 일꾼에게 안 알린다"
+        );
+        assert!(
+            steps.contains("second line says `Manual review`"),
+            "10 이 손 리뷰의 표를 리뷰 이슈의 모델 줄에 안 단다"
+        );
     }
 
     /// **세션 일꾼의 일한 AI 줄이 빠지지 않는다**(moai-nzmp.fi4). 리뷰 이슈의 줄은 세션도 적고, 닫은 뒤 줄 없는 멤버를
@@ -8486,6 +8531,12 @@ stop sending outside work while a release runs",
         let check = &check[check.find("**5. Check the report").unwrap()..check.find("## The shared root").unwrap()];
         assert!(check.contains(UNWRITTEN), "감독이 세션 일꾼의 줄을 안 본다");
         assert!(UNWRITTEN.contains("--all"), "이미 닫은 멤버가 빠진다");
+        // 그 줄은 이 창이 안 한 멤버(앞 회차·이어받기)도 낸다 — 거기 이 창의 모델을 적으면 거짓 줄이다.
+        assert!(
+            ten.contains("finished before this epic came to you"),
+            "10 이 앞 창이 끝낸 멤버에 이 창의 모델을 적게 한다"
+        );
+        assert!(check.contains("an earlier worker finished"), "감독이 앞 일꾼이 끝낸 멤버의 줄까지 이 일꾼에게 청한다");
     }
 
     /// **일꾼이 제 서브에이전트에 맡길 모델은 메시지의 한 줄이다**(moai-nzmp.x2h). 감독이 그 회차의 표를 옮겨 싣고, 일꾼은
@@ -8495,10 +8546,33 @@ stop sending outside work while a release runs",
         assert!(message().contains(SUBAGENTS_SLOT), "메시지에 서브에이전트 사다리가 없다");
         let supervise = supervise();
         assert!(slot_list(&supervise).contains("`<subagent ladder>`"), "감독이 사다리를 안 채운다");
-        assert!(supervise.contains("`bulk <model> · develop <model> · complex <model>`"), "사다리의 꼴이 없다");
+        // 역할마다 effort 도 싣는다 — 감독이 일꾼을 `Agent` 의 effort 로 세우듯, 일꾼의 `complex` 조각도 그 역할의 effort 로 선다.
+        assert!(
+            supervise.contains("`bulk <model> (<effort>) · develop <model> (<effort>) · complex <model> (<effort>)`"),
+            "사다리의 꼴이 없다"
+        );
+        // Codex 일꾼에게는 `Agent` 가 없다 — 사다리를 채우면 일꾼 글이 못 부를 도구를 시킨다.
+        assert!(supervise.contains("It is `none` for a Codex\nworker"), "감독이 Codex 일꾼에게 사다리를 채운다");
+        assert!(worker_codex().contains("`Subagents:`"), "Codex 일꾼 글이 사다리를 걷지 않는다");
         let work = worker();
+        assert!(work.contains("effort: <its effort>"), "일꾼의 서브에이전트가 역할의 effort 없이 선다");
         let steps = numbered_steps(&work);
         let nine = &steps[steps.find("9-1. ").unwrap()..step_at(steps, "10")];
         assert!(nine.contains("(`Subagents:`)"), "9-1 이 서브에이전트의 몫을 안 적는다");
+        // 서브에이전트 일꾼은 9-1 을 건너뛴다 — 제 서브에이전트의 몫은 보고의 줄로 감독에게 가야 남는다.
+        assert!(
+            nine.contains("`Subagent ran:`"),
+            "서브에이전트 일꾼의 9-1 이 제 서브에이전트의 몫을 감독에게 안 넘긴다"
+        );
+        let twelve = &steps[step_at(steps, "12")..];
+        assert!(
+            twelve.contains("`Subagent ran: anthropic/<its real name> on <member>`"),
+            "보고가 제 서브에이전트의 몫을 안 싣는다"
+        );
+        let check = &supervise[supervise.find("**5. Check the report").unwrap()..];
+        assert!(
+            check.contains("`Subagent ran: anthropic/<model> on <member>`"),
+            "감독이 일꾼의 서브에이전트 몫을 안 적는다"
+        );
     }
 }

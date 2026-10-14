@@ -35,8 +35,9 @@ said yes to taking over a row that is not yours, say — belongs to the assignme
 - `Worker:` — `subagent` or `session`, how you were raised. A step that differs between the
   two says so in the step
 - `Subagents:` — `<subagent ladder>`, the models you may raise subagents of your own on, one
-  per role, for a piece of the work: `Agent(subagent_type: "general-purpose", model: <that
-  role's model>, …)`. Hand a piece to the role it reads as on the rubric in 5 — searching,
+  per role with its effort, for a piece of the work: `Agent(subagent_type: "general-purpose",
+  model: <that role's model>, effort: <its effort>, …)`. If `Agent` refuses a model, do that
+  piece yourself. Hand a piece to the role it reads as on the rubric in 5 — searching,
   summing up and the same mechanical fix many times to `bulk`; a piece of code to the role for
   development, or to `complex` when it touches the write path, concurrency, the storage format
   or hooks. Never to a lighter role than the piece reads as. What has to be decided stays in
@@ -124,9 +125,10 @@ refused there (the git shapes below): `ExitWorktree(keep)`, ask, and if work is 
 worktree go back in with `EnterWorktree(path)`
 
 **Some repositories keep the tracker out of git** — `.moai` in `.gitignore` or
-`.git/info/exclude`. Ask once, in the root, before the first tracker commit in 2
+`.git/info/exclude`. Ask once, in the root, before your first tracker commit — the one in 2,
+or whichever comes first when the message starts you past 2
 
-    git ls-files --error-unmatch -- .moai/issues.jsonl      a non-zero code: the tracker is not in git
+    git -C <root> ls-files --error-unmatch -- .moai/issues.jsonl      a non-zero code: the tracker is not in git
 On a non-zero code every tracker commit in these steps — each "commit with a path, as in 2" —
 does not exist: the `moai` writes still land in the root's file, and there is nothing to commit.
 Skip them and nothing else; the merge and the branches still go through git. A zero code is the
@@ -308,7 +310,8 @@ never in the root
    as **a member left because the work beside it holds the file**, together with that other
    work. The supervisor sends it once that work is done. Do not defer it.
    **If the hook refuses that line** (rule 1), read the refusal's `Why this session holds them:`
-   lines — they name the rows the hook reads as this session's, and why. Do not take the
+   lines — they name the rows the hook reads as this session's, and why. That head comes in the
+   screen's language, and a refusal that would run too long carries none. Do not take the
    `-e` or `--parent` it offers for another epic or another row, and do not work around it.
    Park it instead — a backlog item is free of rule 1, and `-e <epic>` lets 7-1 find it
    (`moai -C <root> backlog add '<what>' -e <epic>`), then name it in 12 in one line
@@ -380,8 +383,9 @@ never in the root
    **If the review stays refused** — the review issue stands with its angle, you picked it up
    (`moai -C <root> mv <review id> in_progress --from todo`), you ran what each refusal handed
    you, and rule 3 still ties the review to a row that is not this epic's (its
-   `Why this session holds them:` lines say which, and why) — do not work around the hook and do
-   not start another agent program. **Review by hand, in this session**: read the diff from the
+   `Why this session holds them:` lines, when it carries them, say which and why) —
+   do not work around the hook and do not start another agent program.
+   **Review by hand, in this session**: read the diff from the
    merge-base yourself at the grade you picked, against the angle and the five places below, fix
    what you find in the working tree, and write your words to a file whose first line is
 
@@ -534,7 +538,7 @@ never in the root
    that member, the same form, by the real name it handed back and with `subagent` in the
    reason — a member can carry several lines, one per model that worked on it.
    **In a subagent, skip this step** — the supervisor writes these lines from your report's
-   `Model ran:` (12)
+   `Model ran:` and `Subagent ran:` lines (12)
 
 10. Close them after that. **Run `moai mv <member> done` only once that merge has really
     landed** — closed before it, a merge that stops on a conflict leaves them done on work
@@ -552,7 +556,8 @@ never in the root
 
     Leave one line on the review issue too, naming the model the review ran on. In a session
     that is this window's model, by its real name — a review agent inherits the window's model —
-    and `manual` joins the reason when 7 ran it by hand
+    and `manual` joins the reason when the review ran by hand (7, or a review subagent's
+    hand-back whose second line says `Manual review`)
 
         moai note <review id> 'model: anthropic/<model it ran> (<grade> — epic-end review)'
     **In a subagent** the review subagent already left the reviewer's words on the review
@@ -562,8 +567,10 @@ never in the root
 
     **Then look for a member left without its line** — 9-1 is the step that gets skipped, and a
     member closed without it is counted as nobody's work. Every id this prints, other than the
-    members left in the first column, is a member 9-1 missed: write its line now. In a subagent
-    skip this — the members' lines are the supervisor's, from your report's `Model ran:`
+    members left in the first column and the ones finished before this epic came to you, is a
+    member 9-1 missed: write its line now. A row this window never worked on stays without a
+    line — your model on it is a false line. In a subagent skip this — the members' lines are
+    the supervisor's, from your report's `Model ran:`
 
         moai -C <root> show -e <epic> --all --json | jq -r '.[] | select(.work == []) | .id'
     Leave the tests passing in the root with a commit with a path, as in 2
@@ -598,7 +605,9 @@ never in the root
     reads the note. Then hand back the same text with `SubagentHandback`, and your turn ends.
     Its second line is `Model ran: anthropic/<your real model name>` — the name in your own
     system prompt (`opus-5.5`), not the alias in `Model:`; the supervisor writes 9-1's line
-    from it. Nothing about clearing a window is yours
+    from it. Below it goes one `Subagent ran: anthropic/<its real name> on <member>` line for each
+    subagent of your own (`Subagents:`) that did a share of a member — 9-1's line of its own.
+    Nothing about clearing a window is yours
 
 ## Carrying on stalled work
 
@@ -659,5 +668,6 @@ In a subagent, 7 raises the review on this prompt — copy it whole and fill eve
        If the text runs past 64KB, summarize it — put `Summary: original <size>KB agent-<task-id>` on
        the first line, keep every finding's number and place, and shorten only the sentences. Leave fences and indentation alone
     5. Hand back with SubagentHandback. The first line is Model ran: anthropic/<your real model
-       name> — the name in your system prompt, not an alias. Then what was fixed (finding number,
-       file) and what was left, by finding number
+       name> — the name in your system prompt, not an alias. When 1 ran the review by hand, the
+       second line is Manual review. Then what was fixed (finding number, file) and what was left,
+       by finding number
