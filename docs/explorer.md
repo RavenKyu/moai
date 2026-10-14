@@ -18,7 +18,8 @@ reach for, and [the glossary](glossary.md) says what the words mean.
   the epic or milestone they name is not there (or their parent's id stands twice)
 
 It needs a terminal. A script that wants the same rows calls `moai tui --json`,
-which prints the listing and opens no screen.
+which prints the listing and opens no screen — with counts, filters and order as
+[Draw the tracker from another program](json.md#walk-the-explorers-directories) says.
 
 ## Find your way around
 
@@ -300,4 +301,4 @@ write there either.
   an email on every write and `git config` had none. The answer holds for this
   run; set `user.name` and `user.email` to stop it asking
 
-Decided in: moai-z46r moai-9nfw moai-47mz moai-irrj moai-ucx8 moai-1hka moai-h2rh moai-gelm moai-m6ni moai-p3r9 moai-o3cb moai-fyul moai-ogaw moai-tllo moai-fc97 moai-jtvp moai-bth3 moai-9tqo
+Decided in: moai-z46r moai-9nfw moai-47mz moai-irrj moai-ucx8 moai-1hka moai-h2rh moai-gelm moai-m6ni moai-p3r9 moai-o3cb moai-fyul moai-ogaw moai-tllo moai-fc97 moai-jtvp moai-bth3 moai-9tqo moai-wk7i

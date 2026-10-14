@@ -596,7 +596,9 @@ impl Ground {
     /// `Ground` 의 `String` 지도로는 못 담고, 줄과 함께 사는 `Site` 에 담으면 제 필드를 빌리는
     /// 구조체가 된다. 그래서 줄만 건네고 **읽는 거르개(`--milestone`)가 물을 때** 짓는다
     /// (`query::Lined`, moai-6mnm). 한때 키마다 지어 1만 줄에서 이 자리 값의 여섯 분의 다섯이었다.
-    fn here<'i>(&'i self, issues: &'i [Issue]) -> crate::query::Where<'i> {
+    ///
+    /// `tui --json` 의 거르개(`cmd::tui::listing`)도 이것을 빌린다 — 같은 적재를 두 번 재지 않는다.
+    pub(crate) fn here<'i>(&'i self, issues: &'i [Issue]) -> crate::query::Where<'i> {
         fn borrow(m: &std::collections::BTreeMap<String, String>) -> std::collections::BTreeMap<&str, &str> {
             m.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect()
         }
