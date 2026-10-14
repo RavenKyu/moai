@@ -866,6 +866,19 @@ Examples:
     )]
     Project(ProjectCmd),
 
+    /// Read this repository's settings, defaults filled in
+    #[command(after_help = "  moai config           every setting, as you would write it in the file
+  moai config --json    one object - the keys of .moai/config.toml
+
+  Reads .moai/config.toml and fills in what it leaves out with the values moai
+  uses: prefix, statuses (in board order), naming, archive_days, wiki_dir and
+  the status_* thresholds. These are the values this binary acts on, so a
+  surface drawing the board reads them here instead of parsing the file
+  again. --json adds path, the file it read.
+
+  It only reads; edit the file by hand to change a setting.")]
+    Config,
+
     /// Read the model per role from your user config
     #[command(after_help = "  moai models           the model per role, with defaults marked
   moai models --json    one object for skills, including written keys and path

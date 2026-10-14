@@ -6,6 +6,7 @@
 pub mod add;
 pub mod archive;
 pub mod backlog;
+pub mod config;
 pub mod defer;
 pub mod edit;
 pub mod hook;
@@ -550,6 +551,7 @@ fn dispatch(ctx: &Ctx, cli: Cli) -> R<Vec<String>> {
         Cmd::Project(ProjectCmd::Add { path }) => project::add(ctx, &path),
         Cmd::Project(ProjectCmd::Ls) => project::ls(ctx),
         Cmd::Models => models::run(ctx),
+        Cmd::Config => config::run(ctx),
         Cmd::Project(ProjectCmd::Rm { path }) => project::rm(ctx, &path),
         Cmd::Project(ProjectCmd::Color { path, hue }) => project::color(ctx, &path, &hue),
         // 트래커를 안 찾는다 — 올리는 것은 이 바이너리다(moai-zsfr.2p9).

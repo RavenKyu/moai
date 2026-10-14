@@ -6706,6 +6706,32 @@ fn status_json_keeps_the_column_order_of_the_config() {
     assert_eq!(v["counts"]["todo"], 1, "{v}");
 }
 
+/// `moai config --json` 은 이 바이너리가 실제로 쓰는 값이다(moai-wk7i.qtq) — 적은 키는 적은 대로, 안 적은 키는
+/// 기본값으로. 키는 파일의 이름 그대로다.
+#[test]
+fn config_json_fills_defaults_and_keeps_written_values() {
+    let s = init("configjson");
+    std::fs::write(
+        s.path().join(".moai/config.toml"),
+        "prefix = \"argos\"\nstatuses = \"todo,wip,done\"\narchive_days = 5\nstatus_wip_limit = 7\n",
+    )
+    .unwrap();
+    let v: serde_json::Value = serde_json::from_str(&ok(s.path(), &["config", "--json"])).unwrap();
+    assert_eq!(v["prefix"], "argos", "{v}");
+    assert_eq!(v["statuses"], serde_json::json!(["todo", "wip", "done"]), "{v}");
+    assert_eq!(v["archive_days"], 5, "{v}");
+    assert_eq!(v["status_wip_limit"], 7, "{v}");
+    // 안 적은 키는 바이너리의 기본값이다.
+    assert_eq!(v["naming"], "full", "{v}");
+    assert_eq!(v["wiki_dir"], "docs", "{v}");
+    assert_eq!(v["status_review_days"], 3, "{v}");
+    assert!(v["path"].as_str().is_some_and(|p| p.ends_with("config.toml")), "{v}");
+    // 사람 화면은 파일에 옮겨 적을 수 있는 꼴이다.
+    let human = ok(s.path(), &["config"]);
+    assert!(human.contains("statuses             = \"todo,wip,done\""), "{human}");
+    assert!(human.contains("archive_days         = 5"), "{human}");
+}
+
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.
 #[test]
 fn time_alone_surfaces_rot() {
@@ -8122,6 +8148,8 @@ fn idea_and_issue_share_one_list_of_verbs() {
 /// 목록을 여기 한 자리에 두어야 그 견줌이 뜻을 갖는다.
 const JSON_SWEEP: &[&str] = &[
     "init",
+    // 저장소의 설정을 기본값을 채워 읽는다(moai-wk7i.qtq).
+    "config",
     "add",
     "status",
     "ready",
@@ -8707,6 +8735,7 @@ fn every_command_still_speaks_json() {
         // 위키를 읽기만 한다 — 이 판에는 `docs/` 가 없어 `no_dir` 객체 하나와 0 이다.
         vec!["wiki", "ls", "--json"],
         vec!["models", "--json"],
+        vec!["config", "--json"],
     ];
     // **적어 둔 목록과 실제로 부르는 목록을 여기서 잇는다.** 잇지 않으면
     // `JSON_SWEEP` 에 이름만 적고 한 번도 안 부르는 명령이 생기고, 그러면
