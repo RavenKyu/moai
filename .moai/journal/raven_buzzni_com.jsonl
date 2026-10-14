@@ -6749,3 +6749,8 @@
 {"ts":"2026-10-14T10:03:18Z","id":"moai-wk7i.qbx","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-14T10:03:42Z","id":"moai-wk7i.qbx","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: epic-end /code-review xhigh --fix running in background on .worktrees/moai-wk7i (range 2d1c996b..HEAD). When it returns: take fixes in as fix: commits, note reviewer text, then step 7-1 onward of worker.md (merge into milestone/moai-832f, push worktree-moai-wk7i, keep worktree and branch)."}
 {"ts":"2026-10-14T10:13:15Z","id":"moai-nzmp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-af"}
+{"ts":"2026-10-14T10:13:44Z","id":"moai-nzmp.ayq","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T10:13:44Z","id":"moai-nzmp.e05","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T10:13:44Z","id":"moai-nzmp.ush","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T10:13:44Z","id":"moai-nzmp.fi4","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T10:13:45Z","id":"moai-nzmp.x2h","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
