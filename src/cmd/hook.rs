@@ -959,7 +959,9 @@ fn read_picks(input: &Input, repo: &Repo, issues: &[model::Issue]) -> crate::hoo
         });
     let since: std::collections::BTreeMap<&str, i64> =
         issues.iter().filter_map(|i| Some((i.id.as_str(), crate::model::parse_rfc3339(&i.status_since)?))).collect();
-    crate::hook::Picks::fold(&me, files, &|id| since.get(id).copied())
+    // 기록과 같은 벽시계다([`record_picks`]) — 못 읽으면 0 이라 아무 기록도 최근이 아니다.
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+    crate::hook::Picks::fold(&me, files, &|id| since.get(id).copied(), now)
 }
 
 /// 세션 id 를 경로 조각으로 — 사람이 준 글자를 그대로 쓰지 않는다.

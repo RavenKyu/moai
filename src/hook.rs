@@ -5715,12 +5715,25 @@ pub struct Picks {
     /// `?` 끼리 겨뤄 이긴 줄(moai-kjeh)은 `mine` 에만 든다. 옆 이름을 이기는 것은 이것뿐이다([`Away::sure`],
     /// moai-pxui 리뷰 — 돌았는지 모르는 집기는 풀기만 한다는 moai-hze6 의 자를 지킨다).
     pub sure: BTreeSet<String>,
+    /// **다른 세션이 이 트래커에 최근 집기를 적었다**([`Picks::LIVE_NANOS`]) — 여러 세션이 한 트래커를 쓰는 판이다.
+    ///
+    /// 그 판에서는 **아무도 적지 않은 집힌 줄**이 누구의 것인지 모른다([`unsure`], moai-pyi4 사용자 결정 2026-10-14).
+    /// 기록이 없는 길은 사람의 터미널만이 아니었다 — 딸린 워크트리 안에서 띄운 세션은 그 체크아웃에 플러그인
+    /// 설정이 없어 훅이 아예 안 돌고, `moai mv $R review` 처럼 id 를 글자로 못 읽은 옮김은 앞선 기록을 끝난
+    /// 것으로 만든다. 그 줄을 "모든 세션의 것" 으로 세던 판은 감독과 일꾼 모두의 초점에 세워 규칙 1·3 이 막고
+    /// `Stop` 이 붙들었다. 혼자 쓰는 저장소는 이것이 거짓이라 전과 같다.
+    pub crowded: bool,
 }
 
 impl Picks {
     /// 기록이 줄의 **지금 칸보다 이만큼 앞서면** 그 뒤 훅 밖에서 옮긴 줄의 것으로 본다([`Picks::fold`]).
     /// 칸의 때(`status_since`)는 명령이 돈 때라 기록보다 조금 늦고, 락을 기다리면 더 늦는다 — 그 틈을 준다.
     const SLACK_SECS: i64 = 60;
+
+    /// 다른 세션의 기록이 **이만큼 안에** 적혔으면 여러 세션이 함께 도는 판이다([`Picks::crowded`]) — 12시간.
+    /// 한나절이면 같이 돌던 세션이 다 끝났다고 본다. 길게 두면 어제 닫은 세션 하나가 혼자 쓰는 저장소의
+    /// 터미널 집기를 모르는 줄로 만든다.
+    pub const LIVE_NANOS: u128 = 12 * 60 * 60 * 1_000_000_000;
 
     /// 집기 한 번을 적는 줄 — `때\tid\t초\t?`. `때` 는 차례를 가르는 벽시계 나노초, `초` 는 줄의 칸
     /// 시각과 견줄 `model::now` 의 초다(못 읽었으면 빈 칸). 끝의 `?` 는 **돌았는지 모르는 집기**다
@@ -5753,10 +5766,15 @@ impl Picks {
     /// 초)보다 [`Picks::SLACK_SECS`] 넘게 앞서면 버린다. 집기를 놓는 것(`mv todo`·`done`)도, 훅 밖(사람의
     /// 터미널·`moai tui`)에서 다시 집는 것도 안 적히는데, 버리지 않으면 죽은 세션의 옛 기록이 그 줄을 언제까지나
     /// 쥐었다 — 남의 것으로 풀리거나, 제 것으로 붙들고 막았다. 버린 줄은 기록이 없던 때처럼 판정한다.
+    ///
+    /// `now` 는 벽시계 나노초다([`Picks::line`] 의 `때` 와 같은 시계) — 다른 세션의 기록이 [`Picks::LIVE_NANOS`]
+    /// 안에 섰는지를 잰다([`Picks::crowded`]). 0 은 시계를 못 읽은 것이라 아무 기록도 최근이 아니다. **버린
+    /// 기록도 센다** — 버리는 것은 그 줄의 주인이지 그 세션이 돌았다는 사실이 아니다.
     pub fn fold<S: AsRef<str>, T: AsRef<str>>(
         me: &str,
         files: impl IntoIterator<Item = (S, T)>,
         since: &dyn Fn(&str) -> Option<i64>,
+        now: u128,
     ) -> Picks {
         /// 줄 하나에 쌓인 마지막 기록 — 이름을 달아 둔다([`Bailout`] 과 같은 까닭이다).
         /// `None` 은 어느 때보다 이르다.
@@ -5773,6 +5791,7 @@ impl Picks {
             theirs: Option<u128>,
         }
         let mut last: std::collections::BTreeMap<String, Seen> = Default::default();
+        let mut crowded = false;
         for (sid, text) in files {
             let mine = sid.as_ref() == me;
             for line in text.as_ref().split_inclusive('\n') {
@@ -5780,6 +5799,7 @@ impl Picks {
                 let mut parts = line.split('\t');
                 let (Some(at), Some(id)) = (parts.next(), parts.next()) else { continue };
                 let Ok(at) = at.parse::<u128>() else { continue };
+                crowded |= !mine && now != 0 && now.saturating_sub(at) <= Self::LIVE_NANOS;
                 let stamp = parts.next().and_then(|s| s.parse::<i64>().ok());
                 if let (Some(stamp), Some(since)) = (stamp, since(id))
                     && stamp + Self::SLACK_SECS < since
@@ -5805,7 +5825,7 @@ impl Picks {
                 }
             }
         }
-        let mut out = Picks::default();
+        let mut out = Picks { crowded, ..Picks::default() };
         for (id, Seen { sure, mine: m, sure_theirs: st, theirs: t }) in last {
             // **돌았는지 모르는 집기는 남의 기록을 안 지운다**(moai-hze6, 사용자 결정). 적기는 적는다 —
             // 기록은 "이 세션이 집었을 수 있다" 를 모으는 자리다. 다만 그것으로 남이 쥔 줄을 제 것으로
@@ -5868,6 +5888,9 @@ impl Picks {
 /// 가르는 자는 [`Picks::fold`] 다 — **마지막으로 확실히 집은** 세션이 이기고, 아무도 확실하지 않으면
 /// **마지막에 적은** 쪽이다(moai-kjeh). "마지막으로 집었으면" 으로만 적던 판은 `?` 가 선 뒤로 틀렸다
 /// (moai-dbzs).
+///
+/// **다른 세션이 최근 집기를 적었으면 아무도 적지 않은 집힌 줄도 모른다**(moai-pyi4, [`Picks::crowded`]). 제
+/// 이름이 가리키는 줄은 위와 같이 제 것이다. 혼자 쓰는 판의 터미널 집기는 전과 같이 이 세션의 초점이다.
 pub fn unsure(
     issues: &[Issue],
     cfg: &Config,
@@ -5875,9 +5898,15 @@ pub fn unsure(
     own: &BTreeSet<String>,
     picks: &Picks,
 ) -> BTreeSet<String> {
-    if elsewhere.is_empty() && picks.theirs.is_empty() {
+    if elsewhere.is_empty() && picks.theirs.is_empty() && !picks.crowded {
         return BTreeSet::new();
     }
+    // **여러 세션이 도는 판에서는 아무도 적지 않은 집힌 줄도 모른다**(moai-pyi4 사용자 결정, [`Picks::crowded`]).
+    // 묶음 줄은 안 센다 — 아무도 묶음을 집지 않으니 늘 기록이 없고, 모르는 묶음은 그 밑을 통째로 빼(`theirs`)
+    // 이 세션이 집은 멤버까지 이름의 도움 없이 `picked` 하나에 기대게 된다. 멤버가 제 기록으로 답한다.
+    let unrecorded = |i: &Issue| {
+        picks.crowded && !report::is_group(i) && !picks.mine.contains(&i.id) && !picks.theirs.contains(&i.id)
+    };
     // **값싼 것을 먼저 거른다** — 기록은 지금은 안 집힌 줄까지 들고 오므로 위의 빠른 길은 곧 안 선다.
     // 모를 만한 줄이 없으면 소속 지도(`named_mine`)를 안 짓는다.
     //
@@ -5888,7 +5917,9 @@ pub fn unsure(
     let maybe: Vec<&Issue> = report::wip(issues, cfg)
         .into_iter()
         .filter(|i| !own.contains(&i.id))
-        .filter(|i| (picks.theirs.contains(&i.id) && !picks.mine.contains(&i.id)) || elsewhere.contains(&i.id))
+        .filter(|i| {
+            (picks.theirs.contains(&i.id) && !picks.mine.contains(&i.id)) || elsewhere.contains(&i.id) || unrecorded(i)
+        })
         .collect();
     if maybe.is_empty() {
         return BTreeSet::new();
@@ -5959,8 +5990,13 @@ pub fn picked_in(
         let seen = flag_values(args, &["--from"]).pop();
         let verbs = positionals(args);
         let Some((_, ids)) = verbs.get(1..).and_then(<[&str]>::split_last) else { continue };
+        // **껍데기가 풀 글자는 안 적는다**(moai-pyi4) — `moai mv $R review` 의 `$R` 는 훅이 못 푼 값이다.
+        // 그것을 id 로 적던 판은 아무 줄도 안 가리키는 기록을 남겼고, 정작 옮긴 줄은 칸이 기록보다 늦어져
+        // 앞선 집기 기록마저 끝난 것이 됐다([`Picks::fold`]) — 그 줄이 주인 없이 모든 세션의 초점에 섰다.
+        // `id::is_valid` 로 재지 않는다 — 접두어 뒤 네 글자가 아닌 옛 id 와 손으로 지은 id 도 집힌다.
         out.extend(
             ids.iter()
+                .filter(|id| id.chars().all(|c| c.is_alphanumeric() || matches!(c, '-' | '.' | '_')))
                 .filter(|id| seen.as_deref().is_none_or(|from| stands(k, id).is_none_or(|now| now == from)))
                 .map(|id| (id.to_string(), sure)),
         );
@@ -8936,7 +8972,7 @@ mod tests {
     fn a_pick_that_might_not_have_run_never_takes_a_row_from_another_session() {
         let never = |_: &str| None;
         let read = |files: &[(&str, String)]| {
-            Picks::fold("me", files.iter().map(|(s, t)| (*s, t.as_str())).collect::<Vec<_>>(), &never)
+            Picks::fold("me", files.iter().map(|(s, t)| (*s, t.as_str())).collect::<Vec<_>>(), &never, 0)
         };
         let theirs = ("you", Picks::line(1, None, "t-1", true));
         let sure = ("me", Picks::line(2, None, "t-1", true));
@@ -9058,6 +9094,64 @@ mod tests {
         assert_eq!(picked_ids(cmd, &cfg(), &|_| true, &stands), ["t-1", "t-3"]);
         assert_eq!(picked_ids(cmd, &cfg(), &|k| k == 0, &stands), ["t-1"]);
         assert!(picked_ids("moai mv t-1 in_progress --help", &cfg(), &|_| true, &stands).is_empty());
+    }
+
+    /// **여러 세션이 도는 판에서는 아무도 적지 않은 집힌 줄도 모른다**(moai-pyi4, 사용자 결정 2026-10-14). 워크트리
+    /// 안에서 띄워 훅이 안 돈 세션의 집기와 id 를 못 읽은 옮김은 기록이 없다 — 그 줄을 모든 세션의 것으로 세던 판은
+    /// 감독과 일꾼 모두의 초점에 세웠다. 혼자 쓰는 판(다른 세션의 최근 기록이 없다)은 전과 같다.
+    #[test]
+    fn an_unrecorded_pick_is_unsure_only_while_other_sessions_run() {
+        const HOUR: u128 = 60 * 60 * 1_000_000_000;
+        let now = 100 * HOUR;
+        let never = |_: &str| None;
+        let fold = |files: &[(&str, String)], now: u128| {
+            Picks::fold("me", files.iter().map(|(s, t)| (*s, t.as_str())).collect::<Vec<_>>(), &never, now)
+        };
+        // 다른 세션이 한나절 안에 적었으면 붐빈다 — 제 기록은 안 센다, 시계를 못 읽었으면(0) 아무것도 안 센다.
+        assert!(fold(&[("you", Picks::line(now - HOUR, None, "t-9", true))], now).crowded);
+        assert!(!fold(&[("you", Picks::line(now - 13 * HOUR, None, "t-9", true))], now).crowded, "어제 세션을 셌다");
+        assert!(!fold(&[("me", Picks::line(now, None, "t-9", true))], now).crowded, "제 기록을 남의 것으로 셌다");
+        assert!(!fold(&[("you", Picks::line(now, None, "t-9", true))], 0).crowded, "시계 없이 붐빈다고 했다");
+        // 버린 기록(그 뒤 칸이 옮겨진 줄)도 세션이 돌았다는 표다.
+        let moved = |_: &str| Some(10_000);
+        let gone = Picks::fold("me", [("you", Picks::line(now - HOUR, Some(1), "t-9", true))], &moved, now);
+        assert!(gone.theirs.is_empty() && gone.crowded, "{gone:?}");
+
+        // 묶음은 안 센다 — 아무도 묶음을 집지 않는다.
+        let mut group = epic("t-e");
+        group.status = Status::new("in_progress");
+        let all = vec![
+            issue("t-1", "in_progress"),        // 아무도 안 적었다
+            issue("t-2", "in_progress"),        // 이 세션이 적었다
+            under("t-3", "in_progress", "t-e"), // 아무도 안 적었지만 제 이름(`t-e`)이 가리킨다
+            group,
+        ];
+        let crowded = Picks { mine: set(&["t-2"]), crowded: true, ..Picks::default() };
+        let got: Vec<String> = unsure(&all, &cfg(), &set(&[]), &set(&["t-e"]), &crowded).into_iter().collect();
+        assert_eq!(got, ["t-1"], "기록 없는 줄을 모른다고 안 했거나, 제 기록·제 이름·묶음을 모른다고 했다");
+        let alone = Picks { mine: set(&["t-2"]), ..Picks::default() };
+        assert!(
+            unsure(&all, &cfg(), &set(&[]), &set(&["t-e"]), &alone).is_empty(),
+            "혼자 쓰는 판의 터미널 집기를 뺐다"
+        );
+
+        // 모르는 줄은 좁힌 초점에서만 빠진다 — 이 세션이 집은 줄은 남는다.
+        let narrowed =
+            Away { unsure: set(&got.iter().map(String::as_str).collect::<Vec<_>>()), picked: set(&["t-2"]), ..here() };
+        let held: Vec<&str> = held(&all, &cfg(), &narrowed).iter().map(|i| i.id.as_str()).collect();
+        assert!(!held.contains(&"t-1") && held.contains(&"t-2"), "{held:?}");
+    }
+
+    /// **껍데기가 풀 글자는 집기로 안 적는다**(moai-pyi4) — `moai mv $R review` 의 `$R` 를 id 로 적던 판은 아무 줄도
+    /// 안 가리키는 기록을 남겼고, 옮긴 줄의 앞선 기록은 칸이 늦어져 끝난 것이 됐다.
+    #[test]
+    fn an_unexpanded_word_is_not_recorded_as_a_pick() {
+        let stands = |_: usize, _: &str| None;
+        assert!(picked_ids("moai mv $R review", &cfg(), &|_| true, &stands).is_empty());
+        assert!(picked_ids("moai mv \"${ids[0]}\" in_progress", &cfg(), &|_| true, &stands).is_empty());
+        assert_eq!(picked_ids("moai mv t-1 $X in_progress", &cfg(), &|_| true, &stands), ["t-1"]);
+        // 옛 꼴의 id 와 손으로 지은 id 는 그대로 집힌다 — `id::is_valid` 의 네 글자 자로 재지 않는다.
+        assert_eq!(picked_ids("moai mv t-1.x_y in_progress", &cfg(), &|_| true, &stands), ["t-1.x_y"]);
     }
 
     /// **온통 치환인 글은 셸에 넘긴 글이 아니다**(moai-6qkc) — `eval "$( … )"` 가 돌리는 것은 그
