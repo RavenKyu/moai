@@ -420,7 +420,8 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
             .collect();
         // **안 읽은 줄은 판마다 한 번 가른다**(moai-cqwy) — 사람·읽음 파일을 줄마다 다시 열지 않는다.
         // 걸러지기 전의 줄 전부로 잰다: "내게 온 것" 은 에픽·조상으로 번지므로 보이는 줄만으로는 못 잰다.
-        let fresh = unread_here(ctx, &repo, &load.issues);
+        // **빈 목록에서는 안 연다** — 키를 달 줄이 없는데 `git config` 둘과 읽음 파일을 열 까닭이 없다.
+        let fresh = if shown.is_empty() { BTreeSet::new() } else { unread_here(ctx, &repo, &load.issues) };
         let rows: Vec<Listed> = shown
             .iter()
             .map(|i| Listed {

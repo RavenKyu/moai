@@ -523,7 +523,8 @@ Order and paging:
   explorer marks [NEW] - yours, your rows' children and your epics'
   members (not a milestone's), changed since you last read it. The key is
   there only then. Opening a row does not read it; `moai read` does. When
-  moai cannot tell who you are, no row carries it.
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
@@ -1296,7 +1297,8 @@ Order and paging:
   explorer marks [NEW] - yours, your rows' children and your epics'
   members (not a milestone's), changed since you last read it. The key is
   there only then. Opening a row does not read it; `moai read` does. When
-  moai cannot tell who you are, no row carries it.
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
@@ -1579,7 +1581,8 @@ Order and paging:
   explorer marks [NEW] - yours, your rows' children and your epics'
   members (not a milestone's), changed since you last read it. The key is
   there only then. Opening a row does not read it; `moai read` does. When
-  moai cannot tell who you are, no row carries it.
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
@@ -1862,7 +1865,8 @@ Order and paging:
   explorer marks [NEW] - yours, your rows' children and your epics'
   members (not a milestone's), changed since you last read it. The key is
   there only then. Opening a row does not read it; `moai read` does. When
-  moai cannot tell who you are, no row carries it.
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
@@ -2166,7 +2170,8 @@ Order and paging:
   explorer marks [NEW] - yours, your rows' children and your epics'
   members (not a milestone's), changed since you last read it. The key is
   there only then. Opening a row does not read it; `moai read` does. When
-  moai cannot tell who you are, no row carries it.
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json

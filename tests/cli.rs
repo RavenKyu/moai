@@ -8341,6 +8341,15 @@ fn show_json_marks_the_rows_unread_for_me() {
     assert_eq!(one_unread(&own), Some(serde_json::Value::Bool(true)));
     assert_eq!(one_unread(&other), None, "남의 줄에 섰다");
     assert_eq!(one_unread(&in_stone), None, "마일스톤의 멤버를 셌다");
+    // 목록과 하나를 펼친 것이 **줄마다** 같은 답이다.
+    let listed: Vec<serde_json::Value> = serde_json::from_str(mine(&["show", "--all", "--json"]).trim()).unwrap();
+    for r in &listed {
+        let id = r["id"].as_str().unwrap();
+        assert_eq!(one_unread(id), r.get("unread").cloned(), "{id} 에서 목록과 하나가 갈렸다");
+    }
+    // 걸러 낸 목록도 같은 자다 — **소속은 걸러지기 전의 줄로 잰다**. 남의 멤버는 내 에픽에 들어 서는데,
+    // 그 에픽 줄은 `-e` 의 목록에 없다 — 보이는 줄만으로 재면 이 줄이 빠진다.
+    assert_eq!(unread_in(&mine(&["show", "-e", &epic, "--json"])), vec![in_epic.clone()], "보이는 줄로만 쟀다");
 
     // 읽으면 내린다 — 목록에서도, 하나를 펼쳐도.
     mine(&["read", &own, &in_epic]);
@@ -8348,8 +8357,7 @@ fn show_json_marks_the_rows_unread_for_me() {
     want.sort();
     assert_eq!(unread_in(&mine(&["show", "--all", "--json"])), want, "읽은 줄이 그대로 섰다");
     assert_eq!(one_unread(&own), None, "읽은 줄을 펼쳤는데 섰다");
-    // 걸러 낸 목록도 같은 자다 — 소속은 걸러지기 전의 줄로 잰다.
-    assert_eq!(unread_in(&mine(&["show", "-e", &epic, "--json"])), Vec::<String>::new());
+    assert_eq!(unread_in(&mine(&["show", "-e", &epic, "--json"])), Vec::<String>::new(), "읽은 멤버가 그대로 섰다");
 
     // 누군지 모른다 — 키가 하나도 없고 명령은 넘어지지 않는다.
     let bare = |args: &[&str]| {
@@ -8368,6 +8376,19 @@ fn show_json_marks_the_rows_unread_for_me() {
     assert!(!list.contains("\"unread\""), "누군지 모르는데 안 읽음을 셌다 — {list}");
     let one = bare(&["show", &stone, "--json"]);
     assert!(!one.contains("\"unread\""), "누군지 모르는데 안 읽음을 셌다 — {one}");
+
+    // 읽음을 못 든다 — "모른다" 라 키가 하나도 없고(빈 표로 세면 내 줄이 모두 선다) 명령은 0 으로 끝난다.
+    let sheets: Vec<std::path::PathBuf> = std::fs::read_dir(s.path().join("read"))
+        .expect("`moai read` 가 읽음 파일을 설정 곁에 안 지었다")
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        .collect();
+    assert_eq!(sheets.len(), 1, "읽음 파일을 못 골랐다 — {sheets:?}");
+    std::fs::write(&sheets[0], "garbage [[[\n").unwrap();
+    let list = mine(&["show", "--all", "--json"]);
+    assert!(!list.contains("\"unread\""), "못 든 읽음을 빈 표로 셌다 — {list}");
+    let one = mine(&["show", &stone, "--json"]);
+    assert!(!one.contains("\"unread\""), "못 든 읽음을 빈 표로 셌다 — {one}");
 }
 
 /// **읽음은 본 때가 아니라 본 줄의 `updated_at` 을 적는다**(moai-lyc1, 사용자 결정 2026-09-19). 본 때를
