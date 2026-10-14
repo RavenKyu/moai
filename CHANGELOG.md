@@ -61,6 +61,16 @@ does not tag — see `CONTRIBUTING.md`.
   points at it, or no session recorded the pick — so a session that is blocked can
   tell which row did it without a separate command. The lines are dropped when they
   would not fit the hold. (moai-pyi4.w47)
+- **`moai-supervise` and the worker steps cover five places a round had to patch by
+  hand.** In a repository whose `.moai` is kept out of git, the supervisor and the
+  worker ask `git ls-files` once and skip the tracker commits. A member the hook
+  refuses to create (rule 1) is parked as a backlog item under the epic and reported
+  as `member refused:`, so the supervisor unfolds it. An epic-end review rule 3 keeps
+  refusing is run by hand and says so on its first line (`Manual review:`). A session
+  worker writes the review issue's `model:` line too, and the worker and the
+  supervisor look for members closed without one. The message gains a `Subagents:`
+  line naming the model and effort per role a worker may hand pieces of its work to.
+  (moai-nzmp)
 
 ### Fixed
 
