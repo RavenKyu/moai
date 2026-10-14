@@ -8299,6 +8299,77 @@ fn read_names_the_ids_a_hand_written_value_held_back() {
     assert!(std::fs::read_to_string(&sheet).unwrap().contains(&format!("\"{b}\" = 3")), "사람이 적은 값을 덮었다");
 }
 
+/// **`show --json` 은 탐색기의 [NEW] 를 `unread: true` 로 싣는다**(moai-cqwy) — 같은 자(`query::unread_held`)다.
+/// 내게 온 줄(담당·자식·내 에픽의 멤버)만 서고 마일스톤의 멤버와 남의 줄은 안 선다. `moai read` 가 내리고,
+/// 목록과 하나를 펼친 것이 같은 답을 낸다. 키는 설 때만 단다 — 없는 것이 곧 읽은 것이다.
+/// **누군지 모르면 키가 하나도 없고 명령은 0 으로 끝난다** — 읽기는 사람을 묻지 않는다.
+#[test]
+fn show_json_marks_the_rows_unread_for_me() {
+    let s = init("showunread");
+    let cfg = s.path().join("user.toml");
+    let mine = |args: &[&str]| ok_with(s.path(), &cfg, args);
+    let own = field(&mine(&["add", "내 일", "--json"]), "id");
+    let other = field(&mine(&["add", "남의 일", "-a", "Kim (kim@example.com)", "--json"]), "id");
+    let stone = field(&mine(&["milestone", "add", "v1", "--json"]), "id");
+    let in_stone =
+        field(&mine(&["add", "마일 멤버", "--milestone", &stone, "-a", "Kim (kim@example.com)", "--json"]), "id");
+    let epic = field(&mine(&["add", "내 에픽", "--type", "epic", "--json"]), "id");
+    let in_epic = field(&mine(&["add", "에픽 멤버", "-e", &epic, "-a", "Kim (kim@example.com)", "--json"]), "id");
+    let unread_in = |json: &str| -> Vec<String> {
+        let rows: Vec<serde_json::Value> = serde_json::from_str(json.trim()).unwrap();
+        let mut ids: Vec<String> = rows
+            .iter()
+            .filter(|r| {
+                // 키는 설 때만 — `false` 로 서면 안 된다.
+                assert_ne!(r.get("unread"), Some(&serde_json::Value::Bool(false)), "{r}");
+                r.get("unread") == Some(&serde_json::Value::Bool(true))
+            })
+            .map(|r| r["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    };
+    let one_unread = |id: &str| -> Option<serde_json::Value> {
+        let v: serde_json::Value = serde_json::from_str(mine(&["show", id, "--json"]).trim()).unwrap();
+        v.get("unread").cloned()
+    };
+
+    // 아직 아무것도 안 읽었다 — 읽음 파일이 없는 것은 정상이고 내게 온 것이 모두 선다.
+    let mut want = vec![own.clone(), stone.clone(), epic.clone(), in_epic.clone()];
+    want.sort();
+    assert_eq!(unread_in(&mine(&["show", "--all", "--json"])), want, "마일스톤 멤버·남의 줄이 섰거나 내 것이 빠졌다");
+    assert_eq!(one_unread(&own), Some(serde_json::Value::Bool(true)));
+    assert_eq!(one_unread(&other), None, "남의 줄에 섰다");
+    assert_eq!(one_unread(&in_stone), None, "마일스톤의 멤버를 셌다");
+
+    // 읽으면 내린다 — 목록에서도, 하나를 펼쳐도.
+    mine(&["read", &own, &in_epic]);
+    let mut want = vec![stone.clone(), epic.clone()];
+    want.sort();
+    assert_eq!(unread_in(&mine(&["show", "--all", "--json"])), want, "읽은 줄이 그대로 섰다");
+    assert_eq!(one_unread(&own), None, "읽은 줄을 펼쳤는데 섰다");
+    // 걸러 낸 목록도 같은 자다 — 소속은 걸러지기 전의 줄로 잰다.
+    assert_eq!(unread_in(&mine(&["show", "-e", &epic, "--json"])), Vec::<String>::new());
+
+    // 누군지 모른다 — 키가 하나도 없고 명령은 넘어지지 않는다.
+    let bare = |args: &[&str]| {
+        let out = isolated(BIN)
+            .args(args)
+            .current_dir(s.path())
+            .env("MOAI_CONFIG", &cfg)
+            .env("MOAI_NOW", NOW)
+            .env("NO_COLOR", "1")
+            .output()
+            .expect("moai 를 실행하지 못했다");
+        assert!(out.status.success(), "누군지 몰라 show 가 넘어졌다 — {}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8(out.stdout).unwrap()
+    };
+    let list = bare(&["show", "--all", "--json"]);
+    assert!(!list.contains("\"unread\""), "누군지 모르는데 안 읽음을 셌다 — {list}");
+    let one = bare(&["show", &stone, "--json"]);
+    assert!(!one.contains("\"unread\""), "누군지 모르는데 안 읽음을 셌다 — {one}");
+}
+
 /// **읽음은 본 때가 아니라 본 줄의 `updated_at` 을 적는다**(moai-lyc1, 사용자 결정 2026-09-19). 본 때를
 /// 적던 때는 워크트리 가지에서 01:30 에 고치고 03:00 에 머지한 줄을 02:00 에 읽었으면 [NEW] 가 영영 안
 /// 섰다 — 이 저장소의 평소 흐름이다. 견주는 식은 `>` 그대로라, 옛 바이너리가 적은 본 때는 옛 뜻대로
