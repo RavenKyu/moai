@@ -6800,3 +6800,5 @@
 {"ts":"2026-10-14T10:59:16Z","id":"moai-nzmp.nfj","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (xhigh — epic-end review)"}
 {"ts":"2026-10-14T10:59:16Z","id":"moai-nzmp.nfj","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"done","note":"받은 것: 1~11 (fix 커밋, guide 시험 단언 더함). 넘긴 것: 12 → backlog moai-3x6m (감독 5 의 확인 차례), 13 은 안 고침 — jq 는 이 저장소 글 곳곳에 이미 쓴다. codex_report_watch 시험의 /root 실패는 diff 밖, moai-g14w 에 이미 적혀 있다"}
 {"ts":"2026-10-14T10:59:22Z","id":"moai-nzmp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: 없음. milestone/moai-832f 에 병합(5dacbda6), worktree-moai-nzmp 는 origin 에 push 하고 워크트리·가지를 남겼다(감독 지시). 넘긴 것: backlog moai-3x6m"}
+{"ts":"2026-10-14T11:24:43Z","id":"moai-nzmp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: 5dacbda6 (milestone/moai-832f). worktree-moai-nzmp on origin."}
+{"ts":"2026-10-14T11:24:44Z","id":"moai-c12a","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Retitled v0.17.0 -> v0.18.0 on 2026-10-14: person chose to ship moai-832f first as v0.17.0; Windows waits for real-machine testing."}
