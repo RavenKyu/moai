@@ -15777,12 +15777,16 @@ fn another_running_session_frees_rows_nobody_recorded() {
     assert!(refusal(&made("sup")).contains(&loose), "혼자 쓰는 판의 터미널 집기를 놓았다");
     let alone = stop("sup");
     assert!(alone.contains(&format!("moai mv {loose}")), "혼자 쓰는 판에서 안 붙든다");
-    // 붙든 줄마다 왜 이 세션의 것인지 댄다(moai-pyi4.w47) — 막힌 자리에서 근거가 읽혀야 한다.
+    // 붙든 줄마다 왜 이 세션의 것인지 댄다(moai-pyi4.w47) — 막힌 자리에서 근거가 읽혀야 한다. 붙드는 글은 말묶음에서
+    // 오니(이 시험은 한국어 화면이다) 근거도 그 말이다 — 한국어 붙듦에 영어 꼬리를 달던 판이 있었다(리뷰 moai-pyi4.7g5).
     assert!(
-        alone.contains(&format!("{loose}  no session recorded picking it up"))
-            && alone.contains("no other session is running here"),
+        alone.contains("이 세션이 쥔 까닭:")
+            && alone.contains(&format!("{loose}  집었다고 적은 세션이 없다"))
+            && alone.contains("지난 12시간 동안 다른 세션이 여기 적은 집기도 없다"),
         "붙든 근거를 안 댄다\n{alone}"
     );
+    assert!(!alone.contains("Why this session holds them"), "한국어 붙듦에 영어 근거를 달았다\n{alone}");
+    // 규칙의 거절문은 아직 영어 하나라 근거도 영어다.
     assert!(refusal(&made("sup2-early")).contains("Why this session holds them"), "거절문이 근거를 안 댄다");
 
     // 다른 세션이 제 줄을 훅으로 집는다 — 이제 여러 세션이 도는 판이다.
@@ -15798,7 +15802,7 @@ fn another_running_session_frees_rows_nobody_recorded() {
     // 일꾼은 제가 적은 줄을 그대로 쥔다.
     let own = stop("worker");
     assert!(own.contains(&format!("moai mv {theirs}")), "일꾼이 제 줄을 놓았다");
-    assert!(own.contains(&format!("{theirs}  this session picked it up")), "제 기록을 근거로 안 댄다\n{own}");
+    assert!(own.contains(&format!("{theirs}  이 세션이 집었다")), "제 기록을 근거로 안 댄다\n{own}");
 
     // 규칙 3 — 감독의 리뷰는 남의 줄 밑에 리뷰 이슈를 세우라고 안 한다. 일꾼에게는 제 줄만 댄다(일꾼에게 그 판은
     // 붐비지 않는다 — 다른 세션이 기록을 안 적었으니, 아래 둘째 일꾼이 붐비게 한다).
@@ -15807,8 +15811,17 @@ fn another_running_session_frees_rows_nobody_recorded() {
     let sup = refusal(&review("sup2"));
     assert!(!sup.contains(&loose) && !sup.contains(&theirs), "빈손의 감독에게 남의 줄 밑 리뷰를 시킨다 — {sup}");
     let other = add(s.path(), &["둘째 일꾼의 줄"]);
-    call(&s, "Bash", &format!("{{\"command\":\"moai mv {other} in_progress --from todo\"}}"), "worker2");
+    // 둘째 일꾼의 집기가 적혀야 일꾼에게 그 판이 붐빈다 — 안 적히면 아래 거절은 초점의 첫 줄을 대고, 그 첫 줄은 무른
+    // id 의 차례라 셋에 하나꼴로 우연히 맞는다(리뷰 moai-pyi4.7g5).
+    let second = call(&s, "Bash", &format!("{{\"command\":\"moai mv {other} in_progress --from todo\"}}"), "worker2");
+    assert!(second.trim().is_empty(), "둘째 일꾼의 집기를 막았다\n{second}");
     ok(s.path(), &["mv", &other, "in_progress", "--from", "todo"]);
+    // 붐비는 판에서 일꾼의 거절은 제 줄만 대고, 아무도 안 적은 줄과 둘째 일꾼의 줄은 모르는 줄로 뺀다.
+    let freed = refusal(&made("worker"));
+    assert!(
+        freed.contains(&theirs) && !freed.contains(&loose) && !freed.contains(&other),
+        "붐비는 판에서 일꾼이 남의 줄로 막혔다 — {freed}"
+    );
     let why = refusal(&review("worker"));
     assert!(why.contains(&theirs), "일꾼의 리뷰 거절이 제 줄을 안 댄다 — {why}");
     assert!(!why.contains(&loose) && !why.contains(&other), "일꾼에게 남의 줄 밑 리뷰를 시킨다 — {why}");
