@@ -6650,3 +6650,7 @@
 {"ts":"2026-10-12T11:34:29Z","id":"moai-j9gv","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: epic closed (5dcf74b5). moai-dgcz deferred by supervisor per person decision."}
 {"ts":"2026-10-14T05:14:13Z","id":"moai-cqwy","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"show --json 에 안 읽음(unread) 키를 낸다"}
 {"ts":"2026-10-14T05:14:17Z","id":"moai-cqwy","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T05:35:45Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (high — show --json 계약과 TUI 읽음 판정을 한 자로)"}
+{"ts":"2026-10-14T05:35:45Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"model: anthropic/sonnet-5.5 (medium — CHANGELOG)"}
+{"ts":"2026-10-14T05:35:45Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Branch worktree-moai-cqwy (b691f7e5 feat, 16728030 CHANGELOG), 머지 안 함 — 받을지는 사람이 정한다(saycode-extensions se-0g4a.l89 의 상류 제안). 판정은 query::unread_held 하나, TUI recount_unread_in 도 그것을 부른다. 혼자 정한 것: 표를 못 읽고 든 표가 없으면 안 센다(read --all 은 그대로 부분 표로 센다)."}
+{"ts":"2026-10-14T05:35:45Z","id":"moai-cqwy","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
