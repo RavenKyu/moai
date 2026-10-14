@@ -6678,3 +6678,10 @@
 {"ts":"2026-10-14T05:47:49Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Attached to moai-wk7i (v0.18.0, moai-832f) on 2026-10-14 — person approved the plan with this line folded in."}
 {"ts":"2026-10-14T05:50:25Z","id":"moai-pyi4","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-af"}
 {"ts":"2026-10-14T05:50:25Z","id":"moai-cqwy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-98 (review + merge into develop, person decision 2026-10-14)"}
+{"ts":"2026-10-14T05:50:49Z","id":"moai-pyi4.cu3","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T05:50:49Z","id":"moai-pyi4.ewi","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T05:50:49Z","id":"moai-pyi4.hkn","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T05:50:49Z","id":"moai-cqwy.lbc","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"review — show --json 의 unread 키와 TUI 안 읽음 판정 공유"}
+{"ts":"2026-10-14T05:50:50Z","id":"moai-pyi4.m8o","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T05:50:50Z","id":"moai-pyi4.w47","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-14T05:50:54Z","id":"moai-cqwy.lbc","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
