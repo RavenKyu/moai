@@ -12,6 +12,16 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+### Added
+
+- **`moai show --json` puts `"unread": true` on the rows the explorer marks [NEW].**
+  It holds for the list and for `show <id>`: a row near you — yours, their
+  children, and the members of your epics (milestones are not counted) — that
+  changed since you last read it. The key is absent otherwise. When moai cannot
+  tell who you are, or cannot read your read marks, no row carries the key and
+  the exit code stays 0. The explorer and the CLI share one helper, so the two
+  never disagree. (moai-cqwy)
+
 ### Changed
 
 - **A rule 1 or rule 3 refusal and the turn-end hold say why each held row is this

@@ -519,6 +519,13 @@ Order and paging:
 
     moai show --removed --since 2026-09-29T00:00:00Z --json
 
+  Unread: --json, a list or one row, adds unread:true to a row the
+  explorer marks [NEW] - yours, your rows' children and your epics'
+  members (not a milestone's), changed since you last read it. The key is
+  there only then. Opening a row does not read it; `moai read` does. When
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
+
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
   output, where derived_status and derived_epic are worked out already:
@@ -1286,6 +1293,13 @@ Order and paging:
 
     moai show --removed --since 2026-09-29T00:00:00Z --json
 
+  Unread: --json, a list or one row, adds unread:true to a row the
+  explorer marks [NEW] - yours, your rows' children and your epics'
+  members (not a milestone's), changed since you last read it. The key is
+  there only then. Opening a row does not read it; `moai read` does. When
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
+
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
   output, where derived_status and derived_epic are worked out already:
@@ -1563,6 +1577,13 @@ Order and paging:
 
     moai show --removed --since 2026-09-29T00:00:00Z --json
 
+  Unread: --json, a list or one row, adds unread:true to a row the
+  explorer marks [NEW] - yours, your rows' children and your epics'
+  members (not a milestone's), changed since you last read it. The key is
+  there only then. Opening a row does not read it; `moai read` does. When
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
+
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
   output, where derived_status and derived_epic are worked out already:
@@ -1839,6 +1860,13 @@ Order and paging:
   range or with no stamp it can read. --since is the one flag it takes.
 
     moai show --removed --since 2026-09-29T00:00:00Z --json
+
+  Unread: --json, a list or one row, adds unread:true to a row the
+  explorer marks [NEW] - yours, your rows' children and your epics'
+  members (not a milestone's), changed since you last read it. The key is
+  there only then. Opening a row does not read it; `moai read` does. When
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
@@ -2137,6 +2165,13 @@ Order and paging:
   range or with no stamp it can read. --since is the one flag it takes.
 
     moai show --removed --since 2026-09-29T00:00:00Z --json
+
+  Unread: --json, a list or one row, adds unread:true to a row the
+  explorer marks [NEW] - yours, your rows' children and your epics'
+  members (not a milestone's), changed since you last read it. The key is
+  there only then. Opening a row does not read it; `moai read` does. When
+  moai cannot tell who you are, or cannot read your read marks, no row
+  carries it.
 
   There is no query language. The filters read derived values the file does
   not hold - a group's column, an inherited epic - so run SQL on the --json
