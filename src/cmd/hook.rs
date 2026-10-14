@@ -299,6 +299,7 @@ fn decide(
             // **사람은 묻는 자리에서 푼다**(moai-0zjo 리뷰, [`crate::hook::Person`]) — 여기서는 푸는 길만 건넨다.
             let me = person_at(&repo, ctx);
             let base = away_of(input, &repo, &load.issues, &me);
+            let own = base.own.clone();
             let decision = settle(input, &repo, &load.issues, base, &|issues, away| {
                 match call {
                     // 규칙의 차례는 `guard_shell_in` 이 정한다. 여기는 껍데기의 자리와 제 토막만 준다.
@@ -313,6 +314,18 @@ fn decide(
                     Call::Other => Decision::Pass,
                 }
             });
+            // **막으면 그 줄이 왜 이 세션의 것인지 붙인다**(moai-pyi4.w47) — 기록은 막을 때만 읽는다.
+            let decision = match decision.blocks() {
+                true => crate::hook::vouch(
+                    decision,
+                    &load.issues,
+                    &repo.config,
+                    &own,
+                    &read_picks(input, &repo, &load.issues),
+                    None,
+                ),
+                false => decision,
+            };
             // 다른 트래커를 가리키는 토막은 **그 트래커가 본다**(moai-23ky). 판정을 잇는 차례는
             // `Decision::then` 이 정한다 — 막으면 남의 트래커는 묻지 않고, 남이 막으면 제 비춤을 버린다.
             let mut decision = decision;
@@ -446,7 +459,7 @@ fn closing_hold(
         // **누구의 것인지 모르는 줄로는 붙들지 않는다**(moai-ntl6). 에픽이 닫히는지와 집은 줄이 아직
         // 집혀 있는지는 옆까지 겹친 줄로 잰다(moai-8ema). 둘 다 [`releasing`] 이 잰다.
         let (away, latest) = releasing(input, repo, issues, &person_at(repo, ctx));
-        crate::hook::closing(
+        let held = crate::hook::closing(
             issues,
             latest.as_deref().unwrap_or(issues),
             &repo.config,
@@ -455,7 +468,15 @@ fn closing_hold(
             baseline(input, repo),
             ctx.lang(),
             room,
-        )
+        );
+        // 붙들면 그 줄이 왜 이 세션의 것인지 붙인다(moai-pyi4.w47) — 자리를 넘기면 안 붙인다.
+        match held.blocks() {
+            true => {
+                let picks = read_picks(input, repo, issues);
+                crate::hook::vouch(held, issues, &repo.config, &away.own, &picks, Some(room))
+            }
+            false => held,
+        }
     })
 }
 

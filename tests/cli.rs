@@ -15775,7 +15775,15 @@ fn another_running_session_frees_rows_nobody_recorded() {
 
     // 혼자 쓰는 판 — 기록 없는 집힌 줄은 이 세션의 일이다.
     assert!(refusal(&made("sup")).contains(&loose), "혼자 쓰는 판의 터미널 집기를 놓았다");
-    assert!(stop("sup").contains(&format!("moai mv {loose}")), "혼자 쓰는 판에서 안 붙든다");
+    let alone = stop("sup");
+    assert!(alone.contains(&format!("moai mv {loose}")), "혼자 쓰는 판에서 안 붙든다");
+    // 붙든 줄마다 왜 이 세션의 것인지 댄다(moai-pyi4.w47) — 막힌 자리에서 근거가 읽혀야 한다.
+    assert!(
+        alone.contains(&format!("{loose}  no session recorded picking it up"))
+            && alone.contains("no other session is running here"),
+        "붙든 근거를 안 댄다\n{alone}"
+    );
+    assert!(refusal(&made("sup2-early")).contains("Why this session holds them"), "거절문이 근거를 안 댄다");
 
     // 다른 세션이 제 줄을 훅으로 집는다 — 이제 여러 세션이 도는 판이다.
     let theirs = add(s.path(), &["일꾼의 줄"]);
@@ -15788,7 +15796,9 @@ fn another_running_session_frees_rows_nobody_recorded() {
     let held = stop("sup2");
     assert!(held.trim().is_empty(), "감독에게 남의 줄을 닫으라고 붙든다\n{held}");
     // 일꾼은 제가 적은 줄을 그대로 쥔다.
-    assert!(stop("worker").contains(&format!("moai mv {theirs}")), "일꾼이 제 줄을 놓았다");
+    let own = stop("worker");
+    assert!(own.contains(&format!("moai mv {theirs}")), "일꾼이 제 줄을 놓았다");
+    assert!(own.contains(&format!("{theirs}  this session picked it up")), "제 기록을 근거로 안 댄다\n{own}");
 
     // 규칙 3 — 감독의 리뷰는 남의 줄 밑에 리뷰 이슈를 세우라고 안 한다. 일꾼에게는 제 줄만 댄다(일꾼에게 그 판은
     // 붐비지 않는다 — 다른 세션이 기록을 안 적었으니, 아래 둘째 일꾼이 붐비게 한다).

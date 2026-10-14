@@ -8189,6 +8189,79 @@ fn refuse(rule: usize, why: String) -> Decision {
     Decision::Deny(format!("{}\n{why}", crate::guide::rule_head(rule)))
 }
 
+/// 막는 답에 **왜 그 줄이 이 세션의 것인가**를 한 줄씩 붙인다(moai-pyi4.w47, 2026-10-14 사용자 결정).
+///
+/// 같은 사람의 세션 여럿이 한 트래커를 쓰면, 거절문이 대는 줄이 왜 제 초점인지 아무도 몰랐다 — 감독과 일꾼이
+/// 저마다 남의 줄로 막히고도 어느 세션·어느 기록 때문인지 못 찾아 손으로 돌았다. 진단 명령을 따로 두지 않은 것은
+/// 에이전트가 제 세션 id 를 몰라 그 명령을 못 부르기 때문이다 — 근거는 막힌 그 자리에서 읽힌다.
+///
+/// **초점을 대는 답만 본다** — 규칙 1·3 의 거절과 `Stop` 의 붙듦이다. 글에 id 가 통째로 선 집힌 줄마다
+/// 근거를 단다: 제 워크트리 이름이 가리킨다 / 이 세션이 집었다 / 아무 세션도 안 적었다. 묶음 줄은 안 단다 —
+/// 멤버가 답한다. 붙이면 `room` 을 넘는 글이면 붙이지 않는다 — 근거는 덤이고, 붙듦 글을 자르면 안 된다.
+/// 무엇을 막는지는 안 바꾼다.
+pub fn vouch(
+    decision: Decision,
+    issues: &[Issue],
+    cfg: &Config,
+    own: &BTreeSet<String>,
+    picks: &Picks,
+    room: Option<Room>,
+) -> Decision {
+    let focus_rule = |text: &str| [1, 3].iter().any(|&n| text.starts_with(&crate::guide::rule_head(n)));
+    let text = match &decision {
+        Decision::Deny(text) if focus_rule(text) => text,
+        Decision::Block(text) => text,
+        _ => return decision,
+    };
+    let named_mine = report::claimed(issues, own);
+    let lines: Vec<String> = report::wip(issues, cfg)
+        .into_iter()
+        .filter(|i| !report::is_group(i) && names_whole(text, &i.id))
+        .map(|i| {
+            let why = if named_mine(i) {
+                "this worktree's name points at it"
+            } else if picks.mine.contains(&i.id) {
+                "this session picked it up"
+            } else if picks.theirs.contains(&i.id) {
+                "another session picked it up last"
+            } else if picks.crowded {
+                "no session recorded picking it up (a terminal, or a session without the moai hook)"
+            } else {
+                "no session recorded picking it up (a terminal, or a session without the moai hook), and no other session is running here"
+            };
+            format!("  {}  {why}", i.id)
+        })
+        .collect();
+    if lines.is_empty() {
+        return decision;
+    }
+    let told = format!("{text}\n\nWhy this session holds them:\n{}", lines.join("\n"));
+    if room.is_some_and(|r| r.unit.of(&told) > r.size) {
+        return decision;
+    }
+    match decision {
+        Decision::Deny(_) => Decision::Deny(told),
+        _ => Decision::Block(told),
+    }
+}
+
+/// `text` 에 `id` 가 **통째로** 서는가 — `t-1` 은 `t-1.x0a` 나 `t-12` 안에서는 안 선다. 문장 끝의 마침표는 id 의 한
+/// 칸이 아니다.
+fn names_whole(text: &str, id: &str) -> bool {
+    let part = |c: char| c.is_alphanumeric() || matches!(c, '-' | '_');
+    text.match_indices(id).any(|(at, _)| {
+        let before = text[..at].chars().next_back();
+        let mut after = text[at + id.len()..].chars();
+        let next = after.next();
+        let joined = match next {
+            Some('.') => after.next().is_some_and(part),
+            Some(c) => part(c),
+            None => false,
+        };
+        !before.is_some_and(|c| part(c) || c == '.') && !joined
+    })
+}
+
 /// 이 자리에서 **아직** 집고 있는 것 — [`held`] 에서 겹친 줄(`latest`)로는 더는 안 집힌 줄을 뺀 것.
 /// [`closing`] 과 접힌 뒤 싣는 것([`carried`])이 같은 자로 잰다.
 ///
@@ -9140,6 +9213,37 @@ mod tests {
             Away { unsure: set(&got.iter().map(String::as_str).collect::<Vec<_>>()), picked: set(&["t-2"]), ..here() };
         let held: Vec<&str> = held(&all, &cfg(), &narrowed).iter().map(|i| i.id.as_str()).collect();
         assert!(!held.contains(&"t-1") && held.contains(&"t-2"), "{held:?}");
+    }
+
+    /// **막는 답에 근거를 붙인다 — 초점을 대는 답에만, 글에 통째로 선 줄에만, 자리 안에서만**(moai-pyi4.w47).
+    #[test]
+    fn a_held_row_says_why_it_is_this_session_s() {
+        let all = vec![issue("t-1", "in_progress"), issue("t-12", "in_progress"), issue("t-1.x0a", "in_progress")];
+        let picks = Picks { mine: set(&["t-12"]), ..Picks::default() };
+        let rule1 = format!("{}\nYou are already holding something — t-12 제목, t-1.", crate::guide::rule_head(1));
+        let Decision::Deny(told) = vouch(Decision::Deny(rule1.clone()), &all, &cfg(), &set(&[]), &picks, None) else {
+            panic!("막는 답이 바뀌었다")
+        };
+        assert!(told.starts_with(&rule1), "{told}");
+        assert!(told.contains("  t-12  this session picked it up"), "{told}");
+        assert!(told.contains("  t-1  no session recorded"), "문장 끝 마침표 앞의 id 를 못 읽었다 — {told}");
+        assert!(!told.contains("t-1.x0a  "), "글에 없는 자식을 댔다 — {told}");
+        // 제 워크트리 이름이 가리키면 그것이 근거다.
+        let named = vouch(Decision::Deny(rule1.clone()), &all, &cfg(), &set(&["t-12"]), &picks, None);
+        assert!(
+            matches!(&named, Decision::Deny(t) if t.contains("  t-12  this worktree's name points at it")),
+            "{named:?}"
+        );
+        // 규칙 2 의 거절과 비추는 줄은 그대로다.
+        let rule2 = Decision::Deny(format!("{}\nt-12", crate::guide::rule_head(2)));
+        assert_eq!(vouch(rule2.clone(), &all, &cfg(), &set(&[]), &picks, None), rule2);
+        // 자리를 넘기면 안 붙인다 — 붙듦 글을 자르면 안 된다.
+        let hold = Decision::Block("hold t-12".into());
+        let tight = Room { size: 20, unit: Unit::Utf8 };
+        assert_eq!(vouch(hold.clone(), &all, &cfg(), &set(&[]), &picks, Some(tight)), hold);
+        assert!(
+            matches!(vouch(hold, &all, &cfg(), &set(&[]), &picks, None), Decision::Block(t) if t.contains("t-12  this session"))
+        );
     }
 
     /// **껍데기가 풀 글자는 집기로 안 적는다**(moai-pyi4) — `moai mv $R review` 의 `$R` 를 id 로 적던 판은 아무 줄도
