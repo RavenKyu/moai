@@ -418,6 +418,10 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
             .into_iter()
             .map(|root| (root, super::journal_errors(ctx.lang(), &unread, Some(root))))
             .collect();
+        // **안 읽은 줄은 판마다 한 번 가른다**(moai-cqwy) — 사람·읽음 파일을 줄마다 다시 열지 않는다.
+        // 걸러지기 전의 줄 전부로 잰다: "내게 온 것" 은 에픽·조상으로 번지므로 보이는 줄만으로는 못 잰다.
+        // **빈 목록에서는 안 연다** — 키를 달 줄이 없는데 `git config` 둘과 읽음 파일을 열 까닭이 없다.
+        let fresh = if shown.is_empty() { BTreeSet::new() } else { unread_here(ctx, &repo, &load.issues) };
         let rows: Vec<Listed> = shown
             .iter()
             .map(|i| Listed {
@@ -433,6 +437,7 @@ pub fn run(ctx: &Ctx, args: ShowArgs, kind_filter: Option<Kind>) -> R<Vec<String
                 // "이 일을 한 AI 를 아무도 안 적었다" 는 사실이고, 키가 없으면 되쓴 줄의
                 // 옛 `work` 가 그 자리에서 거짓을 싣는다.
                 work: work.get(i.id.as_str()).map_or(&[], Vec::as_slice),
+                unread: fresh.contains(i.id.as_str()),
             })
             .collect();
         return super::json_line(&rows);
@@ -596,6 +601,32 @@ struct Listed<'a> {
     /// 없는 것이 곧 "이 줄의 이력은 다 왔다" 라, `commits_error` 와 같은 약속이다.
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     journal_error: &'a [super::JournalError],
+    /// **나에게 안 읽은 줄이다**(moai-cqwy) — 탐색기에 [NEW] 가 서는 그 줄이다([`unread_here`]).
+    /// 설 때만 단다(`true`) — `journal_error` 와 같은 약속이라 없는 것이 곧 "안 읽은 줄이 아니다" 다.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    unread: bool,
+}
+
+/// 이 판에서 **[NEW] 가 서는 id** — 탐색기와 같은 자([`crate::query::unread_held`])로 가른다(moai-cqwy).
+///
+/// **묻지 않는다** — 누군지 모르면 빈 집합이고 명령은 그대로 선다(읽기는 사람을 묻지 않는다). 그때는
+/// 읽음 파일도 안 연다: 셀 사람이 없으면 읽어도 버린다. 설정 자리를 못 고르면(`user_config::path`
+/// 가 `None`) 들고 있는 표가 없는 탐색기와 같다 — 탈 없이 빈 표라 내게 온 줄이 모두 선다.
+///
+/// **읽음은 트래커의 뿌리(`repo.root`)에서 든다** — 옆 워크트리에서 겹쳐 온 줄도 같은 id 라 같은 표로
+/// 잰다. 탐색기가 제가 보이는 프로젝트를 그 뿌리 하나로 재는 것과 같다(`App::load_read_in`).
+/// 설정은 [`Ctx::registry`] 로 읽는다 — 이 판의 `ctx.lang()` 과 한 번을 나눠 쓴다.
+fn unread_here<'a>(ctx: &Ctx, repo: &Repo, issues: &'a [Issue]) -> BTreeSet<&'a str> {
+    let me = model::actor(ctx.user.as_deref(), &repo.root)
+        .ok()
+        .map(|a| model::label(&a.name, Some(&a.email), crate::config::Naming::Full));
+    let marks = me.as_ref().and_then(|_| {
+        let path = crate::user_config::path()?;
+        Some(crate::read_marks::read(&path, &repo.root, &ctx.registry().read))
+    });
+    let empty = std::collections::BTreeMap::new();
+    let (trouble, held) = marks.as_ref().map_or((None, &empty), |m| (m.trouble, m.held()));
+    crate::query::unread_held(issues, me.as_deref(), trouble, held)
 }
 
 /// 줄이 온 워크트리의 moai 뿌리 — **이력(저널)을 거기서 읽는다**(`Origin::root`). 스냅샷은
@@ -882,6 +913,11 @@ fn one(
         if let Some(sp) = spent {
             extra.push(("spent", serde_json::to_string(&sp).map_err(|e| Fail::new(e.to_string()))?));
         }
+        // **나에게 안 읽은 줄이면 단다**(moai-cqwy) — 목록의 `unread` 와 같은 자([`unread_here`])다. 설 때만
+        // 단다. 펼쳤다고 읽음이 서지 않는다(`cmd::read` 머리글) — 내리는 것은 `moai read` 다.
+        if unread_here(ctx, repo, all).contains(issue.id.as_str()) {
+            extra.push(("unread", "true".to_string()));
+        }
         return super::json_with(
             // **펼친 줄에는 쌍둥이가 없다**(리뷰, moai-53s2). `Load::get` 은 그 id 를 **마지막으로**
             // 든 줄을 열고(`rfind`), 가려짐은 그 마지막 줄의 종류로 재는 것이라 여기 선 줄은
@@ -1006,9 +1042,12 @@ mod tests {
             row: super::super::Row::of(&i, |_| None, None, &report::Kinds::no_twins()),
             work: &[],
             journal_error: &[],
+            // 설 때만 서는 키라 세워서 잰다 — `false` 면 직렬화에서 빠져 이 시험이 그 이름을 못 본다.
+            unread: true,
         };
         let added = super::super::keys_beyond(&i, &listed);
         assert!(added.iter().any(|k| k == "work"), "곁들인 키를 못 셌다 — {added:?}");
+        assert!(added.iter().any(|k| k == "unread"), "안 읽음 키를 못 셌다 — {added:?}");
         for k in &added {
             assert!(super::super::OURS.contains(&k.as_str()), "`Listed` 가 곁들이는 {k} 가 `OURS` 에 없다");
         }

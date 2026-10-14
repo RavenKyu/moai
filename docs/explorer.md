@@ -243,7 +243,10 @@ something that is — and changed
 since you last looked carry a `[NEW]` mark. `r` marks the row under the cursor
 read, `SPC m g` every member of the group it is in, and `SPC m a` everything.
 Read marks live in your own config, not in the tracker, so marking changes
-nothing anyone else sees; the CLI side is `moai read`.
+nothing anyone else sees; the CLI side is `moai read`. Outside the explorer,
+`moai show --json` (and `moai show <id> --json`) puts `"unread": true` on the same
+rows the explorer marks `[NEW]`; a row that is not unread has no key at all, and
+when moai cannot tell who you are or cannot read your read marks, no row carries it.
 
 ## Park a thought
 

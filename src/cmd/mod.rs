@@ -879,6 +879,8 @@ pub const OURS: &[&str] = &[
     "journal_error",
     "work",
     "spent",
+    // `show --json`(목록도 하나도)이 안 읽은 줄에 다는 것(moai-cqwy).
+    "unread",
     // `edit --json` 이 곁들이는 남은 소속.
     "inherited_epic",
     "inherited_milestone",
