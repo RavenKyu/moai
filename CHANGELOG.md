@@ -12,6 +12,27 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+### Changed
+
+- **A rule 1 or rule 3 refusal and the turn-end hold say why each held row is this
+  session's.** One line per row — this session picked it up, this worktree's name
+  points at it, or no session recorded the pick — so a session that is blocked can
+  tell which row did it without a separate command. The lines are dropped when they
+  would not fit the hold. (moai-pyi4.w47)
+
+### Fixed
+
+- **Several sessions of one person no longer block each other over rows nobody
+  recorded.** Once another session has recorded a pick in the same tracker within
+  the last 12 hours, a started row no session's hook recorded picking up — moved in
+  a terminal, by a session running without the moai hook, or through a shell
+  variable such as `moai mv "$R" review` — is no longer every session's focus, so
+  it stops refusing rule 1 and rule 3 and stops holding the turn end. It stays
+  yours when this worktree's name points at it, or when it sits under a row this
+  session picked up or in that row's epic. Working alone is unchanged. A word the
+  shell would expand is no longer recorded as an issue id. (moai-pyi4.cu3,
+  moai-pyi4.ewi, moai-pyi4.hkn, moai-pyi4.m8o)
+
 ## [0.16.0] - 2026-10-11
 
 ### Added

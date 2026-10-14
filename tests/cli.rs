@@ -15760,6 +15760,73 @@ fn the_hook_leaves_what_a_named_worktree_holds_to_that_worktree() {
     assert!(!own.contains("-C "), "이제 겨눌 것이 없는데 -C 를 붙인다\n{own}");
 }
 
+/// **여러 세션이 도는 판에서는 아무도 적지 않은 집힌 줄이 누구의 것인지 모른다**(moai-pyi4, 2026-10-14 사용자 결정).
+/// 같은 사람의 감독과 일꾼 세션이 한 트래커를 쓸 때, 훅이 안 돈 자리(워크트리 안에서 띄운 세션)에서 집은 줄이 감독의
+/// 초점에 서서 감독의 `add -e`·`backlog promote -e` 를 막고 `Stop` 이 그것을 닫으라고 붙들었다. 다른 세션이 최근에
+/// 집기를 적었으면 그 줄은 풀기만 하는 판정에서 빠진다. 혼자 쓰는 판은 전과 같다 — 터미널 집기는 이 세션의 일이다.
+#[test]
+fn another_running_session_frees_rows_nobody_recorded() {
+    let s = init("hookcrowd");
+    let loose = add(s.path(), &["훅 없이 집은 줄"]);
+    ok(s.path(), &["mv", &loose, "in_progress"]);
+    let mine = field(&ok(s.path(), &["epic", "add", "감독이 펼칠 에픽", "--json"]), "id");
+    let made = |session: &str| call(&s, "Bash", &format!("{{\"command\":\"moai add 'x' -e {mine}\"}}"), session);
+    let stop = |session: &str| hook_out(&s, "stop", &event(&s, session));
+
+    // 혼자 쓰는 판 — 기록 없는 집힌 줄은 이 세션의 일이다.
+    assert!(refusal(&made("sup")).contains(&loose), "혼자 쓰는 판의 터미널 집기를 놓았다");
+    let alone = stop("sup");
+    assert!(alone.contains(&format!("moai mv {loose}")), "혼자 쓰는 판에서 안 붙든다");
+    // 붙든 줄마다 왜 이 세션의 것인지 댄다(moai-pyi4.w47) — 막힌 자리에서 근거가 읽혀야 한다. 붙드는 글은 말묶음에서
+    // 오니(이 시험은 한국어 화면이다) 근거도 그 말이다 — 한국어 붙듦에 영어 꼬리를 달던 판이 있었다(리뷰 moai-pyi4.7g5).
+    assert!(
+        alone.contains("이 세션이 쥔 까닭:")
+            && alone.contains(&format!("{loose}  집었다고 적은 세션이 없다"))
+            && alone.contains("지난 12시간 동안 다른 세션이 여기 적은 집기도 없다"),
+        "붙든 근거를 안 댄다\n{alone}"
+    );
+    assert!(!alone.contains("Why this session holds them"), "한국어 붙듦에 영어 근거를 달았다\n{alone}");
+    // 규칙의 거절문은 아직 영어 하나라 근거도 영어다.
+    assert!(refusal(&made("sup2-early")).contains("Why this session holds them"), "거절문이 근거를 안 댄다");
+
+    // 다른 세션이 제 줄을 훅으로 집는다 — 이제 여러 세션이 도는 판이다.
+    let theirs = add(s.path(), &["일꾼의 줄"]);
+    let picked = call(&s, "Bash", &format!("{{\"command\":\"moai mv {theirs} in_progress --from todo\"}}"), "worker");
+    assert!(picked.trim().is_empty(), "일꾼의 집기를 막았다\n{picked}");
+    ok(s.path(), &["mv", &theirs, "in_progress", "--from", "todo"]);
+
+    let free = made("sup2");
+    assert!(free.trim().is_empty(), "아무도 안 적은 줄과 일꾼의 줄로 감독의 생성을 막았다\n{free}");
+    let held = stop("sup2");
+    assert!(held.trim().is_empty(), "감독에게 남의 줄을 닫으라고 붙든다\n{held}");
+    // 일꾼은 제가 적은 줄을 그대로 쥔다.
+    let own = stop("worker");
+    assert!(own.contains(&format!("moai mv {theirs}")), "일꾼이 제 줄을 놓았다");
+    assert!(own.contains(&format!("{theirs}  이 세션이 집었다")), "제 기록을 근거로 안 댄다\n{own}");
+
+    // 규칙 3 — 감독의 리뷰는 남의 줄 밑에 리뷰 이슈를 세우라고 안 한다. 일꾼에게는 제 줄만 댄다(일꾼에게 그 판은
+    // 붐비지 않는다 — 다른 세션이 기록을 안 적었으니, 아래 둘째 일꾼이 붐비게 한다).
+    let review = |session: &str| call(&s, "Skill", "{\"skill\":\"code-review\",\"args\":\"high\"}", session);
+    // 빈손의 감독은 "무엇을 보는지부터 정하라" 를 듣는다 — 남의 줄을 대지 않는다.
+    let sup = refusal(&review("sup2"));
+    assert!(!sup.contains(&loose) && !sup.contains(&theirs), "빈손의 감독에게 남의 줄 밑 리뷰를 시킨다 — {sup}");
+    let other = add(s.path(), &["둘째 일꾼의 줄"]);
+    // 둘째 일꾼의 집기가 적혀야 일꾼에게 그 판이 붐빈다 — 안 적히면 아래 거절은 초점의 첫 줄을 대고, 그 첫 줄은 무른
+    // id 의 차례라 셋에 하나꼴로 우연히 맞는다(리뷰 moai-pyi4.7g5).
+    let second = call(&s, "Bash", &format!("{{\"command\":\"moai mv {other} in_progress --from todo\"}}"), "worker2");
+    assert!(second.trim().is_empty(), "둘째 일꾼의 집기를 막았다\n{second}");
+    ok(s.path(), &["mv", &other, "in_progress", "--from", "todo"]);
+    // 붐비는 판에서 일꾼의 거절은 제 줄만 대고, 아무도 안 적은 줄과 둘째 일꾼의 줄은 모르는 줄로 뺀다.
+    let freed = refusal(&made("worker"));
+    assert!(
+        freed.contains(&theirs) && !freed.contains(&loose) && !freed.contains(&other),
+        "붐비는 판에서 일꾼이 남의 줄로 막혔다 — {freed}"
+    );
+    let why = refusal(&review("worker"));
+    assert!(why.contains(&theirs), "일꾼의 리뷰 거절이 제 줄을 안 댄다 — {why}");
+    assert!(!why.contains(&loose) && !why.contains(&other), "일꾼에게 남의 줄 밑 리뷰를 시킨다 — {why}");
+}
+
 /// **제 이름 워크트리가 옆 에픽 워크트리를 이긴다**(moai-m62u·moai-cle9, 사용자 결정). 에픽
 /// 워크트리가 살아 있거나 머지하고 안 치운 채 그 에픽에 새 멤버를 집으면, 그 멤버를 제 이름
 /// 워크트리에서 하는 세션이 에픽 이름에 초점을 뺏겨 규칙 2 에 막혔다. 워크트리 목록을 읽는 배선
