@@ -1373,6 +1373,9 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   A row whose place in the order changes between pages - the cursor row or
   any other, a priority edit included - can repeat or be skipped; id,
   created and lists of those two alone are the orders no edit moves.
+  --archived pages the same way: rows moved into .moai/archive and live
+  rows stand in one order, so a long list is read whole in id order with
+  --sort id -n <count> --after <last id>.
   Lines sharing one id
   (twins a merge left behind) stand together and a page never splits them,
   so such a page can run past -n. --json stays an array - fewer rows than

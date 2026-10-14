@@ -6797,6 +6797,49 @@ fn show_fields_keeps_only_the_keys_asked_for() {
     assert!(String::from_utf8_lossy(&refused.stderr).contains("--fields"), "{refused:?}");
 }
 
+/// `--archived` 를 쪽으로 넘겨 받은 것이 한 번에 받은 것과 같다(moai-wk7i.gkd) — 아카이브 파일의 줄과 산 줄이
+/// 한 차례에 섞이고, 쪽 사이에 산 줄 하나를 고쳐도 `--sort id` 의 쪽은 밀리지 않는다. 웹 패널이 2 MB 넘는
+/// 목록을 나눠 받는 길이다.
+#[test]
+fn archived_pages_in_id_order_join_into_the_whole_list() {
+    let s = init("archivedpages");
+    let ids: Vec<String> = (0..6).map(|n| add(s.path(), &[&format!("줄 {n}")])).collect();
+    for id in &ids[..3] {
+        assert!(at(s.path(), "2026-01-01T00:00:00Z", &["mv", id, "done"]).status.success());
+    }
+    // 셋은 아카이브 파일로 옮기고 셋은 산 줄로 둔다.
+    ok_at(s.path(), "2026-10-01T00:00:00Z", &["archive"]);
+    assert!(s.path().join(".moai/archive/2026.jsonl").is_file(), "아카이브 파일이 안 섰다");
+
+    let page = |extra: &[&str]| {
+        let mut args = vec!["show", "--archived", "--sort", "id", "--fields", "id", "--json"];
+        args.extend(extra);
+        ids_in(&ok(s.path(), &args))
+    };
+    let whole = page(&[]);
+    let mut sorted = ids.clone();
+    sorted.sort();
+    assert_eq!(whole, sorted, "아카이브 파일의 줄과 산 줄이 한 차례에 안 섰다");
+
+    let mut got: Vec<String> = Vec::new();
+    loop {
+        let mut extra = vec!["-n", "2"];
+        let last = got.last().cloned();
+        if let Some(last) = &last {
+            extra.extend(["--after", last.as_str()]);
+        }
+        let next = page(&extra);
+        // 쪽 사이에 산 줄 하나를 고친다 — id 차례는 고침에 안 움직인다.
+        ok(s.path(), &["edit", &ids[5], "-p", "0"]);
+        let done = next.len() < 2;
+        got.extend(next);
+        if done {
+            break;
+        }
+    }
+    assert_eq!(got, whole, "쪽으로 받은 것이 한 번에 받은 것과 다르다");
+}
+
 /// 시계가 가는 것만으로 드러나는 것들 — 고정 시계 없이는 시험할 수 없다.
 #[test]
 fn time_alone_surfaces_rot() {
