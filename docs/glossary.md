@@ -74,7 +74,8 @@ counted, and nor — once another session has recorded a pick in the same tracke
 within the last 12 hours — is a started row no session's hook recorded picking up:
 moved in a terminal, by a session that runs without the moai hook, or through a
 shell variable such as `moai mv "$id" …`. Such an unrecorded row still counts when
-this worktree's name points at it. Leaving rows out only ever lets a call through
+this worktree's name points at it, or when it sits under a row this session
+picked up or in that row's epic. Leaving rows out only ever lets a call through
 or holds the turn end less — it never adds a refusal. The session before a
 `/clear` counts as another session; with no other session's pick recorded in that
 window, an unrecorded row is still yours. A rule 1 or rule 3 refusal and the

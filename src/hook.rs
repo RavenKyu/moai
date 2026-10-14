@@ -5941,9 +5941,34 @@ pub fn unsure(
         return BTreeSet::new();
     }
     let named_mine = report::claimed(issues, own);
+    // **아무도 안 적은 줄이 이 세션의 집기 밑에 서면 제 것이다**(리뷰 moai-pyi4.7g5 의 1번, 사용자 결정 2026-10-14).
+    // 기록은 이 세션이 실제로 하는 줄에서도 빠진다 — `moai mv "$R" in_progress` 로 집은 리뷰는 이름이 안 적히고,
+    // `cargo test && moai mv X review` 가 60초를 넘으면 그 기록은 칸보다 앞서 버려진다([`Picks::fold`]). 그 줄을
+    // 모른다고 빼던 판은 규칙 3 이 제 리뷰를 `-m` 없이 닫게 두고 `Stop` 이 그것을 안 붙들었다. 재는 자는 워크트리
+    // 이름과 같은 꼴이다 — 집은 줄과 그 에픽이 이름이고, 그 밑의 줄이 든다. 마일스톤 축은 안 센다: 릴리스 하나에
+    // 여러 세션의 에픽이 든다. 에픽 밖에 홀로 선 줄은 여전히 모른다 — 근본 고침(`moai mv` 가 제 집기를 적기)은 backlog 다.
+    let under_mine = || {
+        let ties = report::Ties::epics_only(issues);
+        let mut scope = picks.mine.clone();
+        scope.extend(picks.mine.iter().filter_map(|id| ties.epic_at(id)).map(str::to_string));
+        (ties, scope)
+    };
+    let mut scoped = None;
     maybe
         .into_iter()
-        .filter(|i| (picks.theirs.contains(&i.id) && !picks.mine.contains(&i.id)) || !named_mine(i))
+        .filter(|i| {
+            if picks.theirs.contains(&i.id) && !picks.mine.contains(&i.id) {
+                return true;
+            }
+            if named_mine(i) {
+                return false;
+            }
+            if elsewhere.contains(&i.id) || picks.mine.is_empty() {
+                return true;
+            }
+            let (ties, scope) = scoped.get_or_insert_with(under_mine);
+            !report::claims(ties, scope, i)
+        })
         .map(|i| i.id.clone())
         .collect()
 }
@@ -9250,6 +9275,34 @@ mod tests {
         };
         let held: Vec<&str> = held(&all, &cfg(), &narrowed).iter().map(|i| i.id.as_str()).collect();
         assert!(!held.contains(&"t-1") && held.contains(&"t-2") && held.contains(&"t-1.r"), "{held:?}");
+    }
+
+    /// **아무도 안 적은 줄이 이 세션의 집기 밑에 서면 제 것이다**(리뷰 moai-pyi4.7g5 의 1번, 사용자 결정 2026-10-14) —
+    /// `moai mv "$R" in_progress` 로 집은 리뷰는 이름이 안 적힌다. 그 줄을 모른다고 빼던 판은 규칙 3 이 제 리뷰를
+    /// `-m` 없이 닫게 두었다. 집은 줄의 에픽 밑도 든다. 에픽 밖에 홀로 선 줄과 남이 적은 줄은 그대로다.
+    #[test]
+    fn an_unrecorded_row_under_this_session_s_pick_stays_its_own() {
+        let mut group = epic("t-e");
+        group.status = Status::new("in_progress");
+        let all = vec![
+            group,
+            under("t-1", "review", "t-e"),      // 이 세션이 적었다
+            under("t-2", "in_progress", "t-e"), // 아무도 안 적었다 — 같은 에픽의 리뷰
+            issue("t-1.r", "in_progress"),      // 아무도 안 적었다 — 집은 줄의 자식
+            issue("t-3", "in_progress"),        // 아무도 안 적었다 — 에픽 밖
+            under("t-4", "in_progress", "t-e"), // 남이 적었다
+        ];
+        let crowded = Picks { mine: set(&["t-1"]), theirs: set(&["t-4"]), crowded: true, ..Picks::default() };
+        let got: Vec<String> = unsure(&all, &cfg(), &set(&[]), &set(&[]), &crowded).into_iter().collect();
+        assert_eq!(
+            got,
+            ["t-3", "t-4"],
+            "제 집기 밑의 기록 없는 줄을 모른다고 했거나, 에픽 밖·남의 줄을 제 것으로 셌다"
+        );
+        // 이 세션이 아무것도 안 적었으면 전과 같다.
+        let none = Picks { crowded: true, ..Picks::default() };
+        let got: Vec<String> = unsure(&all, &cfg(), &set(&[]), &set(&[]), &none).into_iter().collect();
+        assert_eq!(got, ["t-1", "t-1.r", "t-2", "t-3", "t-4"]);
     }
 
     /// **막는 답에 근거를 붙인다 — 초점을 대는 답에만, 그 답의 초점에 들고 글에 통째로 선 줄에만, 자리 안에서만**
