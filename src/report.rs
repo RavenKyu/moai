@@ -3139,6 +3139,188 @@ pub fn milestone_from_above<'a>(
     }
 }
 
+/// 그 줄의 기한이 넘으면 안 되는 자리 — 조상 가운데 **가장 이른 기한**(moai-ghkp.33i).
+#[derive(Debug, Clone, Copy)]
+pub struct Ceiling<'a> {
+    /// 그 기한을 든 조상 — 거절문이 고칠 자리로 댄다. 이번 쓰기가 짓는 줄이면 id 가 아니라 제목으로
+    /// 가리킨다([`Ceiling::refusal`], moai-1rkl).
+    pub above: &'a Issue,
+    /// 그 조상의 기한([`Issue::deadline`]).
+    pub due: &'a str,
+}
+
+impl Ceiling<'_> {
+    /// 이 천장을 넘은 줄 `i` 의 거절 자료 — 쓰기(`store::write_locked`)와 그 연습(`cmd::add::check_plan_rows`)이
+    /// 한 꼴로 짓는다. `new` 는 그 조상이 **이번 쓰기가 짓는 줄**인가다 — 거절은 쓰기를 통째로 물리므로 방금 뽑은
+    /// 그 id 는 어디에도 안 남는다(moai-1rkl, 리뷰). 그 id 를 대면 "먼저 옮기라" 는 말을 따라 친 쪽이 없는 줄을 본다.
+    pub fn refusal(&self, i: &Issue, new: bool) -> crate::model::Invalid {
+        crate::model::Invalid::DueBeyond {
+            due: i.due_on.clone().unwrap_or_default(),
+            above: match new {
+                true => crate::model::fit_title(&self.above.title),
+                false => self.above.id.clone(),
+            },
+            above_new: new,
+            above_due: self.due.to_string(),
+        }
+    }
+}
+
+/// 기한의 위계를 재는 자(moai-ghkp, 2026-10-16 사용자 결정) — **마일스톤 > 에픽 > 이슈 > backlog**.
+/// 자식의 기한은 조상의 기한보다 늦을 수 없다.
+///
+/// 조상은 **그 줄이 서는 자리**다 — 셈과 트리가 짚는 그 자를 든다. 자를 따로 두면 `show --milestone` 이 세는
+/// 자리·트리가 그리는 자리와 이 검사가 막는 자리가 갈린다(리뷰 — 점 id 의 부모를 다 세던 판은 `-e` 로 옮긴
+/// 멤버를 떠난 에픽으로, 이슈 밑에 id 로 선 에픽을 그 이슈로, 생각 밑의 이슈를 그 생각으로 막았다).
+///
+/// - 선 마일스톤(물려받은 것 포함, [`Handing::stood`]) — 그 id 가 마일스톤 줄일 때만
+/// - 든 에픽([`Handing::at`]) — 그 id 가 에픽 줄일 때만. 못 쓸 참조(`dangling_*`)는 조상이 아니다
+/// - 그 줄을 **접어 그리는 부모**들 — 이슈·생각이고 같은 에픽을 넘기는 줄([`fold_top`] 과 `nav` 가 접는 자).
+///   생각은 이슈를 안 막는다 — 위계에서 이슈가 위다
+/// - 에픽 줄은 제 마일스톤만, 마일스톤 줄은 조상이 없다 — 트리가 그 둘을 다른 줄 밑에 안 그린다(moai-0prl·moai-8tav)
+///
+/// **판정만 한다.** 막는 자리는 쓰기 경로(`store::write_locked`, 지금 쓰는 줄)고, 부모를 당겨 넘친
+/// 자식을 비추는 자리는 `status` 다. 둘이 이 한 자를 든다. **산 줄로 잰다** — 쓰기는 아카이브를 안 펴므로
+/// `status` 도 산 줄의 지도로 잰다([`status_of_context`]).
+///
+/// **지도는 빌린다** — `status` 는 [`Soil`] 이 이미 지은 것을 쓴다(지도는 한 벌이다, moai-jk2u.pl6). 지도가 없는
+/// 쪽은 [`first_beyond`]·[`due_overflow_of`] 가 한 번 짓고 줄마다 묻는다 — 쓰기가 락을 쥔 채 부르므로 줄마다
+/// [`Lines`] 를 다시 지으면 줄 수의 제곱이 든다.
+pub struct DueLadder<'m, 'a> {
+    lines: &'m Lines<'a>,
+    epic_of: &'m Handing<'a>,
+}
+
+impl<'m, 'a> DueLadder<'m, 'a> {
+    pub fn over(lines: &'m Lines<'a>, epic_of: &'m Handing<'a>) -> DueLadder<'m, 'a> {
+        DueLadder { lines, epic_of }
+    }
+
+    /// 그 줄의 조상 가운데 가장 이른 기한. 기한 든 조상이 없으면 `None` 이다. 꼴이 틀린 기한은
+    /// 안 센다 — 그 줄을 고칠 때 제 검사(`Invalid::Date`)가 드러낸다.
+    pub fn ceiling(&self, i: &'a Issue) -> Option<Ceiling<'a>> {
+        self.lowest(i, &self.above(i))
+    }
+
+    /// `above` 가운데 가장 이른 기한 — [`DueLadder::ceiling`] 의 몸. 조상을 이미 걸은 쪽이 다시 안 걷게 받는다.
+    fn lowest(&self, i: &Issue, above: &[&'a str]) -> Option<Ceiling<'a>> {
+        above
+            .iter()
+            .filter_map(|id| self.lines.at(id))
+            .filter(|a| a.id != i.id)
+            .filter_map(|a| Some(Ceiling { above: a, due: a.deadline()? }))
+            // 날짜는 고정폭이라 글로 견준다. 같은 날이면 먼저 선 조상(마일스톤 → 에픽 → 부모)이 남는다.
+            .min_by(|a, b| a.due.cmp(b.due))
+    }
+
+    /// 그 줄의 조상 id — 선 마일스톤, 든 에픽, 접어 그리는 부모들. 차례는 그 셋 그대로다.
+    fn above(&self, i: &'a Issue) -> Vec<&'a str> {
+        let mut above: Vec<&'a str> = Vec::new();
+        // 마일스톤 줄은 뿌리에 선다 — id 가 다른 줄 밑이어도 그 밑에 안 그려진다(moai-8tav).
+        if i.kind == Kind::Milestone {
+            return above;
+        }
+        let is = |id: &str, kind: Kind| self.lines.at(id).is_some_and(|r| r.kind == kind);
+        if let Some(m) = self.epic_of.stood(i, self.lines).filter(|m| is(m, Kind::Milestone)) {
+            above.push(m);
+        }
+        // 에픽 줄은 제 마일스톤에만 선다 — 에픽 밑에도 이슈 밑에도 안 그려진다(moai-0prl).
+        if i.kind == Kind::Epic {
+            return above;
+        }
+        if let Some(e) = self.epic_of.at(i).filter(|e| is(e, Kind::Epic)) {
+            above.push(e);
+        }
+        // 접어 그리는 부모들 — 트리가 이 줄을 그 밑에 그리는 줄이다([`DueLadder::folds_under`]). 생각은 이슈를 안
+        // 막는다(위계에서 이슈가 위다) — 그래도 그 위로는 계속 오른다: 생각 밑에 접힌 이슈의 위가 이슈일 수 있다.
+        let mut cur = i;
+        while let Some(p) = self.folds_under(cur) {
+            if !(i.kind == Kind::Issue && p.kind == Kind::Backlog) {
+                above.push(p.id.as_str());
+            }
+            cur = p;
+        }
+        above
+    }
+
+    /// 그 줄이 **접혀 그려지는 부모** — `nav` 가 접는 자 그대로다(`nav::Ctx::home_of_work`, 리뷰). 부모가 이슈·생각이고,
+    /// 그 부모가 넘기는 에픽과 이 줄의 에픽이 같고, 이 줄이 뿌리로 올라간 생각이 아니다. 부모가 넘기는 에픽은 그
+    /// 부모의 에픽이되, **이슈 밑에 접히지 않은 생각**(뿌리로 올라간 생각)은 아무것도 안 넘긴다 — 그 밑의 줄은 소속이
+    /// 끊긴 채 그 생각 밑에 그려진다. 부모의 에픽으로 견주던 판은 그 둘을 거꾸로 읽어, 생각 밑에 접힌 생각을 안 막고
+    /// 생각 곁에 선 줄을 막았다.
+    fn folds_under(&self, i: &'a Issue) -> Option<&'a Issue> {
+        let p = crate::id::parent_of(&i.id).and_then(|p| self.lines.at(p))?;
+        if !matches!(p.kind, Kind::Issue | Kind::Backlog) || self.lines.rooted(i) {
+            return None;
+        }
+        let passed = match is_backlog(p) && self.folds_under(p).is_none() {
+            true => None,
+            false => self.epic_of.at(p),
+        };
+        (self.epic_of.at(i) == passed).then_some(p)
+    }
+
+    /// 그 줄의 기한이 조상보다 늦으면 그 조상 — 기한이 없거나 꼴이 틀리면 `None` 이다.
+    pub fn beyond(&self, i: &'a Issue) -> Option<Ceiling<'a>> {
+        let due = i.deadline()?;
+        self.ceiling(i).filter(|c| due > c.due)
+    }
+
+    /// 그 줄이 조상보다 늦으면 그 조상 — **이 지도가 든 같은 줄로** 잰다. 아카이브를 곁들인 문맥의 줄(사본)로 물어도
+    /// 산 줄의 지도에서 다시 찾는다([`status_of_context`]). 지도에 없는 줄은 `None` 이다. **쌍둥이는 줄마다 잰다**(리뷰) —
+    /// id 로만 찾으면 같은 id 의 줄이 다 뒷줄의 기한으로 재어져, 파일 차례가 경고를 켰다 껐다 한다(moai-u3ta 와 같은 덫).
+    pub fn beyond_row(&self, i: &Issue) -> Option<Ceiling<'a>> {
+        let row = match self.lines.twinned(&i.id) {
+            false => self.lines.at(&i.id)?,
+            true => self.lines.twins.get(i.id.as_str())?.iter().copied().find(|r| *r == i)?,
+        };
+        self.beyond(row)
+    }
+}
+
+/// 잴 줄(`ids`) 가운데 **처음으로** 조상보다 늦은 줄과 그 천장(moai-ghkp.33i) — 쓰기 경로(`store::write_locked`)와
+/// 그 연습(`cmd::add::check_plan_rows`)이 이 하나로 잰다. 차례는 받은 그대로다 — 둘이 같은 차례로 넘겨야 같은
+/// 줄을 댄다. 지도는 한 번 짓는다([`DueLadder`]).
+pub fn first_beyond<'a>(all: &'a [Issue], ids: &[&str]) -> Option<(&'a Issue, Ceiling<'a>)> {
+    // **넘칠 짝이 없으면 지도를 안 짓는다**(리뷰) — 락을 쥔 채 도는 자리다. 기한 든 줄이 둘도 안 되면 잴 줄과 그
+    // 조상이 다 기한을 들 수 없다.
+    if ids.is_empty() || all.iter().filter(|i| i.deadline().is_some()).nth(1).is_none() {
+        return None;
+    }
+    let lines = Lines::of(all);
+    let epic_of = Handing::over(all, &lines);
+    let ladder = DueLadder::over(&lines, &epic_of);
+    ids.iter().find_map(|id| {
+        let i = lines.at(id)?;
+        ladder.beyond(i).map(|c| (i, c))
+    })
+}
+
+/// 그 줄 **밑에서** 기한이 넘친 줄 — 그 줄을 조상으로 든 줄 가운데 조상보다 늦은 것(moai-ghkp.cb3).
+///
+/// 조상의 기한을 당기는 쓰기는 자식을 안 막으므로(자식은 남의 줄이다) 그 쓰기 뒤에 한 줄로 알린다.
+/// **천장이 그 줄인 것만 고르지 않는다** — 에픽을 더 이른 마일스톤으로 옮기면 멤버의 천장은 에픽이
+/// 아니라 그 마일스톤이 되는데, 그것을 넘긴 쓰기는 에픽을 고친 이 쓰기다. **이 쓰기가** 넘치게 한 것만 고르는
+/// 일(쓰기 앞에도 넘쳤던 줄 빼기)은 쓰기 앞의 모습을 든 부르는 쪽이 한다(`cmd::edit`).
+/// 닫힌 줄은 안 센다 — `status` 의 `due_beyond_parent` 와 같은 까닭이다. 묶음 줄의 칸은 멤버에서
+/// 읽으므로 여기서는 묶음을 닫혔다고 치지 않는다.
+pub fn due_overflow_of<'a>(all: &'a [Issue], id: &str) -> Vec<&'a Issue> {
+    if !all.iter().any(|i| i.due_on.is_some() && i.id != id) {
+        return Vec::new();
+    }
+    let lines = Lines::of(all);
+    let epic_of = Handing::over(all, &lines);
+    let ladder = DueLadder::over(&lines, &epic_of);
+    all.iter()
+        .filter(|i| i.due_on.is_some() && (is_group(i) || !i.status.is_done()))
+        .filter(|i| {
+            // 조상은 한 번만 걷는다 — 이 줄 밑인가와 넘쳤는가가 같은 조상을 본다.
+            let above = ladder.above(i);
+            above.contains(&id) && i.deadline().is_some_and(|d| ladder.lowest(i, &above).is_some_and(|c| d > c.due))
+        })
+        .collect()
+}
+
 /// **뿌리로 올라간 생각** — 제 부모 밑에 접히지 않는 backlog 의 id.
 ///
 /// 소속·마일스톤·미룸은 이것을 지나 내려오지 않는다. 생각인 부모에서 무조건
@@ -4210,19 +4392,26 @@ impl<'a> Picking<'a> {
             outside = held;
         }
 
-        // 급한 것 → 도는 마일스톤 안 → 끝나가는 에픽 → 오래된 것. 끝나가는 것을 먼저 집어야
+        // 급한 것 → 도는 마일스톤 안 → 이른 기한 → 끝나가는 에픽 → 오래된 것. 끝나가는 것을 먼저 집어야
         // 벌여 놓은 에픽이 줄어든다.
         //
         // **급한 것이 먼저고 마일스톤은 그다음이다.** 뒤집으면 밖에 선 `p0` 핫픽스가 마일스톤 안의
         // `p2` 밑으로 내려간다 — 핫픽스를 밖에서도 집기로 한 결정이 차례에서 도로 무너진다.
         // **에픽도 줄마다 묻는다**(리뷰, [`joined_in`]) — 지도를 곧바로 짚으면 같은 id 의 앞줄이
         // 뒷줄의 에픽으로 줄을 서, 화면이 대는 소속과 차례를 정하는 소속이 갈린다.
+        //
+        // **같은 `p`·같은 자리(마일스톤 안팎) 안에서는 기한이 이른 것이 먼저다**(moai-ghkp.7uy) — 기한 없는 줄은
+        // 뒤다. 읽을 때만 재고 저장하지 않는다: `moai due apply` 가 우선순위를 올리기 전의 틈을 이 차례가 메운다.
+        // **마일스톤 안인가 뒤에 선다**(리뷰) — AGENTS 블록의 약속("`p0` 이 먼저고 마일스톤이 둘째다")이 차례에도
+        // 서야 한다. 그 앞에 두던 판은 1년 뒤 날을 든 밖의 `p0` 이 도는 마일스톤 안의 `p0` 을 앞질렀다. 자는
+        // `--sort due` 와 한 벌이다([`crate::query::due_order`]).
         let pct = |i: &Issue| group.at(i).and_then(|e| self.progress.get(e)).copied().unwrap_or(0);
         out.sort_by(|a, b| {
             let (pa, pb) = (pct(a), pct(b));
             a.priority()
                 .cmp(&b.priority())
                 .then_with(|| inside(b).cmp(&inside(a)))
+                .then_with(|| crate::query::due_order(a, b))
                 .then_with(|| pb.cmp(&pa))
                 .then_with(|| a.created_at.cmp(&b.created_at))
                 .then_with(|| a.id.cmp(&b.id))
@@ -5094,8 +5283,9 @@ impl StatusReport {
 /// 골랐다 — **저장은 UTC 로 두고 보여줄 때만 시간대를 입힌다**는 이 저장소의 결이 셈에도 그대로
 /// 선다(`tz` 의 머리글). 그래서 캐시는 시간대에 안 닿고, 무효화도 도장도 필요 없다.
 ///
-/// **값이 없다.** 기한을 드는 줄은 마일스톤뿐이고(`moai edit --due` 가 마일스톤 줄에만 쓴다) 이
-/// 저장소는 넷이다 — 그릴 때마다 재도 훑는 것이 이슈 전체가 아니라 그 넷이다.
+/// **값이 없다.** 여기 담는 것은 **마일스톤 줄의** 기한뿐이고(`status_in_scope` 가 종류로 거른다 — 기한은 이제 모든
+/// 줄에 서지만 이슈의 지난 기한은 아직 보드가 안 센다, moai-dr8a) 이 저장소의 마일스톤은 넷이다 — 그릴 때마다 재도
+/// 훑는 것이 이슈 전체가 아니라 그 넷이다.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Dues {
     /// (마일스톤 id, `due_on`) — 계획 안에 있고 안 닫힌 줄 가운데 기한을 든 것. 차례는 파일
@@ -5264,7 +5454,9 @@ pub fn status_in<'a>(
     now: &str,
     soil: &Soil<'a>,
 ) -> StatusReport {
-    status_in_scope(issues, unreadable, cfg, now, soil, soil.stands(issues, cfg), &|_| true)
+    // 산 줄만 든 문맥이라 [`Soil`] 의 지도가 곧 쓰기가 재는 지도다 — 기한의 위계를 재려고 다시 안 짓는다.
+    let ladder = DueLadder::over(&soil.lines, &soil.epic);
+    status_in_scope(issues, unreadable, cfg, now, soil, soil.stands(issues, cfg), &|_| true, Some(&ladder))
 }
 
 /// Combine reference context without letting a stale archive copy eclipse a live row. A live id is a readable row
@@ -5330,7 +5522,16 @@ pub fn status_of_context<'a, 'c>(
     stands: BTreeMap<GroupKey<'a>, Stand<'a, 'c>>,
 ) -> StatusReport {
     let visible: BTreeSet<&str> = active.iter().map(|i| i.id.as_str()).collect();
-    status_in_scope(all, unreadable, cfg, now, soil, stands, &|i| visible.contains(i.id.as_str()))
+    // **기한의 위계는 산 줄의 지도로 잰다**(리뷰) — 쓰기(`store::write_locked`)는 아카이브를 안 펴고 산 줄로만 재므로,
+    // 아카이브를 곁들인 [`Soil`] 의 지도로 재면 쓰기가 받은 줄(아카이브에 든 에픽의 멤버, 그 에픽을 타고 오는
+    // 마일스톤)을 보드가 바로 꾸짖는다. 기한 든 산 줄이 없으면 짓지 않는다 — 훅이 도구 호출마다 이 자리를 지난다.
+    let maps = active.iter().any(|i| i.due_on.is_some()).then(|| {
+        let lines = Lines::of(active);
+        let epic_of = Handing::over(active, &lines);
+        (lines, epic_of)
+    });
+    let ladder = maps.as_ref().map(|(lines, epic_of)| DueLadder::over(lines, epic_of));
+    status_in_scope(all, unreadable, cfg, now, soil, stands, &|i| visible.contains(i.id.as_str()), ladder.as_ref())
 }
 
 fn status_in_scope<'a, 'c>(
@@ -5341,6 +5542,8 @@ fn status_in_scope<'a, 'c>(
     soil: &Soil<'a>,
     stands: BTreeMap<GroupKey<'a>, Stand<'a, 'c>>,
     visible: &dyn Fn(&Issue) -> bool,
+    // 기한의 위계를 재는 자 — **산 줄의 지도**다([`status_of_context`]). `None` 이면 기한 든 산 줄이 없다.
+    ladder: Option<&DueLadder<'_, '_>>,
 ) -> StatusReport {
     let group = &soil.epic;
     let by_id: BTreeMap<&str, &Issue> = issues.iter().map(|i| (i.id.as_str(), i)).collect();
@@ -5677,6 +5880,27 @@ fn status_in_scope<'a, 'c>(
     let twin_parent: Vec<&Issue> = issues.iter().filter(|i| visible(i) && in_epic.lost(i)).collect();
     if !twin_parent.is_empty() {
         warnings.push(Warning::new("twin_parent", ids_of(&twin_parent)));
+    }
+    // **부모를 당겨 넘친 자식**(moai-ghkp.cb3, 2026-10-16 사용자 결정). 쓰기는 지금 쓰는 줄만 재므로
+    // (`store::write_locked`) 조상의 기한을 당기는 쓰기는 자식을 안 막는다 — 자식은 남의 줄이다. 머지
+    // 드라이버도 줄 사이를 안 잰다. 그 둘이 남긴 어긋남을 여기서 비춘다. 자는 쓰기와 같은 [`DueLadder`]
+    // 고 지도는 쓰기가 보는 산 줄의 것이다 — 부르는 쪽이 넘긴다(리뷰: 여기서 다시 짓던 판은 [`Soil`] 이 든 지도를
+    // 훅의 도구 호출마다 한 벌 더 지었고, 아카이브의 조상까지 세어 쓰기가 받은 줄을 꾸짖었다). 닫힌 줄과 계획 밖의
+    // 줄은 안 센다 — 고칠 까닭이 없는 기한이다. 계획 밖인가는 줄에 묻고(`off`, moai-u3ta), 가려진 줄은
+    // `duplicate_id` 가 따로 댄다.
+    let beyond: Vec<&Issue> = match ladder {
+        None => Vec::new(),
+        Some(ladder) => issues
+            .iter()
+            .enumerate()
+            .filter(|(k, i)| i.due_on.is_some() && visible(i) && off[*k].is_none() && !eclipsed(i))
+            .map(|(_, i)| i)
+            .filter(|i| column(i, &states) != crate::config::DONE)
+            .filter(|i| ladder.beyond_row(i).is_some())
+            .collect(),
+    };
+    if !beyond.is_empty() {
+        warnings.push(Warning::new("due_beyond_parent", ids_of(&beyond)));
     }
     let dangling_blockers: Vec<&Issue> =
         issues.iter().filter(|i| visible(i) && i.blocked_by.iter().any(|b| !known.contains(b.as_str()))).collect();
