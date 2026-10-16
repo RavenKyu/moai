@@ -2193,8 +2193,15 @@ refusal — to the new name (2).
   work to put down (`moai mv <id> todo`, `moai defer <id> -m '<why>'`), ask the person
 - Work handed on to be carried is, like a backlog item, not sent again until its report is checked
 
-**1. Pick.** Out of the backlog that have piled up, keep only the ones that do not collide
-with what is open right now.
+**1. Pick.** First raise what a near deadline calls for, once a round, and take it into
+the root with a commit with a path — reading never writes, so a deadline raises nothing
+until someone runs the verb, and the order `moai ready` gives is only as fresh as that run
+
+    moai due apply                        raises priority by each row's own deadline, never lowers
+
+A row it raises to `p0` takes the hotfix slot even outside a running milestone — that is
+what the person asked a deadline to do. Then, out of the backlog that have piled up, keep
+only the ones that do not collide with what is open right now.
 
     moai backlog ls                           what has piled up
     moai show -s in_progress,review        what is picked up
@@ -2392,7 +2399,7 @@ and if the message does not arrive, deliver it into the tab —
 `moai-cmux`, "Label the tab" and "When a message does not arrive".
 Inside Saycode, a worker Saycode lists gets the message as a prompt instead of `SendMessage` —
 `moai-saycode`, "Send work".
-Fill in `<id>`, `<title>`, `<steps file>`, `<root branch>`, `<base branch>`, `<milestone>`, `<model>`, `<difficulty>`, `<why>`, `<effort>`, `<worker kind>`, `<subagent ladder>`, `<other work>`, `<root>`, `<person>` and — only for a subdirectory project — `<subdir>`.
+Fill in `<id>`, `<title>`, `<steps file>`, `<root branch>`, `<base branch>`, `<milestone>`, `<due>`, `<model>`, `<difficulty>`, `<why>`, `<effort>`, `<worker kind>`, `<subagent ladder>`, `<other work>`, `<root>`, `<person>` and — only for a subdirectory project — `<subdir>`.
 `<root>` is the `root dir` from 2. **Leave it unfilled** and the worker, inside its worktree,
 reads its own place as the root. With no `subdir` line in 2, leave the `Subdir:` line out
 of the message.
@@ -2407,6 +2414,13 @@ refuse** — the check is the shape, not whether that milestone stands, so a sta
 in with exit 0: one line on stderr says there is no such milestone, and `moai status`
 counts the epic as `dangling_milestone`. Copy it off
 {MILESTONE_FROM}; do not write it from memory.
+`<due>` is when the person wants this work done, as `YYYY-MM-DD` — the backlog's own
+`due_on` when it carries one (`promote` carries that onto the epic anyway), else the day
+the person gave when you asked. **Ask when it is due as you pick the work** — never
+required, always asked; a day given as "in three days" you write as the day it lands on.
+It is `none` when neither stands — with `Person: away` there is nobody to ask, so it is
+the backlog's own `due_on` or `none`: a deadline is the person's, and you never make one up. The worker hangs it on the epic it
+unfolds, and the epic's deadline then bounds every member's.
 `<model>`, `<difficulty>` and `<why>` are the role's model you read in 2-1, the difficulty
 you measured and your reason; `<effort>` is that role's effort (2-1), the same value you pass
 to `Agent`. **Leave them unfilled** and those placeholders travel as they are, so the note
@@ -4301,6 +4315,7 @@ fn message() -> String {
     Root branch: <root branch>
     Base branch: <base branch>
     Milestone: <milestone>
+    Due: <due>
     Root: <root>
     Subdir: <subdir>
     Person: <person>"#
@@ -4445,6 +4460,8 @@ said yes to taking over a row that is not yours, say — belongs to the assignme
   Outside every milestone it is `<root branch>`; inside a milestone it is that milestone's own
   branch, `milestone/<milestone id>` ("The milestone branch")
 - `Milestone:` — `<milestone>`, the release the epic hangs (1)
+- `Due:` — `<due>`, the deadline the person gave for this work, `YYYY-MM-DD`, or `none`.
+  The epic hangs it (1); `none` hangs nothing and never stands for a day you make up
 - `Root:` — `<root>`, the root checkout's place (4-1)
 - `Subdir:` — `<subdir>`, only for a subdirectory project in a monorepo (3). Without it the
   root is the top of the repository
@@ -4589,6 +4606,12 @@ never in the root
    not in `ready`, not in `held`, no warning
 
        {MILESTONE_ATTACH}
+   Then hang `<due>` on the epic the same way, unless it is `none` — `none` hangs nothing
+   and does not clear a deadline `promote` carried over from the backlog. The members are
+   bounded by it without carrying it. If the write is refused because the day is later than
+   the milestone's deadline, leave the epic's deadline as it stands and name it in the report
+
+       moai edit <epic> --due <due>
 2. Pick the members up with `moai mv <member> in_progress --from todo` and commit in the root.
    **Pass the column you saw** — this is a place where several sessions share one `.moai`,
    and overwriting a row picked up beside you means two of you do the same work. A non-zero
@@ -7365,6 +7388,22 @@ stop sending outside work while a release runs",
             assert!(supervise.contains(start), "감독이 `{start}` 메시지를 안 보낸다");
             assert!(section.contains(start), "일꾼 글이 `{start}` 를 어떻게 읽는지 안 댄다");
         }
+    }
+
+    /// **기한은 사람의 것이라 감독이 실어 보내고 일꾼이 에픽에 단다**(moai-7bqy.fvo). 감독은 회차마다 우선순위를
+    /// 기한에 맞추고(읽기는 쓰지 않으니 그 동사를 누군가 쳐야 한다), `Person: away` 면 지어내지 않는다. 일꾼의 `none`
+    /// 은 `promote` 가 데려온 기한을 지우지 않는다 — 지우면 backlog 에 적어 둔 사람의 답이 펼치는 순간 사라진다.
+    #[test]
+    fn the_due_travels_from_the_person_to_the_epic() {
+        let (supervise, work) = (supervise(), worker());
+        let one = &supervise[supervise.find("**1. Pick.**").expect("감독 1 이 없다")..];
+        let one = &one[..one.find("**2. ").expect("감독 2 가 없다")];
+        assert!(one.contains("moai due apply"), "감독이 회차마다 기한으로 우선순위를 안 올린다");
+        assert!(supervise.contains("with `Person: away` there is nobody to ask"), "감독이 비운 사람의 기한을 지어낼 수 있다");
+        let step1 = &work[work.find("\n1. Unfold it").expect("일꾼 1 이 없다")..];
+        let step1 = &step1[..step1.find("\n2. ").expect("일꾼 2 가 없다")];
+        assert!(step1.contains("moai edit <epic> --due <due>"), "일꾼이 기한을 에픽에 안 단다");
+        assert!(step1.contains("does not clear a deadline `promote` carried"), "`none` 이 데려온 기한을 지운다");
     }
 
     /// **감독과 일꾼은 Claude Code 의 제 수단으로 말한다**(2026-10-06 사용자 결정, moai-obxm). moai 는 통신을 안 든다 —
