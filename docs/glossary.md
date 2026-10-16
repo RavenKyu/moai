@@ -56,9 +56,11 @@ and a row the one above overtook by being pulled in is a [warning](#warning),
 `due_beyond_parent`. It is not inherited — a member is bounded by its epic's deadline
 without carrying it. `moai due apply` raises an open, not deferred issue's or backlog
 item's priority as the deadline it follows nears — the earliest of its own and those of
-the rows above it (one day left or less, today and past included, `p0`; two or less
-`p1`; seven or less `p2`), never lowers it, and leaves a `Due-priority:` note. A group
-row is never raised itself; its members are.
+the rows above it, a parent already closed lending none (one day left or less, today and
+past included, `p0`; two or less `p1`; seven or less `p2`), never lowers it, and leaves a
+`Due-priority:` note. A group row is never raised itself; its members are. An open
+issue or epic whose own deadline has passed is a [warning](#warning), `overdue`, and a priority
+behind its deadline is a [notice](#notice) that names `moai due apply`.
 More in
 [the workflow](workflow.md#plan-something-bigger).
 
@@ -187,7 +189,8 @@ from `moai show <id>`. The hook holds the end of a turn once to ask for it.
 ## Notice
 
 A board line that informs without judging: backlog items piling up, work deferred, a
-milestone running, a merge driver not installed. It stands apart from the
+milestone running, a merge driver not installed, a priority behind its deadline. It
+stands apart from the
 [warnings](#warning) under `notices`. `moai wiki ls` uses the same word for a
 page with conflict markers, a link that leads to no page, a link to a heading the
 page does not have and an id the tracker does not hold.
@@ -281,8 +284,9 @@ writes the main checkout's tracker.
 
 A board line on `moai status` about how the plan stands — such as issues with no
 epic, a review stalled, too much started at once (the members of one epic count as
-one), work picked up and forgotten, a milestone falling due, or a row whose
-[deadline](#deadline) passes the one above it. Warnings block nothing and never change the exit code;
+one), work picked up and forgotten, a milestone falling due, a row past its own
+[deadline](#deadline) (`overdue`), or a row whose deadline passes the one above it. Warnings
+block nothing and never change the exit code;
 only broken data does that. Compare [notice](#notice).
 
 ## Worker

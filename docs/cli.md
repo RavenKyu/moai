@@ -47,7 +47,7 @@ Commands:
   skill         Plant skills for Claude, Codex, Antigravity (safe to run again)
   project       Register a directory to watch several projects from one moai
   due           Raise priorities a deadline has caught up with
-  config        
+  config        Read this repository's settings, defaults filled in
   models        Read the model per role from your user config
   update        Upgrade the moai you are running with install.sh
   init          Put a .moai/ into this repository (safe to run again)
@@ -157,6 +157,10 @@ Options:
     status_flow_days     = 7      the window the flow is measured over
     status_backlog_pile  = 5      when this many thoughts have piled up
     status_due_days      = 3      days before a milestone deadline to say so
+
+  A row whose own deadline has passed is a warning too (overdue). A priority
+  behind the deadline its row follows is a notice naming `moai due apply`;
+  due_priority = "off" silences it, and `moai due --help` has its thresholds.
 ```
 
 ## `moai ready`
@@ -3309,14 +3313,16 @@ Options:
   moai due apply --dry-run   show what it would raise, write nothing
 
   A row follows the earliest deadline among its own and those of the rows it
-  is drawn under - its milestone, its epic, its parent. By days left (today
-  and a past deadline count as 0 or less):
+  is drawn under - its milestone, its epic, its parent (a parent already
+  closed lends none). By days left (today and a past deadline count as 0 or
+  less):
     due_p0_days  = 1      at most this many days left - p0
     due_p1_days  = 2      at most this many - p1
     due_p2_days  = 7      at most this many - p2; more days left, untouched
   Only issues and backlog items that are open and in the plan are raised -
-  never a group row, never a deferred one. It only raises: a priority that
-  is already that urgent stays, and nothing is ever lowered back.
+  never a group row, never a deferred one, never a row the write would refuse
+  (a hand-edited date: fix it with `moai edit <id> --due`). It only raises: a
+  priority that is already that urgent stays, and nothing is ever lowered back.
 
   Each raise leaves a note in the same write, which keeps the old value:
     Due-priority: p2 → p0 (1 days left, due 2026-10-17 from <epic>)
@@ -3351,6 +3357,8 @@ Options:
 ## `moai config`
 
 ```
+Read this repository's settings, defaults filled in
+
 Usage: moai config [OPTIONS]
 
 Options:
