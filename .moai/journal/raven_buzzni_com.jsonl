@@ -6939,3 +6939,9 @@
 {"ts":"2026-10-16T17:10:10Z","id":"moai-f6ao","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"moai-wk3r 에서 펼쳤다 — 편집기가 UTF-8 아닌 글로 저장하면 읽기에 지고 적은 글을 지운다"}
 {"ts":"2026-10-16T17:10:10Z","id":"moai-wk3r","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-f6ao 로 펼쳤다 (이슈 1건)"}
 {"ts":"2026-10-16T17:10:20Z","id":"moai-f6ao.3kn","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-16T17:10:54Z","id":"moai-e7vm","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"claude-teams 셸에서 규칙 4 가 cmux shim 을 막는다"}
+{"ts":"2026-10-16T17:10:54Z","id":"moai-e7vm.04e","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"규칙 4 가 cmux 의 가짜 TMUX 아래 tmux 의 kill-*·new-session 을 막는다"}
+{"ts":"2026-10-16T17:10:54Z","id":"moai-e7vm.83t","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"TMUX_OWN 과 일꾼 브리프 4-2 가 shim 이 아닌 tmux 를 부르게 한다"}
+{"ts":"2026-10-16T17:10:54Z","id":"moai-e7vm","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"moai-royr 에서 펼쳤다 — claude-teams 셸에서 규칙 4 의 -L 통과가 사람의 cmux 워크스페이스를 닫을 수 있다"}
+{"ts":"2026-10-16T17:10:54Z","id":"moai-royr","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-e7vm 로 펼쳤다 (이슈 2건)"}
+{"ts":"2026-10-16T17:10:58Z","id":"moai-e7vm.04e","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
