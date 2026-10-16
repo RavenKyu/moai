@@ -6824,3 +6824,4 @@
 {"ts":"2026-10-16T10:17:12Z","id":"moai-ghkp.cb3","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-16T10:17:12Z","id":"moai-ghkp.7uy","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-16T10:17:13Z","id":"moai-ghkp.u1w","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-16T12:36:24Z","id":"moai-hddd","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Person away from 2026-10-16 ~12:40 UTC (1h+): supervisor decides by recommendation and ships the release. Plan: ghkp -> dr8a -> 7bqy -> release. bump --next will pick 0.18.0 (0.17.0 is the last tag), so per CLAUDE.md this milestone is retitled to the picked version and Windows (moai-c12a) moves to the next one."}
