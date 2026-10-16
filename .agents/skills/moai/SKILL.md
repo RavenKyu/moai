@@ -187,6 +187,14 @@ own server.
 
     env -u TMUX tmux -L <unique name> …
 
+Under cmux claude-teams (`$TMUX` starts with `/tmp/cmux-`) the `tmux` on `PATH` is cmux's shim: it
+drops `-L`, `-S` and `-f`, so `new-session` and the `kill-*` commands open and close workspaces and
+tabs in the person's cmux, and `env -u TMUX` takes away only the fake `$TMUX`. There call a real tmux
+by its absolute path — `type -a tmux` lists them; take one whose real path has no `cmux` in it — and
+the hook refuses the shim's:
+
+    env -u TMUX <real tmux> -L <unique name> …
+
 **5. Ask before you pick up someone else's work.** A `moai mv` into a started column on a row whose assignee is
 someone else — or nobody — is refused unless it carries `--take`. Ask the person
 watching first. On a yes, take it over and say who said yes:
