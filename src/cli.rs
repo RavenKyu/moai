@@ -153,7 +153,11 @@ pub enum Cmd {
     status_no_epic_min   = 5      from this count up, even at a low ratio
     status_flow_days     = 7      the window the flow is measured over
     status_backlog_pile  = 5      when this many thoughts have piled up
-    status_due_days      = 3      days before a milestone deadline to say so")]
+    status_due_days      = 3      days before a milestone deadline to say so
+
+  A row whose own deadline has passed is a warning too (overdue). A priority
+  behind the deadline its row follows is a notice naming `moai due apply`;
+  due_priority = \"off\" silences it, and `moai due --help` has its thresholds.")]
     Status(WorktreeArg),
 
     /// What you can pick up now
@@ -883,15 +887,46 @@ Examples:
     )]
     Project(ProjectCmd),
 
+    /// Raise priorities a deadline has caught up with
+    #[command(after_help = "  moai due apply             raise what its deadline calls for, note each one
+  moai due apply --dry-run   show what it would raise, write nothing
+
+  A row follows the earliest deadline among its own and those of the rows it
+  is drawn under - its milestone, its epic, its parent (a parent already
+  closed lends none). By days left (today and a past deadline count as 0 or
+  less):
+    due_p0_days  = 1      at most this many days left - p0
+    due_p1_days  = 2      at most this many - p1
+    due_p2_days  = 7      at most this many - p2; more days left, untouched
+  Only issues and backlog items that are open and in the plan are raised -
+  never a group row, never a deferred one, never a row the write would refuse
+  (a hand-edited date: fix it with `moai edit <id> --due`). It only raises: a
+  priority that is already that urgent stays, and nothing is ever lowered back.
+
+  Each raise leaves a note in the same write, which keeps the old value:
+    Due-priority: p2 → p0 (1 days left, due 2026-10-17 from <epic>)
+  With nothing to raise it writes nothing and asks nobody who you are.
+  `due_priority = \"off\"` in .moai/config.toml stops it from changing
+  anything from then on; what it raised before stays. `moai status` says
+  when rows have fallen behind their deadline.
+
+  The day is the reader's day - the timezone the board uses. --json gives
+  {\"due_priority\",\"dry_run\",\"raised\":[{\"id\",\"title\",\"was\",\"to\",
+  \"days_left\",\"due_on\",\"due_from\"}]} - due_from only when the deadline is
+  an ancestor's.")]
+    #[command(subcommand)]
+    Due(DueCmd),
+
     /// Read this repository's settings, defaults filled in
     #[command(after_help = "  moai config           every setting, as you would write it in the file
   moai config --json    one object - the keys of .moai/config.toml
 
   Reads .moai/config.toml and fills in what it leaves out with the values moai
-  uses: prefix, statuses (in board order), naming, archive_days, wiki_dir and
-  the status_* thresholds. These are the values this binary acts on, so a
-  surface drawing the board reads them here instead of parsing the file
-  again. --json adds path, the file it read.
+  uses: prefix, statuses (in board order), naming, archive_days, wiki_dir, the
+  status_* thresholds and the due_* rule that `moai due apply` reads. These
+  are the values this binary acts on, so a surface drawing the board reads
+  them here instead of parsing the file again. --json adds path, the file it
+  read.
 
   It only reads; edit the file by hand to change a setting.")]
     Config,
@@ -1053,6 +1088,17 @@ Examples:
         /// Write nothing; print that block (to paste it)
         #[arg(long, conflicts_with_all = ["prefix", "no_agents", "driver", "no_driver", "tracking", "guide", "skill", "no_skill", "with", "register", "no_register", "yes", "check"])]
         print: bool,
+    },
+}
+
+/// 기한이 우선순위를 올린다(moai-dr8a.1q4). 동사는 하나지만 이름 밑에 두어, 읽는 동사가 생기면 같은 자리에 선다.
+#[derive(Subcommand, Debug)]
+pub enum DueCmd {
+    /// Raise priorities their deadline calls for, with a note on each
+    Apply {
+        /// Show what would be raised; write nothing
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 

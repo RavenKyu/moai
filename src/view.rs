@@ -905,6 +905,10 @@ fn says(w: &Warning, screen: Screen) -> String {
         // 남은 날수는 `preview` 가 줄마다 낸다.
         "milestone_overdue" => one(say(lang, "warn.milestone_overdue")),
         "milestone_due_soon" => aged(say(lang, "warn.milestone_due_soon"), w.days.unwrap_or(0)),
+        // 마일스톤 밖 줄의 지난 기한(moai-dr8a.rl4) — 마일스톤의 것과 짝이다.
+        "overdue" => one(say(lang, "warn.overdue")),
+        // **알림이지 경고가 아니다**(moai-dr8a.rl4) — 고칠 손은 `moai due apply` 고 `hint` 가 그것을 댄다.
+        "due_priority_behind" => one(say(lang, "warn.due_priority_behind")),
         // **끊긴 것과 종류가 틀린 것을 한 낱말로 말한다** — 둘을 가려 말하면
         // 고치는 손이 달라지는 것도 아닌데 경고가 둘로 늘어난다.
         "dangling_epic" => one(say(lang, "warn.dangling_epic")),
@@ -1198,33 +1202,37 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
         }
         // 이 갈래도 칠 줄을 싣는다(`duplicate_id`, moai-pp9i.gtc) — 여기서 일찍 나가면 그 줄이 `--json`
         // 에만 서고 보드에서는 사라진다.
-        if let Some(h) = &w.hint {
-            out.push(format!("    {}", paint(style::DIM, &format!("→ `{h}`"))));
-        }
+        out.extend(hint_line(w));
         return out;
     }
     // 기한 경고는 **그 날짜와 남은 날수를 함께** 낸다(moai-tfcp) — id 와 제목만 내면 언제까지인지가
     // 화면에 없어 사람이 `moai show` 를 한 번 더 쳐야 한다. 날수는 **판정한 자리가 실은 것**을
     // 읽는다(`Warning::ages`) — 여기서 새로 재면 판정과 표시가 갈라진다.
-    if matches!(w.kind, "milestone_overdue" | "milestone_due_soon") {
+    if matches!(w.kind, "milestone_overdue" | "milestone_due_soon" | "overdue" | "due_priority_behind") {
         for id in w.ids.iter().take(SHOW) {
             let Some(i) = by_id.get(id.as_str()) else { continue };
             // `ages` 에 남은 날수가 **부호째** 들어 있다 — 지난 것이 음수고, 낱말도 색도 그 부호
             // 하나로 갈린다. 없는 값을 0 으로 채우지 않는다: `due_tail(0)` 은 "오늘까지" 라, 지난
             // 줄 밑에 안 지났다는 낱말이 선다.
             let Some(&left) = w.ages.get(id) else { continue };
+            // **날짜도 판정한 자리가 실은 것을 읽는다**(리뷰, [`crate::report::Warning::deadlines`]) — 뒤처진 우선순위의
+            // 남은 날은 그 줄이 **따르는** 기한(조상의 것일 수 있다)으로 쟀다. 줄 제 `due_on` 을 내면 물려받은 줄은 날짜가
+            // 비고, 당겨진 조상 밑의 줄은 9일 남은 날짜 옆에 "1일 남음" 이 선다. 안 실린 갈래는 그 줄 제 기한으로 쟀다.
+            let due = w.deadlines.get(id).map(String::as_str).or(i.due_on.as_deref()).unwrap_or("");
             out.push(format!(
                 "    {}  {}   {}  {}",
                 paint(style::ID, id),
                 marked(screen.branch(id), &i.title, TITLE_CAP, style::PLAIN).0,
-                paint(style::DIM, i.due_on.as_deref().unwrap_or("")),
-                paint(if left < 0 { style::WARN } else { style::DIM }, &due_tail(left, lang)),
+                paint(style::DIM, due),
+                left_span(left, lang),
             ));
         }
         let rest = w.ids.len().saturating_sub(SHOW);
         if rest > 0 {
             out.push(format!("    {}", paint(style::DIM, &more_of(rest, lang))));
         }
+        // 고칠 손을 싣는 갈래(`due_priority_behind` → `moai due apply`) — 일찍 나가면 그 줄이 `--json` 에만 선다.
+        out.extend(hint_line(w));
         return out;
     }
     // 에픽에 대한 말은 칸도 나이도 뜻이 없다. 어느 에픽인지만 말한다.
@@ -1250,6 +1258,9 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
         if rest > 0 {
             out.push(format!("    {}", paint(style::DIM, &more_of(rest, lang))));
         }
+        // **이 갈래도 칠 줄을 싣는다**(리뷰) — `milestone_focus`·`milestones_running` 이 `moai ready` 를 드는데, 여기서
+        // 일찍 나가던 판은 그 줄을 `--json` 에만 세우고 보드에서는 지웠다(위 두 갈래가 막아 둔 그 덫이다).
+        out.extend(hint_line(w));
         return out;
     }
     for id in w.ids.iter().take(SHOW) {
@@ -1292,6 +1303,12 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
         ));
     }
     out
+}
+
+/// 일찍 나가는 갈래가 싣는 **칠 줄**(`→ \`<명령>\``) — 한 줄로 따로 선다. 갈래마다 베껴 두던 판은 새 갈래가 그것을
+/// 잊어, 힌트를 든 경고가 `--json` 에만 서고 보드에서는 사라졌다(리뷰). 끝 갈래는 "N건 더" 열에 맞춰 한 줄에 싣는다.
+fn hint_line(w: &Warning) -> Option<String> {
+    w.hint.as_deref().map(|h| format!("    {}", paint(style::DIM, &format!("→ `{h}`"))))
 }
 
 /// 목록에서 안 보인 나머지 — "N건 더". **잘린 목록은 다 이 한 키로 센다**(`status.more`) — `status` 의 경고,
@@ -2147,6 +2164,13 @@ fn due_tail(left: i64, lang: Lang) -> String {
         d if d > 0 => fill(say(lang, "detail.due_left"), &[("d", &d.to_string())]),
         d => fill(say(lang, "detail.due_past"), &[("d", &(-d).to_string())]),
     }
+}
+
+/// 남은 날수 낱말을 **그 부호로 칠해** 낸다 — 지난 것은 경고 색, 아니면 흐리게. 색이 혼자 뜻을 지지 않는다: 낱말이
+/// 같이 선다([`due_tail`]). **칠을 가르는 자리가 여기 하나다**(리뷰) — 보드의 기한 줄과 `moai due apply` 의 줄이
+/// 저마다 `if` 를 두면 한쪽 규칙만 바뀌는 날 같은 줄이 두 화면에서 다른 색으로 선다. `cmd/` 는 그 `if` 를 안 든다.
+pub(crate) fn left_span(left: i64, lang: Lang) -> String {
+    paint(if left < 0 { style::WARN } else { style::DIM }, &due_tail(left, lang)).to_string()
 }
 
 /// 상세 왼쪽 이름 칸의 폭 — **그 말에서 가장 긴 이름 하나로 잰다.**
@@ -3935,6 +3959,14 @@ pub fn config_trouble(lang: Lang, why: &crate::config::Trouble) -> String {
             say(lang, "config.naming_unknown"),
             &[("known", &crate::config::Naming::ALL.join("·")), ("raw", &quoted(raw))],
         ),
+        Trouble::DueModeUnknown { raw } => fill(
+            say(lang, "config.due_mode_unknown"),
+            &[("known", &crate::config::DueRule::MODES.join("·")), ("raw", &quoted(raw))],
+        ),
+        Trouble::DueDaysOrder { p0, p1, p2 } => fill(
+            say(lang, "config.due_days_order"),
+            &[("p0", &p0.to_string()), ("p1", &p1.to_string()), ("p2", &p2.to_string())],
+        ),
     }
 }
 
@@ -4527,6 +4559,53 @@ mod tests {
         let row = out.iter().find(|l| l.contains("argos-0002")).expect("막힌 줄이 목록에 없다");
         assert!(row.contains("12일"), "미룬 지 며칠을 안 댔다 — {row}");
         assert!(!row.contains("30일"), "칸 나이를 댔다 — {row}");
+    }
+
+    /// **뒤처진 우선순위의 줄은 그 줄이 따르는 기한을 댄다**(moai-dr8a.rl4, 리뷰) — 남은 날은 에픽의 기한으로 쟀는데 줄 제
+    /// `due_on` 을 내던 판은, 물려받은 줄에 날짜를 비우고 당겨진 에픽 밑의 줄에는 먼 제 날짜 옆에 "1일 남음" 을 세웠다.
+    /// 고칠 손(`moai due apply`)도 보드에 선다.
+    #[test]
+    fn a_priority_behind_its_deadline_shows_the_deadline_it_follows() {
+        let now = "2026-10-16T00:00:00Z";
+        let mut epic =
+            Issue::new("argos-eeee".into(), "에픽".into(), Kind::Epic, Status::new("todo"), "2026-09-11T04:12:03Z");
+        epic.due_on = Some("2026-10-17".into());
+        let mut inherits = issue("argos-0001", "물려받은 줄", "todo");
+        inherits.epic = Some("argos-eeee".into());
+        let mut overtaken = issue("argos-0002", "제 기한이 늦은 줄", "todo");
+        overtaken.epic = Some("argos-eeee".into());
+        overtaken.due_on = Some("2026-10-25".into());
+        let issues = vec![epic, inherits, overtaken];
+        let st = crate::report::status(&issues, &[], &cfg(), now, crate::tz::Zone::stored());
+        let w = st.notices.iter().find(|w| w.kind == "due_priority_behind").expect("뒤처진 우선순위 알림이 없다");
+        let by_id: BTreeMap<&str, &Issue> = issues.iter().map(|i| (i.id.as_str(), i)).collect();
+        let out = plain(&preview(w, &by_id, now, Screen::new(Lang::Ko)));
+        for id in ["argos-0001", "argos-0002"] {
+            let row = out.iter().find(|l| l.contains(id)).unwrap_or_else(|| panic!("{id} 가 목록에 없다 {out:?}"));
+            assert!(row.contains("2026-10-17"), "따르는 기한을 안 댔다 — {row}");
+        }
+        assert!(!out.iter().any(|l| l.contains("2026-10-25")), "줄 제 기한을 댔다 — {out:?}");
+        assert!(out.iter().any(|l| l.contains("→ `moai due apply`")), "고칠 손이 없다 — {out:?}");
+    }
+
+    /// **일찍 나가는 묶음 갈래도 칠 줄을 싣는다**(리뷰) — 겹쳐 도는 마일스톤의 알림이 `moai ready` 를 드는데, 그 갈래가
+    /// 칠 줄 없이 나가 그 줄이 `--json` 에만 섰다.
+    #[test]
+    fn a_group_notice_keeps_its_hint_on_the_board() {
+        let now = "2026-10-16T00:00:00Z";
+        let stone = |id: &str| {
+            Issue::new(id.into(), format!("{id} 릴리스"), Kind::Milestone, Status::new("todo"), "2026-09-11T04:12:03Z")
+        };
+        let mut a = issue("argos-0001", "가", "in_progress");
+        a.milestone = Some("argos-m001".into());
+        let mut b = issue("argos-0002", "나", "in_progress");
+        b.milestone = Some("argos-m002".into());
+        let issues = vec![stone("argos-m001"), stone("argos-m002"), a, b];
+        let st = crate::report::status(&issues, &[], &cfg(), now, crate::tz::Zone::stored());
+        let w = st.notices.iter().find(|w| w.kind == "milestones_running").expect("겹쳐 도는 마일스톤 알림이 없다");
+        let by_id: BTreeMap<&str, &Issue> = issues.iter().map(|i| (i.id.as_str(), i)).collect();
+        let out = plain(&preview(w, &by_id, now, Screen::new(Lang::Ko)));
+        assert!(out.iter().any(|l| l.contains("→ `moai ready`")), "칠 줄이 보드에서 빠졌다 — {out:?}");
     }
 
     fn plain(lines: &[String]) -> Vec<String> {

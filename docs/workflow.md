@@ -107,11 +107,11 @@ read on a plan line only.
 
 A member's deadline cannot pass its epic's, nor an epic's its milestone's — the write
 is refused and names the day to give instead. As deadlines near, `moai due apply`
-raises the priority of each open, not deferred issue and backlog item by its own
-deadline (one day left or less — today and past included — is `p0`, two or less `p1`,
-seven or less `p2`) and notes why on the row; it never lowers one. An epic's deadline
-raises none of its members, so the day `--due` puts on an epic bounds the work without
-raising it. Nothing runs it for you — run it when `moai status` says rows lag their
+raises the priority of each open, not deferred issue and backlog item by the deadline
+it follows — the earliest of its own and those of its milestone, epic and open parent (one day
+left or less — today and past included — is `p0`, two or less `p1`, seven or less `p2`)
+and notes why on the row; it never lowers one. So the day `--due` puts on an epic bounds
+the work and raises its members as it nears. Nothing runs it for you — run it when `moai status` says rows lag their
 deadline. The thresholds and `due_priority = "off"` live in `.moai/config.toml`.
 
 - **Do not move an epic or a [milestone](glossary.md#milestone).** A
