@@ -6730,6 +6730,13 @@ fn config_json_fills_defaults_and_keeps_written_values() {
     let human = ok(s.path(), &["config"]);
     assert!(human.contains("statuses             = \"todo,wip,done\""), "{human}");
     assert!(human.contains("archive_days         = 5"), "{human}");
+    // 기한 규칙(moai-dr8a.cf1) — 안 적으면 켜져 있고 1·2·7 이다.
+    assert_eq!(
+        (&v["due_priority"], &v["due_p0_days"], &v["due_p1_days"], &v["due_p2_days"]),
+        (&serde_json::json!("auto"), &serde_json::json!(1), &serde_json::json!(2), &serde_json::json!(7)),
+        "{v}"
+    );
+    assert!(human.contains("due_priority         = \"auto\""), "{human}");
 }
 
 /// `show --json` 은 파일에 안 적힌 자리 셋을 낸다(moai-wk7i.rmc) — 물려받은 마일스톤, 계획에서 뺀 줄,

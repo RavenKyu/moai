@@ -3934,6 +3934,13 @@ pub fn config_trouble(lang: Lang, why: &crate::config::Trouble) -> String {
         Trouble::NamingUnknown { raw } => fill(
             say(lang, "config.naming_unknown"),
             &[("known", &crate::config::Naming::ALL.join("·")), ("raw", &quoted(raw))],
+        ),        Trouble::DueModeUnknown { raw } => fill(
+            say(lang, "config.due_mode_unknown"),
+            &[("known", &crate::config::DueRule::MODES.join("·")), ("raw", &quoted(raw))],
+        ),
+        Trouble::DueDaysOrder { p0, p1, p2 } => fill(
+            say(lang, "config.due_days_order"),
+            &[("p0", &p0.to_string()), ("p1", &p1.to_string()), ("p2", &p2.to_string())],
         ),
     }
 }

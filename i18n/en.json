@@ -1044,6 +1044,8 @@
   "config.no_done": "`statuses` must hold `{done}` — {raw}",
   "config.status_twice": "`statuses` holds `{status}` twice",
   "config.naming_unknown": "`naming` is one of {known} — {raw}",
+  "config.due_mode_unknown": "`due_priority` is one of {known} — {raw}",
+  "config.due_days_order": "the deadline thresholds must not shrink — `due_p0_days` {p0} <= `due_p1_days` {p1} <= `due_p2_days` {p2}",
   "held.outside": "it points at {to}, outside {home}. A file the repository holds follows a link only inside its own checkout",
   "held.into_git": "it points at {to}, inside git's own directory. A file the repository holds never follows a link into .git",
   "held.not_a_file": "it is not a regular file (a FIFO, a socket, a device or a directory)",
