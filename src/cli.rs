@@ -159,7 +159,8 @@ pub enum Cmd {
     /// What you can pick up now
     #[command(after_help = "  Epics themselves, deferred rows and what is under them, and parents with
   unfinished children are left out.
-  Urgent first, then epics near the end, then the oldest.
+  Urgent first, then what is inside a running milestone, then the earliest
+  deadline (none last), then epics near the end, then the oldest.
 
   Only your own rows are offered. A row that is someone else's or nobody's
   stands apart below - ask before you pick it up (`moai mv <id> <column>
@@ -236,15 +237,16 @@ BODY
 Several at once (`--from`):
 
 moai add --from - <<'PLAN'
-# Storage layer
-- [p1] write atomically #bug
+# Storage layer @2026-10-31
+- [p1] write atomically #bug @2026-10-20
 - recover a truncated line
 - \\[WIP] issue \\#12
 PLAN
 
   A `#` line is an epic, a `-` line is an issue of the epic above it.
-  [pN] and #tag are optional.
-  Put \\ in front of a leading [ or a trailing #word in a title.
+  [pN], #tag and @YYYY-MM-DD (the deadline) are optional. --due goes on
+  each epic the plan creates that carries no @date of its own.
+  Put \\ in front of a leading [, a trailing #word or @digit in a title.
   --dry-run keeps a heredoc typo from creating six wrong issues.
 
 Plan templates (`{{name}}` filled by --var, every variable required):
@@ -520,8 +522,9 @@ BACKLOG
   letter — only title (SPC s t) and tag (SPC c t) split one letter:
     SPC s p  priority            SPC s c  created            SPC s u  updated
     SPC s s  column              SPC s a  assignee           SPC s t  title
-    SPC s P, SPC s C, SPC s U, SPC s S, SPC s A, SPC s T  the same field
-             added at the end of the order [↑ asc/↓ desc]
+    SPC s w  due (when) — earliest first, no deadline last
+    SPC s P, SPC s C, SPC s U, SPC s S, SPC s A, SPC s T, SPC s W  the same
+             field added at the end of the order [↑ asc/↓ desc]
     SPC s e  edit the order in a window — described below
     SPC c i  id                  SPC c p  priority           SPC c a  assignee
     SPC c c  created             SPC c u  updated            SPC c n  counts
@@ -1301,7 +1304,7 @@ pub struct AddArgs {
     #[arg(long, value_name = "date")]
     pub start: Option<String>,
 
-    /// Deadline of a milestone, `YYYY-MM-DD` (milestone rows only)
+    /// Deadline, `YYYY-MM-DD` or `+N` days from today. Not past a parent
     #[arg(long, value_name = "date")]
     pub due: Option<String>,
 
@@ -1370,13 +1373,13 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   field decides only where the ones before it tie. The fields: priority
   (the default: urgent first), created and updated (newest first), status
   (the column order of .moai/config.toml), assignee (the name the screen
-  shows, unowned last), title (ignoring case), id. A field without a
-  direction keeps the one named here; :asc puts the smaller value first
-  (p0, the oldest, the first column, A) and :desc the larger - unowned
-  rows go first under assignee:desc. A field is given once. When every
-  field ties, a last field of created or updated falls to id alone, and
-  any other to priority, then id. --reverse turns the whole order around,
-  ties included.
+  shows, unowned last), title (ignoring case), due (the earliest deadline
+  first, none last), id. A field without a direction keeps the one named
+  here; :asc puts the smaller value first (p0, the oldest, the first
+  column, A) and :desc the larger - unowned or undated rows go first under
+  assignee:desc or due:desc. A field is given once. When every field ties,
+  a last field of created or updated falls to id alone, and any other to
+  priority, then id. --reverse turns the whole order around, ties included.
 
     moai show --sort priority,updated:desc
     moai show --sort status:asc,title
@@ -1437,6 +1440,9 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   so add status=done for what is closed now; done= keeps the meaning of
   --done. updated_at= with a single day is that day, where since= runs on
   from it. In the explorer (SPC f) a value right after = may be quoted.
+  due_on= is the row's own deadline, read as calendar days with both ends
+  in (2026-10-01~2026-10-05, ~2026-10-05, or one day); a row without one
+  falls in none. It is not a time item and opens nothing hidden.
 
     moai show --filter 'done_at=2026-10-03 00:00~2026-10-05 23:59'
     moai show -a raven -a joshep --filter started_at=2026-10-01~
@@ -1875,7 +1881,7 @@ pub struct EditArgs {
     #[arg(long, value_name = "date|none")]
     pub start: Option<String>,
 
-    /// Deadline of a milestone. `none` clears it
+    /// Deadline, a day or `+N` days. `none` clears it
     #[arg(long, value_name = "date|none")]
     pub due: Option<String>,
 }
