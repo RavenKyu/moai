@@ -10136,6 +10136,41 @@ fn pulling_a_parent_deadline_in_warns_about_the_children() {
     assert!(!ok(s.path(), &["status", "--json"]).contains("due_beyond_parent"), "닫은 줄을 셌다");
 }
 
+/// **기한으로 줄 세우고 거른다**(moai-ghkp.7uy) — `--sort due` 는 이른 것이 먼저고 기한 없는 줄이 뒤다.
+/// `due_on=` 은 달력의 날로 양 끝을 든다. `ready` 는 같은 `p` 안에서 기한이 이른 것을 먼저 낸다 — 읽을
+/// 때만 재고 저장하지 않는다.
+#[test]
+fn deadlines_order_and_filter_the_list() {
+    let s = init("duesort");
+    let late = add(s.path(), &["늦은 것", "--due", "2026-10-20"]);
+    let none = add(s.path(), &["기한 없음"]);
+    let soon = add(s.path(), &["이른 것", "--due", "2026-10-02"]);
+    let mid = add(s.path(), &["가운데", "--due", "2026-10-05"]);
+    let urgent = add(s.path(), &["급한 것", "-p", "0"]);
+
+    let ids = |out: &str| ids_in(out);
+    let sorted = ids(&ok(s.path(), &["show", "--sort", "due", "--json"]));
+    let pos = |id: &str| sorted.iter().position(|x| x == id).unwrap();
+    assert!(pos(&soon) < pos(&mid) && pos(&mid) < pos(&late) && pos(&late) < pos(&none), "{sorted:?}");
+
+    let picked = ids(&ok(s.path(), &["show", "--filter", "due_on=2026-10-01~2026-10-05", "--json"]));
+    assert_eq!(picked.len(), 2, "{picked:?}");
+    assert!(picked.contains(&soon) && picked.contains(&mid));
+    let one = ids(&ok(s.path(), &["show", "--filter", "due_on=2026-10-20", "--json"]));
+    assert_eq!(one, vec![late.clone()]);
+    let open = ids(&ok(s.path(), &["show", "--filter", "due_on=2026-10-03~", "--json"]));
+    assert!(open.contains(&mid) && open.contains(&late) && !open.contains(&soon) && !open.contains(&none));
+    for bad in ["due_on=어제", "due_on=2026-10-05~2026-10-01", "due_on=~"] {
+        assert!(!moai(s.path(), &["show", "--filter", bad]).status.success(), "{bad} 를 받았다");
+    }
+
+    // ready — 급한 것이 먼저고, 같은 p2 안에서는 기한이 이른 것이 먼저다.
+    let ready = ids(&ok(s.path(), &["ready", "--json"]));
+    let at = |id: &str| ready.iter().position(|x| x == id).unwrap_or_else(|| panic!("{id} 가 ready 에 없다 {ready:?}"));
+    assert!(at(&urgent) < at(&soon), "{ready:?}");
+    assert!(at(&soon) < at(&mid) && at(&mid) < at(&late) && at(&late) < at(&none), "{ready:?}");
+}
+
 /// **`--due +N` 은 오늘에서 N 일 뒤다**(moai-ghkp.kz7) — 저장하는 것은 날짜다. `+3` 을 그대로 두면
 /// 읽을 때마다 다른 날을 가리킨다. 오늘은 읽는 사람의 달이다: 서울의 아침은 UTC 로 아직 어제다.
 #[test]

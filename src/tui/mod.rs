@@ -3307,6 +3307,7 @@ impl App {
             keys::Order::Column => SortKey::Status,
             keys::Order::Assignee => SortKey::Assignee,
             keys::Order::Title => SortKey::Title,
+            keys::Order::Due => SortKey::Due,
         }
     }
 

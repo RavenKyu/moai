@@ -3799,6 +3799,7 @@ pub fn bad_filter_on(lang: Lang, why: &crate::query::BadFilter, on: Surface) -> 
         BadFilter::Endless(raw) => fill(say(lang, "refuse.filter_endless"), &[("raw", raw)]),
         BadFilter::Backwards(raw) => fill(say(lang, "refuse.filter_backwards"), &[("raw", raw)]),
         BadFilter::NotATime(raw) => fill(say(lang, "refuse.filter_not_a_time"), &[("raw", raw)]),
+        BadFilter::NotADay(raw) => fill(say(lang, "refuse.filter_not_a_day"), &[("raw", raw)]),
         BadFilter::NoTime => say(lang, "refuse.filter_no_time").to_string(),
         BadFilter::NotAPair(raw) => {
             fill(say(lang, "refuse.filter_not_a_pair"), &[("raw", raw), ("keys", &KEYS.join(", "))])

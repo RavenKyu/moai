@@ -4303,11 +4303,17 @@ impl<'a> Picking<'a> {
         // `p2` 밑으로 내려간다 — 핫픽스를 밖에서도 집기로 한 결정이 차례에서 도로 무너진다.
         // **에픽도 줄마다 묻는다**(리뷰, [`joined_in`]) — 지도를 곧바로 짚으면 같은 id 의 앞줄이
         // 뒷줄의 에픽으로 줄을 서, 화면이 대는 소속과 차례를 정하는 소속이 갈린다.
+        //
+        // **같은 `p` 안에서는 기한이 이른 것이 먼저다**(moai-ghkp.7uy, 2026-10-16 사용자 결정) — 기한 없는 줄은
+        // 뒤다. 읽을 때만 재고 저장하지 않는다: `moai due apply` 가 우선순위를 올리기 전의 틈을 이 차례가 메운다.
+        // 마일스톤 안인가보다 앞에 둔다 — 같은 `p` 의 두 줄 가운데 날이 박힌 쪽이 사람이 먼저 바란 것이다.
         let pct = |i: &Issue| group.at(i).and_then(|e| self.progress.get(e)).copied().unwrap_or(0);
+        let due = |i: &'a Issue| (i.due_on.is_none(), i.due_on.as_deref());
         out.sort_by(|a, b| {
             let (pa, pb) = (pct(a), pct(b));
             a.priority()
                 .cmp(&b.priority())
+                .then_with(|| due(a).cmp(&due(b)))
                 .then_with(|| inside(b).cmp(&inside(a)))
                 .then_with(|| pb.cmp(&pa))
                 .then_with(|| a.created_at.cmp(&b.created_at))

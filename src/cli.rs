@@ -520,8 +520,9 @@ BACKLOG
   letter — only title (SPC s t) and tag (SPC c t) split one letter:
     SPC s p  priority            SPC s c  created            SPC s u  updated
     SPC s s  column              SPC s a  assignee           SPC s t  title
-    SPC s P, SPC s C, SPC s U, SPC s S, SPC s A, SPC s T  the same field
-             added at the end of the order [↑ asc/↓ desc]
+    SPC s w  due (when) — earliest first, no deadline last
+    SPC s P, SPC s C, SPC s U, SPC s S, SPC s A, SPC s T, SPC s W  the same
+             field added at the end of the order [↑ asc/↓ desc]
     SPC s e  edit the order in a window — described below
     SPC c i  id                  SPC c p  priority           SPC c a  assignee
     SPC c c  created             SPC c u  updated            SPC c n  counts
@@ -1437,6 +1438,9 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   so add status=done for what is closed now; done= keeps the meaning of
   --done. updated_at= with a single day is that day, where since= runs on
   from it. In the explorer (SPC f) a value right after = may be quoted.
+  due_on= is the row's own deadline, read as calendar days with both ends
+  in (2026-10-01~2026-10-05, ~2026-10-05, or one day); a row without one
+  falls in none. It is not a time item and opens nothing hidden.
 
     moai show --filter 'done_at=2026-10-03 00:00~2026-10-05 23:59'
     moai show -a raven -a joshep --filter started_at=2026-10-01~
