@@ -6934,3 +6934,8 @@
 {"ts":"2026-10-16T17:09:50Z","id":"moai-wk3r","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-6d"}
 {"ts":"2026-10-16T17:09:50Z","id":"moai-royr","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moai-ghkp-ae"}
 {"ts":"2026-10-16T17:09:50Z","id":"moai-4d0z","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Plan: wk3r (6d) and royr (ghkp-ae) first, then rle0 and opdk to whoever finishes first. Coding by worker subagents on sonnet-5.5 medium, review opus-5.5 xhigh (person, 2026-10-16)."}
+{"ts":"2026-10-16T17:10:10Z","id":"moai-f6ao","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"편집기가 UTF-8 아닌 글로 저장해도 적은 글을 지우지 않는다"}
+{"ts":"2026-10-16T17:10:10Z","id":"moai-f6ao.3kn","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"읽기에 진 임시 파일을 남기고 경로를 알린다"}
+{"ts":"2026-10-16T17:10:10Z","id":"moai-f6ao","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"moai-wk3r 에서 펼쳤다 — 편집기가 UTF-8 아닌 글로 저장하면 읽기에 지고 적은 글을 지운다"}
+{"ts":"2026-10-16T17:10:10Z","id":"moai-wk3r","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-f6ao 로 펼쳤다 (이슈 1건)"}
+{"ts":"2026-10-16T17:10:20Z","id":"moai-f6ao.3kn","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
