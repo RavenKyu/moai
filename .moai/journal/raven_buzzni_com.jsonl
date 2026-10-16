@@ -6953,3 +6953,4 @@
 {"ts":"2026-10-16T17:19:04Z","id":"moai-f6ao.ir2","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-16T17:19:16Z","id":"moai-f6ao","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: epic-end review (code-review xhigh --fix, opus) running in background on .worktrees/moai-f6ao; take findings in, merge into milestone/moai-4d0z, close"}
 {"ts":"2026-10-16T17:20:56Z","id":"moai-4d0z","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Plan (person, 2026-10-16): once all four are merged, release v0.18.1 straight away."}
+{"ts":"2026-10-16T17:21:25Z","id":"moai-c12a","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Plan (person, 2026-10-16): release right after v0.18.1 (moai-4d0z) ships. Merge develop into milestone/moai-c12a, cargo test there, then the usual release flow; title follows bump-version --next."}
