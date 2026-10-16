@@ -6970,3 +6970,8 @@
 {"ts":"2026-10-16T17:36:49Z","id":"moai-f6ao","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: merged into milestone/moai-4d0z at c28c860d; branch worktree-moai-f6ao pushed and kept until the release. Backlog moai-vswi (signal deletes saved file) and moai-4i1i (BOM title) parked under this epic, not needed for its promise."}
 {"ts":"2026-10-16T17:37:09Z","id":"moai-f6ao","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: c28c860d in milestone/moai-4d0z, origin/worktree-moai-f6ao pushed, members closed"}
 {"ts":"2026-10-16T17:37:26Z","id":"moai-rle0","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-6d"}
+{"ts":"2026-10-16T17:37:57Z","id":"moai-cabg","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"codex_report_watch 시험을 세션 환경에서 떼어 낸다"}
+{"ts":"2026-10-16T17:37:57Z","id":"moai-cabg.m0k","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"보고 기다리기 시험이 BASH_ENV 를 걷는다"}
+{"ts":"2026-10-16T17:37:57Z","id":"moai-cabg","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"moai-rle0 에서 펼쳤다 — codex_report_watch 시험이 세션의 BASH_ENV 에 따라 진다"}
+{"ts":"2026-10-16T17:37:57Z","id":"moai-rle0","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-cabg 로 펼쳤다 (이슈 1건)"}
+{"ts":"2026-10-16T17:38:01Z","id":"moai-cabg.m0k","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
