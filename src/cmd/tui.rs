@@ -1133,9 +1133,11 @@ fn resume(term: &mut DefaultTerminal, mouse: bool) -> std::io::Result<()> {
 /// `text` 를 임시 파일에 적고 `editor` 로 연 뒤 **고친 글**을 돌려준다. `Err` 는 담지 않을
 /// 까닭이다 — 편집기가 0 이 아닌 코드로 끝났다(vim 의 `:cq`), 못 띄웠다, 못 읽었다.
 ///
-/// 파일은 **어느 길로든 지운다.** 받은 글은 이미 돌려주었고, 담기가 실패해도 그 글은 폼에
-/// 열린 채 남는다([`App::edited`]) — 파일에 둘 까닭이 없다. 편집기는 이 프로세스의 stdin·
-/// stdout 을 그대로 받는다. 기다리는 동안 Ctrl-C 가 신호로 오면(raw 로 돌지 않는 편집기)
+/// 파일은 **한 길만 빼고 지운다 — 편집기가 0 으로 끝났는데 못 읽은 때다**(moai-wk3r). 비 UTF-8
+/// 로 저장한 편집기(메모장 ANSI, vim `fenc=latin1`)에서는 그 파일이 적은 글의 **유일한 사본**이라,
+/// 남겨 두고 오류에 경로를 댄다(이미 0600). 파일이 없어졌으면(편집기가 지웠다) 댈 경로가 없다.
+/// 그 밖의 길에서는 받은 글은 이미 돌려주었고, 담기가 실패해도 그 글은 폼에 열린 채
+/// 남는다([`App::edited`]) — 파일에 둘 까닭이 없다. 편집기는 이 프로세스의 stdin·stdout 을 그대로 받는다. 기다리는 동안 Ctrl-C 가 신호로 오면(raw 로 돌지 않는 편집기)
 /// moai 도 같이 끝난다 — 터미널은 이미 내려 둔 채라 셸은 멀쩡하고, 파일 하나가 남는다.
 fn write_in_editor(editor: &str, text: &str, dir: &std::path::Path, lang: crate::i18n::Lang) -> Result<String, String> {
     use crate::i18n::{fill, say};
@@ -1146,6 +1148,7 @@ fn write_in_editor(editor: &str, text: &str, dir: &std::path::Path, lang: crate:
         scratch_file(dir).map_err(|e| fill(say(lang, "tui.editor_no_temp_file"), &[("why", &e.to_string())]))?;
     let written = file.write_all(text.as_bytes()).and_then(|()| file.sync_all());
     drop(file);
+    let mut keep = false;
     let got = written
         .map_err(|e| fill(say(lang, "tui.editor_no_write"), &[("why", &e.to_string())]))
         .and_then(|()| {
@@ -1155,12 +1158,21 @@ fn write_in_editor(editor: &str, text: &str, dir: &std::path::Path, lang: crate:
                 .map_err(|e| fill(say(lang, "tui.editor_not_started"), &[("editor", editor), ("why", &e.to_string())]))
         })
         .and_then(|status| match status.code() {
-            Some(0) => std::fs::read_to_string(&path)
-                .map_err(|e| fill(say(lang, "tui.editor_no_read"), &[("why", &e.to_string())])),
+            Some(0) => std::fs::read_to_string(&path).map_err(|e| {
+                keep = path.exists();
+                let why = e.to_string();
+                if keep {
+                    fill(say(lang, "tui.editor_no_read_kept"), &[("why", &why), ("path", &path.display().to_string())])
+                } else {
+                    fill(say(lang, "tui.editor_no_read"), &[("why", &why)])
+                }
+            }),
             Some(code) => Err(fill(say(lang, "tui.editor_exit"), &[("editor", editor), ("code", &code.to_string())])),
             None => Err(fill(say(lang, "tui.editor_signal"), &[("editor", editor)])),
         });
-    let _ = std::fs::remove_file(&path);
+    if !keep {
+        let _ = std::fs::remove_file(&path);
+    }
     got
 }
 
@@ -1789,6 +1801,20 @@ mod tests {
             .expect_err("없는 편집기인데 글을 돌려줬다");
         assert!(why.contains("127"), "{why}");
         assert_eq!(d.leftovers(), Vec::<String>::new());
+    }
+
+    /// **편집기가 0 으로 끝났는데 파일을 못 읽으면(비 UTF-8) 파일을 지우지 않고 오류에 경로를 댄다.**
+    /// 그 파일이 적은 글의 유일한 사본이다.
+    #[test]
+    fn an_unreadable_edit_keeps_the_file_and_names_it() {
+        let d = Dir::new("latin1");
+        let editor = d.editor("printf '\\377\\376x' > \"$2\"");
+        let why = write_in_editor(&editor, "", &d.0, crate::i18n::Lang::Ko).expect_err("못 읽었는데 글을 돌려줬다");
+        let left = d.leftovers();
+        assert_eq!(left.len(), 1, "파일이 안 남았다 — {left:?}");
+        let kept = d.0.join(&left[0]);
+        assert!(why.contains(&kept.display().to_string()), "경로를 안 댔다 — {why}");
+        assert_eq!(std::fs::read(&kept).unwrap(), b"\xff\xfex", "남은 파일의 바이트가 다르다");
     }
 
     /// **루프가 오류로 끝나며 버릴 뻔한 글은 파일로 남는다**(moai-y3r7). 편집기 글과 같은 모양이라
