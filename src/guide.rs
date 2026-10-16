@@ -764,8 +764,9 @@ const GROUPS: &str = r#"    moai epic add '<storage layer>'                an ep
 calendar day, `YYYY-MM-DD`, or `+N` days from today (stored as the day it lands on),
 and `moai edit <id> --due none` clears one. `--start` stands on a milestone row only.
 A milestone's deadline that has passed, and one falling due within `status_due_days`
-(3 unless your config says otherwise), is one warning line on the board; **nothing is
-blocked and the exit code never changes.**
+(3 unless your config says otherwise), is one warning line on the board, and so is
+an open issue or epic whose own deadline has passed (`overdue`); **nothing is blocked and
+the exit code never changes.**
 
 **A deadline cannot pass the one above it** — milestone, then epic, then parent. A
 write that gives a row a later day than the earliest of those, or moves a row that
@@ -777,7 +778,7 @@ own deadlines come in. `moai show --sort due` puts the nearest first, and
 
 **A near deadline raises priority, by one verb.** `moai due apply` (`--dry-run` shows it
 first) raises an open, not deferred issue or backlog item by the deadline it follows —
-the earliest of its own and those of the milestone, epic and parent it stands under. One
+the earliest of its own and those of the milestone, epic and open parent it stands under. One
 day left or less (today and past included) is `p0`, two or less `p1`, seven or less `p2`,
 and it leaves on the row a note `Due-priority: pX → pY (N days left, due D)` in the same
 write, ending in `from <id>` when the deadline was that row's. It only raises, never
@@ -2434,8 +2435,8 @@ carries none** — never required, always asked; the backlog's own is an answer 
 already gave. A day given as "in three days" you write as the day it lands on.
 It is `none` when neither stands — with `Person: away` there is nobody to ask, so it is
 the backlog's own `due_on` or `none`: a deadline is the person's, and you never make one
-up. The worker hangs it on the epic it unfolds, and the epic's deadline then bounds every
-member's without raising or reordering any of them.
+up. The worker hangs it on the epic it unfolds; the epic's deadline then bounds every
+member's, and `moai due apply` raises the members' priority as it nears.
 `<model>`, `<difficulty>` and `<why>` are the role's model you read in 2-1, the difficulty
 you measured and your reason; `<effort>` is that role's effort (2-1), the same value you pass
 to `Agent`. **Leave them unfilled** and those placeholders travel as they are, so the note
@@ -7429,22 +7430,35 @@ stop sending outside work while a release runs",
     }
 
     /// **기한은 계획과 같은 숨에 묻고, 답이 없으면 비운다**(moai-7bqy.a84). 글이지 게이트가 아니라 이 글이 빠지면
-    /// 아무것도 묻지 않는다 — 걷어도 초록이던 자리를 맨다. 혼자 만드는 줄의 `--due` 와, 에픽의 기한이 멤버를 안
+    /// 아무것도 묻지 않는다 — 걷어도 초록이던 자리를 맨다. 혼자 만드는 줄의 `--due` 와, 에픽의 기한이 멤버를
     /// 올린다는 말도 맨다: `--due` 는 계획이 짓는 에픽에만 서고 `moai due apply` 는 멤버가 조상의 기한도 따르게 읽어
-    /// (moai-dr8a.7rs), 그 말이 없으면 에픽의 기한이 멤버를 올리는지를 글에서 못 읽는다(리뷰).
+    /// (moai-dr8a.7rs), 그 말이 없으면 에픽의 기한이 멤버를 올리는지를 글에서 못 읽는다(리뷰). 감독의 `<due>` 글도 같은
+    /// 말을 해야 한다 — 한때 "에픽의 기한은 멤버를 안 올린다" 가 거기 남아 같은 스킬의 1 단계와 엇갈렸다.
     #[test]
     fn the_agents_block_asks_when_it_is_due() {
         let agents = agents();
         assert!(FORKS.contains("**Ask when it is due, in that same breath.**"), "갈림길 3 이 기한을 안 묻는다");
         assert!(FORKS.contains("**No answer, no deadline**"), "답이 없을 때 지어내지 말라는 말이 없다");
-        assert!(FORKS.contains("`--due` on `moai add` or `moai backlog add`"), "혼자 만드는 줄에 기한을 다는 길이 없다");
+        assert!(
+            FORKS.contains("`--due` on `moai add` or `moai backlog add`"),
+            "혼자 만드는 줄에 기한을 다는 길이 없다"
+        );
         assert!(agents.contains("ask when it is due in the same breath"), "기능 요청 2 단계가 기한을 안 묻는다");
         assert!(
             GROUPS.contains("`moai due apply`") && GROUPS.contains("puts on an epic raises its members as it nears"),
             "그룹 글이 에픽의 기한이 멤버를 올린다고 안 댄다"
         );
-        assert!(GROUPS.contains("**Within one `p` the nearer deadline comes first**, whether"), "ready 의 기한 차례가 두 마일스톤 줄에 묶였다");
+        assert!(
+            GROUPS.contains("**Within one `p` the nearer deadline comes first**, whether"),
+            "ready 의 기한 차례가 두 마일스톤 줄에 묶였다"
+        );
         assert!(backlog().contains("own deadline\ncomes over onto the epic"), "promote 가 기한을 데려간다는 말이 없다");
+        // 감독의 `<due>` 글도 같은 말을 한다(리뷰) — 옛 "안 올린다" 가 남으면 같은 스킬의 1 단계와 엇갈린다.
+        let supervise = supervise();
+        assert!(supervise.contains("raises the members' priority as it nears"), "감독의 <due> 글이 올린다고 안 댄다");
+        assert!(!supervise.contains("without raising"), "감독의 <due> 글에 옛 '안 올린다' 가 남았다");
+        // 지난 제 기한은 경고다(`overdue`) — Stop 이 그 수를 센다. 그룹 글이 마일스톤의 것만 댔다(리뷰).
+        assert!(GROUPS.contains("own deadline has passed (`overdue`)"), "그룹 글이 overdue 경고를 안 댄다");
     }
 
     /// **감독과 일꾼은 Claude Code 의 제 수단으로 말한다**(2026-10-06 사용자 결정, moai-obxm). moai 는 통신을 안 든다 —

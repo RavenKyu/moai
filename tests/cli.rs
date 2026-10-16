@@ -6759,7 +6759,12 @@ fn due_apply_raises_by_deadline_notes_it_and_writes_nothing_twice() {
     assert_eq!(issues(p), before, "미리 보기가 썼다");
     let row = |v: &serde_json::Value, i: usize| {
         let r = &v["raised"][i];
-        (r["id"].as_str().unwrap().to_string(), r["was"].as_u64().unwrap(), r["to"].as_u64().unwrap(), r["days_left"].as_i64().unwrap())
+        (
+            r["id"].as_str().unwrap().to_string(),
+            r["was"].as_u64().unwrap(),
+            r["to"].as_u64().unwrap(),
+            r["days_left"].as_i64().unwrap(),
+        )
     };
     assert_eq!((dry["due_priority"].as_str(), dry["dry_run"].as_bool()), (Some("auto"), Some(true)), "{dry}");
     assert_eq!(dry["raised"].as_array().unwrap().len(), 2, "{dry}");
@@ -6814,6 +6819,86 @@ fn due_apply_stops_without_a_person_only_when_it_would_write_and_off_changes_not
     assert!(ok(p, &["show", &id, "--json"]).contains(r#""priority":0"#), "꺼질 때 올린 값을 되돌렸다");
     assert!(ok(p, &["show", &late, "--json"]).contains(r#""priority":2"#));
     assert!(ok(p, &["due", "apply"]).contains("꺼져 있다"));
+}
+
+/// **올릴 것이 없으면 정말 아무것도 안 쓴다**(리뷰) — 쓰기 길에 들던 판은 손으로 푼 스냅샷(적힌 기본 우선순위, 차례가
+/// 틀린 태그)을 정규화해 다시 쓰며 "올릴 것이 없다" 고 말했다. 감독이 회차마다 치는 동사라, 아무도 모를 diff 가 루트에
+/// 남는다. 누군지 모르는 기계에서도 같다.
+#[test]
+fn due_apply_with_nothing_to_raise_leaves_a_hand_merged_snapshot_alone() {
+    let s = init("duenoop");
+    let p = s.path();
+    let id = add(p, &["멀다", "--due", "2026-12-01"]);
+    let hand = issues(p)
+        .replace(&format!(r#""id":"{id}","#), &format!(r#""id":"{id}","priority":2,"tags":["zeta","alpha"],"#));
+    assert_ne!(hand, issues(p), "전제: 손으로 푼 줄을 못 지었다");
+    std::fs::write(p.join(".moai/issues.jsonl"), &hand).unwrap();
+    for args in [&["due", "apply"][..], &["due", "apply", "--json"]] {
+        let out = without_user(p, args);
+        assert!(out.status.success(), "{args:?}: {}", String::from_utf8_lossy(&out.stderr));
+        assert_eq!(issues(p), hand, "{args:?}: 올릴 것이 없는데 스냅샷을 다시 썼다");
+    }
+}
+
+/// **쓰기가 거절할 줄은 안 올리고, 다른 줄은 그대로 올린다**(리뷰) — 손으로 푼 틀린 제 기한을 든 멤버는 기한 없는 줄로
+/// 읽혀 에픽의 기한을 따라 올릴 줄에 들었고, 쓰기의 검사가 그 줄에서 쓰기를 통째로 물려 같은 에픽의 멤버를 회차마다
+/// 하나도 못 올렸다. 보드도 그 줄로 `moai due apply` 를 시키지 않는다 — 시켜도 늘 거기서 멈춘다.
+#[test]
+fn due_apply_skips_a_row_the_write_would_refuse() {
+    let s = init("duebroken");
+    let p = s.path();
+    // NOW 는 2026-09-11 이다 — 에픽의 기한까지 하루.
+    let epic = field(&ok(p, &["epic", "add", "기한 든 에픽", "--due", "2026-09-12", "--json"]), "id");
+    let clean = add(p, &["멀쩡한 멤버", "-e", &epic]);
+    let broken = add(p, &["손으로 푼 멤버", "-e", &epic]);
+    let hand = issues(p)
+        .replace(&format!(r#""id":"{broken}","#), &format!(r#""id":"{broken}","due_on":"2026-10-05T00:00:00Z","#));
+    assert_ne!(hand, issues(p), "전제: 손으로 푼 줄을 못 지었다");
+    std::fs::write(p.join(".moai/issues.jsonl"), &hand).unwrap();
+    let done: serde_json::Value = serde_json::from_str(&ok(p, &["due", "apply", "--json"])).unwrap();
+    let raised: Vec<&str> = done["raised"].as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
+    assert_eq!(raised, [clean.as_str()], "{done}");
+    let prio = |id: &str| -> u64 {
+        let v: serde_json::Value = serde_json::from_str(&ok(p, &["show", id, "--json"])).unwrap();
+        v["priority"].as_u64().unwrap()
+    };
+    assert_eq!((prio(&clean), prio(&broken)), (0, 2), "멀쩡한 멤버가 안 올랐거나 손으로 푼 줄을 고쳤다");
+    let board = ok(p, &["status", "--json"]);
+    assert!(!board.contains("due_priority_behind"), "보드가 늘 멈출 동사를 시킨다 — {board}");
+}
+
+/// **닫힌 부모의 지난 기한은 안 따른다**(리뷰) — 끝난 일 밑에 뒤늦게 세운 후속 일이 그 기한으로 `p0` 에 서고(`ready` 의
+/// 급한 자리를 차지한다), 손으로 내려도 다음 회차가 도로 올렸다. 그 줄은 더 늦은 제 기한도 못 받아(부모를 넘는다)
+/// 빠져나갈 길이 부모의 기한을 지우는 것뿐이었다.
+#[test]
+fn due_apply_does_not_follow_a_closed_parent() {
+    let s = init("dueclosed");
+    let p = s.path();
+    let parent = add(p, &["제때 끝낸 일", "--due", "2026-09-05"]);
+    ok(p, &["mv", &parent, "done"]);
+    let child = add(p, &["뒤늦게 찾은 후속", "--parent", &parent, "-p", "3"]);
+    let dry: serde_json::Value = serde_json::from_str(&ok(p, &["due", "apply", "--dry-run", "--json"])).unwrap();
+    assert_eq!(dry["raised"], serde_json::json!([]), "{dry}");
+    let board = ok(p, &["status", "--json"]);
+    assert!(!board.contains("due_priority_behind"), "닫힌 부모의 기한으로 알렸다 — {board}");
+    let v: serde_json::Value = serde_json::from_str(&ok(p, &["show", &child, "--json"])).unwrap();
+    assert_eq!(v["priority"], 3);
+}
+
+/// **`moai tui --json` 의 알림 수도 `moai status` 와 같다**(moai-dr8a.rl4, 리뷰) — 기한에 뒤처진 우선순위는 날 판정에
+/// 닿아 셈에 안 접히므로, 든 수만 내던 판은 그 알림을 빼고 층의 `+N`·보드보다 하나 적게 댔다.
+#[test]
+fn the_project_layer_json_counts_a_priority_behind_its_deadline() {
+    let s = init("layer-due-behind");
+    add(s.path(), &["내일까지", "--due", "2026-09-12"]);
+    let board: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    let notices = board["notices"].as_array().unwrap();
+    assert!(notices.iter().any(|w| w["kind"] == "due_priority_behind"), "전제: 보드가 안 알렸다 — {board}");
+    let out = Scratch::new("layer-due-behind-outside");
+    let cfg = registry(&out, &[s.path()]);
+    let seen = staged(&["tui", "--json"]).current_dir(out.path()).env("MOAI_CONFIG", &cfg).output().unwrap();
+    let layer: serde_json::Value = serde_json::from_slice(&seen.stdout).expect("tui --json");
+    assert_eq!(layer["projects"][0]["notices"], notices.len(), "{layer}\n{board}");
 }
 
 /// `show --json` 은 파일에 안 적힌 자리 셋을 낸다(moai-wk7i.rmc) — 물려받은 마일스톤, 계획에서 뺀 줄,

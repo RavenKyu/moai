@@ -1870,7 +1870,7 @@ fn banner_parts(app: &App) -> Option<(String, bool, Option<std::ops::Range<usize
     // 낱말로 부르면 오가는 사람이 둘을 다 배워야 한다. `+` 가 글에 들어 경고의 `!` 와 갈린다.
     // **급한 것이 아니라** `urgent` 를 안 세운다 — 담아 둔 것과 설치가 어긋난 것이지 고칠 계획이
     // 아니다(`view::status` 의 "알림만 있는 것은 문제 없다" 와 같은 자).
-    let notices = app.site.warnings.notices(app.site.notices, &app.site.now, &app.zone);
+    let notices = noticed(app, &app.site.warnings, app.site.notices);
     if notices > 0 {
         parts.push(fill(say(lang, "tui.place.notices"), &[("n", &notices.to_string())]));
         // **급한 줄로 안 센다**(리뷰) — 이 줄만 선 배너에 아래의 `!` 가 붙던 때는 `! + 알림 3건`
@@ -4571,7 +4571,7 @@ fn place_line<'a>(app: &App, at: usize, budget: usize) -> Line<'a> {
             // (`view::status`). `!` 를 달면 설치가 어긋난 것이 고칠 계획으로 읽히고, 글자 없이
             // `+` 만 달면 하나인지 셋인지를 들어가 봐야 안다. 낱말은 안 붙인다 — 이 줄은 80칸에서
             // 이미 이름·칸·경로로 차 있다.
-            let notices = sum.warnings.notices(sum.notices, &app.site.now, &app.zone);
+            let notices = noticed(app, &sum.warnings, sum.notices);
             if notices > 0 {
                 spans.push(Span::styled(format!(" +{notices}"), dim()));
             }
@@ -4618,6 +4618,13 @@ fn place_line<'a>(app: &App, at: usize, budget: usize) -> Line<'a> {
 /// 서명이 `&Summary` 였던 까닭은 시험 전용 import 하나였다 — 그 `#[cfg(test)]` 를 걷었다.
 fn surfaced(app: &App, counted: &Surfaced) -> usize {
     counted.count(&app.site.now, &app.zone)
+}
+
+/// **알림의 수** — [`surfaced`] 의 짝이다(moai-dr8a.rl4). 든 알림 수(`free`)에 이 프레임의 달로 잰 기한 알림을 더한다.
+/// 시계를 고르는 자리를 [`surfaced`] 곁에 둔다(리뷰) — 그리는 쪽마다 `(site.now, zone)` 짝을 고르면, 그 시계를 바꾸는
+/// 날 자정을 넘긴 화면에서 `!N` 과 `+N` 이 다른 날로 잰다(moai-ynd6 가 경고 쪽에서 걷어 낸 그 증상이다).
+fn noticed(app: &App, counted: &Surfaced, free: usize) -> usize {
+    counted.notices(free, &app.site.now, &app.zone)
 }
 
 /// 못 여는 프로젝트의 색 — CLI 한눈 보기(`view::unopened`)와 같은 무게다. init 전은
@@ -4724,7 +4731,7 @@ fn place_about<'a>(app: &App, at: usize, w: usize) -> Vec<Line<'a>> {
             //
             // **감아 낸다**(위의 `stranded` 와 같은 자) — 80칸 창의 상세는 안쪽 폭이 30 뿐이라,
             // 자르면 정작 몇 건인지가 잘려 나간다.
-            let notices = sum.warnings.notices(sum.notices, &app.site.now, &app.zone);
+            let notices = noticed(app, &sum.warnings, sum.notices);
             if notices > 0 {
                 let said = fill(say(lang, "tui.place.notices"), &[("n", &notices.to_string())]);
                 out.extend(wrapped(&said, w, dim()));

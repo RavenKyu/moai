@@ -474,8 +474,8 @@ carries none** — never required, always asked; the backlog's own is an answer 
 already gave. A day given as "in three days" you write as the day it lands on.
 It is `none` when neither stands — with `Person: away` there is nobody to ask, so it is
 the backlog's own `due_on` or `none`: a deadline is the person's, and you never make one
-up. The worker hangs it on the epic it unfolds, and the epic's deadline then bounds every
-member's without raising or reordering any of them.
+up. The worker hangs it on the epic it unfolds; the epic's deadline then bounds every
+member's, and `moai due apply` raises the members' priority as it nears.
 `<model>`, `<difficulty>` and `<why>` are the role's model you read in 2-1, the difficulty
 you measured and your reason; `<effort>` is that role's effort (2-1), the same value you pass
 to `Agent`. **Leave them unfilled** and those placeholders travel as they are, so the note

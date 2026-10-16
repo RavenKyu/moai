@@ -374,12 +374,16 @@ impl DueRule {
     fn parse(es: &[Entry<'_>]) -> Result<DueRule, Trouble> {
         // **테이블 안에 적은 줄은 소리낸다** — [`Thresholds::check_keys`] 와 같은 까닭이다. 이 파서는 테이블을 안
         // 읽으므로 `[due]` 밑의 `priority = "off"` 는 조용히 안 먹고, 끄려던 사람은 왜 안 꺼지는지 모른다.
+        //
+        // **소리내는 것은 아는 키뿐이다**(리뷰) — `check_keys` 가 `[status]` 밑의 모르는 키를 넘기는 것과 같은 자다.
+        // `[due]` 밑의 키를 다 막던 판은 모르는 키 하나(`calendar = "kr"`)로 모든 명령을 세우고, 아무도 안 읽는
+        // `due_calendar` 를 맨 위에 적으라고 했다 — 옛 바이너리는 그 파일을 그대로 읽는다.
         for e in es {
             let Some(table) = e.table else { continue };
             let flat = format!("due_{}", e.key);
             let named = if DueRule::KEYS.contains(&e.key) {
                 e.key.to_string()
-            } else if table == "due" {
+            } else if table == "due" && DueRule::KEYS.contains(&flat.as_str()) {
                 flat
             } else {
                 continue;
@@ -394,14 +398,16 @@ impl DueRule {
                 None => return Err(Trouble::DueModeUnknown { raw }),
             },
         };
-        let r = DueRule {
-            auto,
-            p0_days: days(es, "due_p0_days", d.p0_days)?,
-            p1_days: days(es, "due_p1_days", d.p1_days)?,
-            p2_days: days(es, "due_p2_days", d.p2_days)?,
-        };
-        // **차례가 어긋난 문턱은 거절한다** — `p1` 이 `p0` 보다 좁으면 그 칸은 영영 안 서고, 고친 사람은 왜 `p1` 으로
-        // 안 오르는지 화면에서 못 읽는다. 같은 값은 받는다: 그 칸을 접는 뜻이다.
+        let written = |key| Ok::<_, Trouble>(number::<u32>(es, key, Want::Whole)?.map(i64::from));
+        let (w0, w1, w2) = (written("due_p0_days")?, written("due_p1_days")?, written("due_p2_days")?);
+        // **안 적은 문턱은 적은 문턱을 따라 비킨다**(리뷰) — `due_p0_days = 3` 하나만 적은 사람은 기본 `p1` 2 와
+        // 어긋나려던 것이 아니다. 비키지 않으면 그 한 줄이 훅까지 모든 명령을 세운다.
+        let p0_days = w0.unwrap_or_else(|| d.p0_days.min(w1.or(w2).unwrap_or(i64::MAX)));
+        let p1_days = w1.unwrap_or_else(|| d.p1_days.max(p0_days).min(w2.unwrap_or(i64::MAX)));
+        let p2_days = w2.unwrap_or_else(|| d.p2_days.max(p1_days));
+        let r = DueRule { auto, p0_days, p1_days, p2_days };
+        // **적은 문턱끼리 차례가 어긋나면 거절한다** — `p1` 이 `p0` 보다 좁으면 그 칸은 영영 안 서고, 고친 사람은 왜
+        // `p1` 으로 안 오르는지 화면에서 못 읽는다. 같은 값은 받는다: 그 칸을 접는 뜻이다.
         if !(r.p0_days <= r.p1_days && r.p1_days <= r.p2_days) {
             return Err(Trouble::DueDaysOrder { p0: r.p0_days, p1: r.p1_days, p2: r.p2_days });
         }
@@ -813,8 +819,6 @@ status_due_days      = 17
         assert_eq!(t.due_days, 17, "status_due_days 가 안 먹는다");
     }
 
-    /// **아카이브 날수는 안 적으면 두 주, `0` 이면 끈다**(moai-47mz). 테이블 안에 적으면 문턱처럼 소리낸다 —
-    /// 이 파서는 테이블을 안 읽어, 넘기면 그 값이 영영 안 먹는다.
     /// 기한 규칙(moai-dr8a.cf1) — 안 적으면 켜져 있고 1·2·7 이다. 적은 값이 그대로 서고, 끄는 낱말은 `off` 다.
     #[test]
     fn the_due_rule_defaults_to_auto_and_reads_what_is_written() {
@@ -826,6 +830,16 @@ status_due_days      = 17
         assert_eq!((c.due.mode(), DueRule::DEFAULT.mode()), ("off", "auto"));
         // 같은 값은 받는다 — 그 칸을 접는 뜻이다.
         assert_eq!(parse("due_p1_days = 1\n").unwrap().due.p1_days, 1);
+        // 안 적은 문턱은 적은 것을 따라 비킨다 — 한 줄만 적은 설정이 모든 명령을 세우지 않는다(리뷰).
+        let due = |s: &str| {
+            let r = parse(s).unwrap().due;
+            (r.p0_days, r.p1_days, r.p2_days)
+        };
+        assert_eq!(due("due_p0_days = 3\n"), (3, 3, 7));
+        assert_eq!(due("due_p0_days = 9\n"), (9, 9, 9));
+        assert_eq!(due("due_p2_days = 1\n"), (1, 1, 1));
+        assert_eq!(due("due_p2_days = 0\n"), (0, 0, 0));
+        assert_eq!(due("due_p1_days = 5\n"), (1, 5, 7));
     }
 
     /// 모르는 낱말·어긋난 차례·테이블 안에 적은 키는 **조용히 넘기지 않는다** — 넘기면 끄려던 사람이 왜 안 꺼지는지 모른다.
@@ -833,8 +847,8 @@ status_due_days      = 17
     fn the_due_rule_refuses_what_would_not_take() {
         let parse = |s: &str| Config::parse(&format!("prefix = \"a\"\n{s}")).unwrap_err();
         assert_eq!(parse("due_priority = \"Off\"\n"), Trouble::DueModeUnknown { raw: "Off".into() });
-        assert_eq!(parse("due_p0_days = 3\n"), Trouble::DueDaysOrder { p0: 3, p1: 2, p2: 7 });
-        assert_eq!(parse("due_p2_days = 1\n"), Trouble::DueDaysOrder { p0: 1, p1: 2, p2: 1 });
+        assert_eq!(parse("due_p0_days = 3\ndue_p1_days = 2\n"), Trouble::DueDaysOrder { p0: 3, p1: 2, p2: 7 });
+        assert_eq!(parse("due_p1_days = 3\ndue_p2_days = 1\n"), Trouble::DueDaysOrder { p0: 1, p1: 3, p2: 1 });
         assert!(matches!(parse("due_p1_days = -1\n"), Trouble::NotANumber { .. }));
         assert!(matches!(parse("due_priority = off\n"), Trouble::NotQuoted { .. }));
         for (src, named) in [
@@ -846,8 +860,14 @@ status_due_days      = 17
         }
         // 다른 테이블의 같은 낱말은 남의 것이다.
         assert!(Config::parse("prefix = \"a\"\n[models]\npriority = \"x\"\n").is_ok());
+        // `[due]` 밑의 **모르는 키**도 남의 것이다 — 아는 이름(`due_<키>`)이 아니면 소리낼 까닭이 없고, 막으면 옛
+        // 바이너리가 읽는 파일 하나로 모든 명령이 선다(리뷰).
+        let kept = Config::parse("prefix = \"a\"\n[due]\ncalendar = \"kr\"\n").expect("[due] 의 모르는 키에 섰다");
+        assert_eq!(kept.due, DueRule::DEFAULT);
     }
 
+    /// **아카이브 날수는 안 적으면 두 주, `0` 이면 끈다**(moai-47mz). 테이블 안에 적으면 문턱처럼 소리낸다 —
+    /// 이 파서는 테이블을 안 읽어, 넘기면 그 값이 영영 안 먹는다.
     #[test]
     fn archive_days_defaults_to_two_weeks() {
         assert_eq!(Config::parse("prefix = \"a\"\n").unwrap().archive_days, ARCHIVE_DAYS);

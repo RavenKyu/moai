@@ -15,8 +15,9 @@ them, so where they differ the help wins.
 calendar day, `YYYY-MM-DD`, or `+N` days from today (stored as the day it lands on),
 and `moai edit <id> --due none` clears one. `--start` stands on a milestone row only.
 A milestone's deadline that has passed, and one falling due within `status_due_days`
-(3 unless your config says otherwise), is one warning line on the board; **nothing is
-blocked and the exit code never changes.**
+(3 unless your config says otherwise), is one warning line on the board, and so is
+an open issue or epic whose own deadline has passed (`overdue`); **nothing is blocked and
+the exit code never changes.**
 
 **A deadline cannot pass the one above it** — milestone, then epic, then parent. A
 write that gives a row a later day than the earliest of those, or moves a row that
@@ -28,7 +29,7 @@ own deadlines come in. `moai show --sort due` puts the nearest first, and
 
 **A near deadline raises priority, by one verb.** `moai due apply` (`--dry-run` shows it
 first) raises an open, not deferred issue or backlog item by the deadline it follows —
-the earliest of its own and those of the milestone, epic and parent it stands under. One
+the earliest of its own and those of the milestone, epic and open parent it stands under. One
 day left or less (today and past included) is `p0`, two or less `p1`, seven or less `p2`,
 and it leaves on the row a note `Due-priority: pX → pY (N days left, due D)` in the same
 write, ending in `from <id>` when the deadline was that row's. It only raises, never
