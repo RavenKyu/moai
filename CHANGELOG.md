@@ -19,6 +19,15 @@ does not tag — see `CONTRIBUTING.md`.
   `fenc=latin1`, moai could not read the file and then deleted it — the only copy.
   It now keeps that file (readable by you alone), names its path at the front of
   the message, and prints the path once more on the shell when the explorer quits.
+- **Hook rule 4 no longer lets `tmux -L …` through inside `cmux claude-teams`.**
+  There `$TMUX` is cmux's stand-in (`/tmp/cmux-…`) and the `tmux` on `PATH` is
+  cmux's shim, which drops `-L`, `-S` and `-f`: `env -u TMUX tmux -L x
+  kill-session` closed a workspace in the person's cmux. Under the stand-in,
+  rule 4 now refuses the shim's `kill-server`, `kill-session`, `kill-window`,
+  `kill-pane` and `new-session` (aliases, prefixes, flag clusters and `\;`
+  sequences included) whatever socket the line names, and the refusal hands the
+  same line on the real tmux's absolute path. Outside cmux nothing changes.
+  (moai-e7vm)
 
 ## [0.18.0] - 2026-10-16
 
