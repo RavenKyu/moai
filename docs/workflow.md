@@ -89,6 +89,24 @@ A plan is markdown: `# Epic title` opens an epic and `- [p1] issue title #tag`
 puts an issue under it. Each issue gets an id under the epic's own,
 `<epic>.<body>`, so a [member](glossary.md#member) cannot leave its epic later.
 
+Ask the person when it is due in the same breath as the plan. A
+[deadline](glossary.md#deadline) is never required, but always asked about; with no
+answer, leave it empty rather than make one up. The answer goes at the end of the line
+it belongs to, and `--due` covers every epic the plan creates that has no `@` of its own:
+
+    moai add --from - --due +14 <<'PLAN'
+    # Storage layer @2026-10-31
+    - [p1] write atomically #bug @2026-10-20
+    - recover a truncated line
+    PLAN
+
+A member's deadline cannot pass its epic's, nor an epic's its milestone's — the write
+is refused and names the day to give instead. As deadlines near, `moai due apply`
+raises the priority of each open issue and backlog item by its own deadline (one day
+left or past is `p0`, two is `p1`, seven is `p2`) and notes why on the row; it never
+lowers one. Nothing runs it for you — run it when `moai status` says rows lag their
+deadline. The thresholds and `due_priority = "off"` live in `.moai/config.toml`.
+
 - **Do not move an epic or a [milestone](glossary.md#milestone).** A
   [group](glossary.md#group)'s column is read from its members: pick one member
   up and the group stands `in_progress`, finish them all and it stands `done`

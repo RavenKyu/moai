@@ -11,12 +11,31 @@ them, so where they differ the help wins.
     moai show <epic|milestone id>                  what stands under it
     moai show --milestone <id>                     everything attached to that milestone
 
-**A milestone is the one row that carries dates.** `--start` and `--due` take a
-calendar day, `YYYY-MM-DD`, and `moai edit <milestone> --due none` clears one.
-They stand on a milestone row only — on anything else the write is refused. A
-deadline that has passed, and one falling due within `status_due_days` (3 unless
-your config says otherwise), is one warning line on the board; **nothing is
+**Any row can carry a deadline; only a milestone carries a start.** `--due` takes a
+calendar day, `YYYY-MM-DD`, or `+N` days from today (stored as the day it lands on),
+and `moai edit <id> --due none` clears one. `--start` stands on a milestone row only.
+A milestone's deadline that has passed, and one falling due within `status_due_days`
+(3 unless your config says otherwise), is one warning line on the board; **nothing is
 blocked and the exit code never changes.**
+
+**A deadline cannot pass the one above it** — milestone, then epic, then parent. A
+write that gives a row a later day than the earliest of those is refused, and the
+refusal names the day to give instead. Pulling the one above in is never refused: the
+rows it overtakes are named in one line on stderr and stand as `due_beyond_parent` on
+the board until you move them. `moai show --sort due` puts the nearest first, and
+`--filter due_on=<from>~<to>` picks rows by their own deadline.
+
+**A near deadline raises priority, by one verb.** `moai due apply` (`--dry-run` shows it
+first) raises an open, not deferred issue or backlog item by its own deadline — one day
+left or past is `p0`, two is `p1`, seven is `p2` — and leaves on the row a note
+`Due-priority: pX → pY (N days left, due D)` in the same write. It only raises, never
+lowers, so the value a person set is never fought over and the old one stays in that
+note. A deadline is not inherited here: a milestone's deadline raises none of its
+members. Reading never writes, so nothing raises by itself — when `moai status` says
+rows lag their deadline, run `moai due apply`. The thresholds are `due_p0_days`,
+`due_p1_days` and `due_p2_days` in `.moai/config.toml` (1, 2 and 7), and
+`due_priority = "off"` stops future raises. A row raised to `p0` outside a running
+milestone takes the hotfix slot in `moai ready` — that is the point of raising it.
 
 **`moai show <milestone>` also says how long it took.** That is read from the
 closed members' start and finish right then — no field holds it. It comes with
