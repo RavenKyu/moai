@@ -163,14 +163,6 @@ pub(crate) fn tell_after(line: String) {
     AFTER.lock().unwrap_or_else(|e| e.into_inner()).push(line);
 }
 
-/// `none` 은 "비운다" 는 뜻이다. 제목이 `none` 인 이슈를 만들 일은 없다.
-/// `add` 와 `edit` 이 같은 낱말을 써야 한다 — 한쪽만 알면 방금 만든 이슈를
-/// 같은 말로 비우지 못한다.
-///
-/// **`none` 만 본다.** 빈 값이나 앞뒤 공백까지 여기서 접으면 `-e ""` 가 거절에서
-/// 비우기로, `-e " <id> "` 가 거절에서 통과로 조용히 바뀐다 — 담당 때문에 옮긴
-/// 헬퍼가 에픽·마일스톤의 뜻을 같이 바꾸는 것은 범위 밖이다. 담당 쪽 공백은
-/// `model::split_assignee` 가 접는다.
 /// `--due` 에 친 값 — `+N` 이면 **오늘에서 N 일 뒤**의 날짜로 바꾼다(moai-ghkp.kz7, [`crate::model::relative_due`]).
 /// 오늘은 읽는 사람의 달이다 — 보드가 남은 날수를 재는 그 달이라야 `+1` 이 "내일" 로 선다.
 ///
@@ -183,6 +175,14 @@ pub fn due_arg(ctx: &Ctx, v: &str, now: &str) -> String {
     }
 }
 
+/// `none` 은 "비운다" 는 뜻이다. 제목이 `none` 인 이슈를 만들 일은 없다.
+/// `add` 와 `edit` 이 같은 낱말을 써야 한다 — 한쪽만 알면 방금 만든 이슈를
+/// 같은 말로 비우지 못한다.
+///
+/// **`none` 만 본다.** 빈 값이나 앞뒤 공백까지 여기서 접으면 `-e ""` 가 거절에서
+/// 비우기로, `-e " <id> "` 가 거절에서 통과로 조용히 바뀐다 — 담당 때문에 옮긴
+/// 헬퍼가 에픽·마일스톤의 뜻을 같이 바꾸는 것은 범위 밖이다. 담당 쪽 공백은
+/// `model::split_assignee` 가 접는다.
 pub fn clearable(v: &str) -> Option<String> {
     (v != "none").then(|| v.to_string())
 }

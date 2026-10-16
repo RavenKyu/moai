@@ -1299,7 +1299,7 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
 ///
 /// **[`Screen`] 이 아니라 말만 받는다**(리뷰) — 셈을 글로 옮기는 것뿐이라 겹침을 볼 일이 없다.
 /// 그리기 맥락을 통째로 받으면 이 두 줄이 옆 워크트리에 매인 것으로 읽힌다.
-fn more_of(rest: usize, lang: Lang) -> String {
+pub(crate) fn more_of(rest: usize, lang: Lang) -> String {
     fill(say(lang, "status.more"), &[("n", &rest.to_string())])
 }
 
@@ -2133,11 +2133,7 @@ pub fn due_of(i: &Issue, now: &str, z: &crate::tz::Zone, lang: Lang) -> Option<D
         Kind::Milestone => format!("{} → {}", start.unwrap_or(dash), due.unwrap_or(dash)),
         _ => due.unwrap_or(dash).to_string(),
     };
-    Some(Due {
-        span,
-        left: left.map(|d| due_tail(d, lang)),
-        past: left.is_some_and(|d| d < 0),
-    })
+    Some(Due { span, left: left.map(|d| due_tail(d, lang)), past: left.is_some_and(|d| d < 0) })
 }
 
 /// 종료 기한까지 남은 날수를 낱말로 — 지났으면 지난 날수다(`left` 가 음수).
@@ -3301,10 +3297,15 @@ fn invalid_at(lang: Lang, at: &str, why: &crate::model::Invalid) -> String {
         Invalid::DateNotMilestone { id, field: f } => {
             fill(say(lang, "invalid.date_not_milestone"), &[("id", id), ("field", field(f))])
         }
-        Invalid::DueBeyond { due, above, above_due } => fill(
-            say(lang, "invalid.due_beyond"),
-            &[("due", due), ("above", above), ("above_due", above_due)],
-        ),
+        Invalid::DueBeyond { due, above, above_new, above_due } => {
+            // 이번 쓰기가 짓는 조상은 제목으로 가리킨다 — 거절당한 줄 자신을 가리키는 말(`invalid.unwritten`)과
+            // 같은 자다(moai-1rkl, 리뷰). 그 id 는 거절 뒤에 어디에도 안 남는다.
+            let above = match above_new {
+                true => fill(say(lang, "invalid.unwritten"), &[("title", above)]),
+                false => above.clone(),
+            };
+            fill(say(lang, "invalid.due_beyond"), &[("due", due), ("above", &above), ("above_due", above_due)])
+        }
         Invalid::DateOrder { starts_on, due_on } => {
             fill(say(lang, "invalid.date_order"), &[("starts_on", starts_on), ("due_on", due_on)])
         }
@@ -4163,6 +4164,7 @@ mod tests {
             BadFilter::Endless("..".into()),
             BadFilter::Backwards("2026-09-03..2026-09-02".into()),
             BadFilter::NotATime("yesterday".into()),
+            BadFilter::NotADay("yesterday".into()),
             BadFilter::NoTime,
             BadFilter::NotAPair("todo".into()),
             BadFilter::NoSuchKey("statu".into()),

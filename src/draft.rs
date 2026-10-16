@@ -17,8 +17,8 @@
 //! **기한은 줄 끝의 `@YYYY-MM-DD` 하나다**(moai-ghkp.u1w) — 태그와 섞여 끝쪽에 선다. `@` 뒤가
 //! 숫자일 때만 기한으로 읽는다: `@raven` 같은 끝 낱말은 제목이다. 꼴이 틀리면 줄 번호와 거절한다.
 //!
-//! **이스케이프는 세 자리뿐이다** — 앞머리 `\[` 와 끝쪽에 이어진 `\#낱말`(moai-a5pz), 그리고 템플릿
-//! 변수로 안 읽힐 글자 `\{{`(moai-xqxu). `{{` 바로 앞의 역슬래시는 쌍으로 센다 — `\\{{이름}}` 은 글자
+//! **이스케이프는 네 자리뿐이다** — 앞머리 `\[` 와 끝쪽에 이어진 `\#낱말`(moai-a5pz)·`\@숫자…`(moai-ghkp.u1w),
+//! 그리고 템플릿 변수로 안 읽힐 글자 `\{{`(moai-xqxu). `{{` 바로 앞의 역슬래시는 쌍으로 센다 — `\\{{이름}}` 은 글자
 //! 역슬래시 하나와 변수다(moai-nqk5). 오타(`[P1]`·`[x]`)는 조용히 제목이 되지 않고 전처럼 줄
 //! 번호와 거절한다.
 //!
@@ -41,10 +41,6 @@ pub struct Draft {
     pub due: Option<String>,
 }
 
-/// 줄 끝의 `#태그` 들과 앞머리의 `[pN]` 을 떼어 낸다.
-///
-/// 태그는 **끝에서부터** 뗀다 — 제목 가운데의 `#` 은 제목의 일부다
-/// (`--json 이 #1 에서 깨진다`).
 /// 끝 낱말이 기한 자리인가 — `@` 뒤가 숫자다. 읽는 자와 되뽑는 자가 이 하나로 가른다.
 fn is_due_word(w: &str) -> bool {
     w.strip_prefix('@').is_some_and(|d| d.starts_with(|c: char| c.is_ascii_digit()))
@@ -53,6 +49,10 @@ fn is_due_word(w: &str) -> bool {
 /// 떼어 낸 한 줄 — 제목·우선순위·태그·기한.
 type Parts = (String, Option<u8>, Vec<String>, Option<String>);
 
+/// 줄 끝의 `#태그`·`@기한` 들과 앞머리의 `[pN]` 을 떼어 낸다.
+///
+/// 태그와 기한은 **끝에서부터** 뗀다 — 제목 가운데의 `#`·`@` 은 제목의 일부다
+/// (`--json 이 #1 에서 깨진다`).
 fn split_parts(raw: &str, n: usize, lang: Lang) -> Result<Parts, String> {
     // **거절할 때만 짓는다**(`store::with_write` 가 같은 자로 적어 둔 규칙, 리뷰) — 줄머리에서
     // 미리 지으면 8,000줄 계획이 제 줄을 8,000번 `Debug` 로 베껴 놓고 전부 버린다.
@@ -353,7 +353,7 @@ pub fn parse_as(src: &str, shape: Shape, lang: Lang) -> Result<Vec<Draft>, Strin
 /// **이 파일에 둔다.** 형식을 아는 자리가 둘이 되면 되뽑은 것을 도로 넣을 때
 /// 한쪽만 바뀐 형식에서 깨진다 — 짝을 같은 파일에 두고 되돌려 읽는 시험으로 묶는다.
 ///
-/// - 형식이 받는 것만 낸다: 제목·`[pN]`·`#태그`. 막음(`blocked_by`)·담당·본문·
+/// - 형식이 받는 것만 낸다: 제목·`[pN]`·`#태그`·`@기한`. 막음(`blocked_by`)·담당·본문·
 ///   부모는 형식에 자리가 없어 빠진다 — 자식 이슈는 형제로 평평하게 선다. 없는 문법을 지어내면 `add --from` 이 그 줄을
 ///   거부해 되뽑은 것이 도로 안 들어간다 (막음은 moai-quxo 의 단계 의존과 함께)
 /// - 우선순위는 **적힌 것만** 낸다. 기본값을 채워 쓰면 템플릿이 설정의 기본값을
@@ -392,8 +392,8 @@ fn body(i: &Issue) -> String {
     for t in &i.tags {
         s.push_str(&format!(" #{}", escape_braces(t)));
     }
-    // 기한은 형식이 받는 자리라 낸다(moai-ghkp.u1w) — 꼴이 틀린 값은 도로 안 들어가므로 안 낸다.
-    if let Some(d) = i.due_on.as_deref().filter(|d| crate::model::parse_date(d).is_some()) {
+    // 기한은 형식이 받는 자리라 낸다(moai-ghkp.u1w) — 꼴이 틀린 값은 도로 안 들어가므로 안 낸다([`lossy`] 가 댄다).
+    if let Some(d) = i.deadline() {
         s.push_str(&format!(" @{d}"));
     }
     s
@@ -426,6 +426,11 @@ fn escape_braces(s: &str) -> String {
 ///
 /// 판정은 짝이 직접 한다 — 쓴 줄을 도로 읽어 견준다. 규칙을 따로 적으면 parse 가
 /// 바뀌는 날 이쪽만 옛 규칙으로 남는다.
+///
+/// **기한도 견준다**(리뷰, moai-ghkp.u1w) — 꼴이 틀린 기한은 되뽑기가 안 내므로(`body`) 도로 넣으면 사라진다.
+/// 그리고 **에픽보다 늦은 멤버**도 댄다: 에픽을 당긴 쓰기는 멤버를 안 막으므로(moai-ghkp.cb3) 도구가 받는 상태인데,
+/// 그 틀을 그대로 `add --from` 에 넣으면 같은 쓰기 안의 위계가 계획째 물린다. 위계를 재는 자는 쓰기의 것이라
+/// 여기서는 되뽑은 두 날만 견준다 — 틀에 남는 조상은 그 에픽 하나다.
 pub fn lossy<'a>(epic: &'a Issue, members: &[&'a Issue]) -> Vec<&'a str> {
     std::iter::once(epic)
         .chain(members.iter().copied())
@@ -437,8 +442,10 @@ pub fn lossy<'a>(epic: &'a Issue, members: &[&'a Issue]) -> Vec<&'a str> {
             let read = fill_as(&format!("# {}\n", body(i)), &[], Shape::Plan, Lang::default())
                 .ok()
                 .and_then(|d| d.into_iter().next());
-            read.map(|d| (d.title, d.priority, d.tags))
-                != Some((crate::text::one_line(&i.title), i.priority, i.tags.clone()))
+            let over =
+                !std::ptr::eq(*i, epic) && i.deadline().zip(epic.deadline()).is_some_and(|(mine, above)| mine > above);
+            over || read.map(|d| (d.title, d.priority, d.tags, d.due))
+                != Some((crate::text::one_line(&i.title), i.priority, i.tags.clone(), i.due_on.clone()))
         })
         .map(|i| i.id.as_str())
         .collect()
@@ -819,7 +826,9 @@ mod tests {
         assert_eq!(got.len(), 3);
         assert_eq!(
             got[0],
-            Draft { kind: Kind::Epic, title: "저장 계층".into(), priority: None, tags: vec![], epic: None, due: None }
+            Draft {
+                kind: Kind::Epic, title: "저장 계층".into(), priority: None, tags: vec![], epic: None, due: None
+            }
         );
         assert_eq!(
             got[1],

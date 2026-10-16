@@ -317,7 +317,7 @@ pub struct Issue {
     /// 멤버의 것으로 잰다.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub started_at: Option<String>,
-    /// **마일스톤의 종료 기한**(moai-tfcp) — `YYYY-MM-DD`. 사람이 정하는 달력 날짜라 시각이
+    /// **종료 기한**(moai-tfcp) — `YYYY-MM-DD`. 사람이 정하는 달력 날짜라 시각이
     /// 아니다(2026-09-22 사용자 결정). 시각으로 두면 `--due 2026-09-30` 한 줄을 `T23:59:59Z`
     /// 같은 값으로 늘려 적어야 하고, 그 늘림이 시간대마다 다른 날을 가리킨다.
     ///
@@ -328,7 +328,10 @@ pub struct Issue {
     /// 짝인 `starts_on` 은 여전히 마일스톤 줄에만 선다.
     ///
     /// **조상보다 늦을 수 없다**(moai-ghkp.33i) — 줄 사이의 검사라 여기가 아니라 쓰기 경로
-    /// (`store::write_locked` → [`crate::report::due_ceiling`])가 잰다.
+    /// (`store::write_locked` → [`crate::report::first_beyond`], 자는 [`crate::report::DueLadder`])가 잰다.
+    ///
+    /// 기한으로 **세는** 값은 꼴이 맞는 것뿐이다([`Issue::deadline`]) — 손으로 푼 줄의 틀린 값은 화면에는 적힌
+    /// 그대로 서지만 위계·거르개·차례·되뽑기는 기한 없는 줄로 읽는다.
     ///
     /// **파생값이 아니다.** 멤버를 닫아도 이 값은 안 바뀌고, 남은 날수·지났는가는 읽을 때 센다.
     ///
@@ -398,6 +401,14 @@ impl Issue {
 
     pub fn priority(&self) -> u8 {
         self.priority.unwrap_or(DEFAULT_PRIORITY)
+    }
+
+    /// **기한으로 세는 값** — 꼴이 맞는 `due_on` 만이다(리뷰). 손으로 푼 줄의 틀린 값(`2026-10-05T00:00:00Z`)은
+    /// 상세에 적힌 그대로 서지만, 위계(`report::DueLadder`)·거르개(`due_on=`)·차례(`--sort due`·`ready`)·되뽑기
+    /// (`--as-plan`)·펼치기(`backlog promote`)는 기한 없는 줄로 읽는다. 자리마다 `parse_date` 로 따로 거르던 때는
+    /// 위계만 걸러, 같은 값이 거르개에는 걸리고 차례에서는 날짜로 섰다. **이슈의 뜻이라 `cmd` 에 두지 않는다**(CLAUDE.md).
+    pub fn deadline(&self) -> Option<&str> {
+        self.due_on.as_deref().filter(|d| parse_date(d).is_some())
     }
 
     /// 계획에서의 자리가 마지막으로 바뀐 때 — 칸을 옮긴 때(`status_since`)와 미루거나 도로
@@ -657,12 +668,16 @@ pub enum Invalid {
         id: String,
         field: Field,
     },
-    /// 기한이 조상(선 마일스톤·든 에픽·점 id 의 부모) 가운데 가장 이른 기한보다 늦다
+    /// 기한이 조상(선 마일스톤·든 에픽·그 줄을 접어 그리는 부모) 가운데 가장 이른 기한보다 늦다
     /// (moai-ghkp.33i). 줄 사이의 검사라 [`Issue::validate_fields`] 가 아니라 쓰기 경로가 낸다 —
-    /// 그 조상의 id 와 기한을 들어, 거절문이 당길 날짜와 먼저 고칠 자리를 함께 댄다.
+    /// 그 조상과 기한을 들어, 거절문이 당길 날짜와 먼저 고칠 자리를 함께 댄다.
     DueBeyond {
         due: String,
+        /// 그 조상 — 이미 선 줄이면 id, 이번 쓰기가 짓는 줄이면 그 제목(`above_new`). 거절은 쓰기를 통째로
+        /// 물리므로 방금 뽑은 id 는 어디에도 안 남는다(moai-1rkl, 리뷰) — 거절당한 줄 자신을 가리키는 자리와 같은 자다.
         above: String,
+        /// `above` 가 이번 쓰기가 짓는 줄의 제목인가. 글은 [`crate::view::invalid`] 가 고른다 — 여기는 말을 모른다.
+        above_new: bool,
         above_due: String,
     },
     /// 시작 기한이 종료 기한보다 뒤다.
@@ -1325,16 +1340,20 @@ pub(crate) fn days_in_month(y: i64, mo: u32) -> u32 {
 /// 때마다 다른 날을 가리킨다.
 ///
 /// `+` 로 시작하지 않으면 `None` 이다: 그 값은 날짜로 적힌 것이라 [`parse_date`] 가 쓰기에서 잰다.
-/// `+` 뒤가 숫자가 아니거나 너무 크면(만 년 넘게) 받은 글을 그대로 돌려 쓰기의 꼴 검사가
-/// 거절하게 둔다 — 거절하는 자를 둘로 두면 말이 둘이 된다.
+/// `+` 뒤가 숫자가 아니거나, 낸 날이 네 자리 해를 넘으면(`9999-12-31` 뒤) 받은 글을 그대로 돌려 쓰기의 꼴
+/// 검사가 거절하게 둔다 — 거절하는 자를 둘로 두면 말이 둘이 된다. **잰 날로 재지 않고 낸 날로 잰다**(리뷰): 날수에
+/// 상한을 박던 판은 오늘에서 그만큼 뒤가 다섯 자리 해라, 거절문이 사람이 안 친 `10240-05-22` 를 댔다.
 pub fn relative_due(v: &str, today: &str) -> Option<String> {
     let n = v.strip_prefix('+')?;
     let days = match n.parse::<u32>() {
-        Ok(d) if d <= 3_650_000 && !n.starts_with('+') => d,
+        Ok(d) if !n.starts_with('+') => d,
         _ => return Some(v.to_string()),
     };
     let base = today.get(..10).and_then(parse_date)?;
     let (y, mo, d) = civil_from_days(base + i64::from(days));
+    if y > 9999 {
+        return Some(v.to_string());
+    }
     Some(format!("{y:04}-{mo:02}-{d:02}"))
 }
 

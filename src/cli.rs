@@ -159,7 +159,8 @@ pub enum Cmd {
     /// What you can pick up now
     #[command(after_help = "  Epics themselves, deferred rows and what is under them, and parents with
   unfinished children are left out.
-  Urgent first, then epics near the end, then the oldest.
+  Urgent first, then what is inside a running milestone, then the earliest
+  deadline (none last), then epics near the end, then the oldest.
 
   Only your own rows are offered. A row that is someone else's or nobody's
   stands apart below - ask before you pick it up (`moai mv <id> <column>
@@ -1372,13 +1373,13 @@ const SHOW_LIST: &str = "  Order: --sort takes fields separated by commas, like 
   field decides only where the ones before it tie. The fields: priority
   (the default: urgent first), created and updated (newest first), status
   (the column order of .moai/config.toml), assignee (the name the screen
-  shows, unowned last), title (ignoring case), id. A field without a
-  direction keeps the one named here; :asc puts the smaller value first
-  (p0, the oldest, the first column, A) and :desc the larger - unowned
-  rows go first under assignee:desc. A field is given once. When every
-  field ties, a last field of created or updated falls to id alone, and
-  any other to priority, then id. --reverse turns the whole order around,
-  ties included.
+  shows, unowned last), title (ignoring case), due (the earliest deadline
+  first, none last), id. A field without a direction keeps the one named
+  here; :asc puts the smaller value first (p0, the oldest, the first
+  column, A) and :desc the larger - unowned or undated rows go first under
+  assignee:desc or due:desc. A field is given once. When every field ties,
+  a last field of created or updated falls to id alone, and any other to
+  priority, then id. --reverse turns the whole order around, ties included.
 
     moai show --sort priority,updated:desc
     moai show --sort status:asc,title

@@ -7074,8 +7074,8 @@ fn a_plan_hangs_its_epics_on_the_milestone() {
 
 /// **`--from` 과 뜻이 안 통하는 깃발은 거절한다**(moai-fppn). `--body -` 는 계획과 stdin 을
 /// 다투고, `--status` 는 계획이 늘 첫 칸에 세우므로 갈 곳이 없다 — 받고 버리면 0 으로 끝난
-/// 부름이 사람이 준 글과 칸을 말없이 삼킨다. `--epic`·`--tag`·`--start`·`--due` 가 이미 선
-/// 자리와 한 줄이다.
+/// 부름이 사람이 준 글과 칸을 말없이 삼킨다. `--epic`·`--tag`·`--start` 가 이미 선 자리와 한 줄이다
+/// (`--due` 는 계획이 짓는 에픽에 서서 빠졌다, moai-ghkp.u1w).
 #[test]
 fn a_plan_refuses_the_flags_it_cannot_use() {
     let s = init("planflags");
@@ -10236,6 +10236,279 @@ fn a_relative_deadline_is_stored_as_a_day() {
         let out = moai(s.path(), &["edit", &id, "--due", bad]);
         assert!(!out.status.success(), "{bad} 를 날짜로 받았다");
     }
+    // **네 자리 해를 넘는 날은 친 글 그대로 거절한다**(리뷰) — 날수로 상한을 박던 판은 다섯 자리 해를 지어, 거절문이
+    // 사람이 안 친 날을 댔다.
+    let out = moai(s.path(), &["edit", &id, "--due", "+3000000"]);
+    let said = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(!out.status.success() && said.contains("+3000000"), "친 글을 안 댄다 — {said}");
+}
+
+/// **아카이브에서 되살리는 쓰기는 기한을 다시 안 잰다**(리뷰) — 되살리기는 기한도 자리도 안 바꾼다. 재면 아카이브에
+/// 있는 동안 당겨진 조상 때문에 다시 여는 길이 막히는데, 아카이브의 줄은 `edit` 으로 못 고친다. 넘친 것은 `status` 가
+/// 비추고, 되살린 뒤 그 줄의 기한을 쓰는 쓰기는 그대로 잰다.
+#[test]
+fn reopening_an_archived_row_is_not_a_deadline_write() {
+    let s = init("duerestore");
+    let m = add(s.path(), &["v0.1", "--type", "milestone", "--due", "2026-12-30"]);
+    let i = add(s.path(), &["되살릴 줄", "--milestone", &m, "--due", "2026-12-20"]);
+    ok(s.path(), &["mv", &i, "done"]);
+    let later = "2026-10-01T00:00:00Z";
+    ok_at(s.path(), later, &["archive"]);
+    assert!(!issues(s.path()).contains(&i), "아카이브로 안 옮겨졌다");
+    ok_at(s.path(), later, &["edit", &m, "--due", "2026-11-30"]);
+    ok_at(s.path(), later, &["mv", &i, "todo", "--from", "done"]);
+    let board = ok_at(s.path(), later, &["status", "--json"]);
+    assert!(board.contains("due_beyond_parent") && board.contains(&i), "되살린 줄의 넘침을 안 비춘다\n{board}");
+    // 되살린 뒤 그 줄의 기한을 쓰는 쓰기는 이 줄의 쓰기다 — 그대로 잰다.
+    assert!(!at(s.path(), later, &["edit", &i, "--due", "2026-12-21"]).status.success(), "늦은 기한을 받았다");
+    ok_at(s.path(), later, &["edit", &i, "--due", "2026-11-30"]);
+}
+
+/// **위계는 산 줄로 잰다**(리뷰) — 쓰기는 아카이브를 안 펴므로, 아카이브에 든 에픽을 조상으로 세는 보드는 쓰기가 받은
+/// 줄을 바로 꾸짖는다. 둘이 같은 자로 잰다.
+#[test]
+fn an_archived_ancestor_does_not_bound_a_live_row() {
+    let s = init("duearchived");
+    let e = add(s.path(), &["에픽", "--type", "epic", "--due", "2026-09-20"]);
+    let i = add(s.path(), &["멤버", "-e", &e, "--due", "2026-09-19"]);
+    ok(s.path(), &["mv", &i, "done"]);
+    let later = "2026-10-01T00:00:00Z";
+    ok_at(s.path(), later, &["archive"]);
+    ok_at(s.path(), later, &["mv", &i, "todo", "--from", "done"]);
+    ok_at(s.path(), later, &["edit", &i, "--due", "2026-09-28"]);
+    let board = ok_at(s.path(), later, &["status", "--json"]);
+    assert!(!board.contains("due_beyond_parent"), "쓰기가 받은 줄을 꾸짖었다\n{board}");
+}
+
+/// **연습은 진짜가 물릴 기한을 먼저 물린다**(리뷰) — 기한의 꼴과 위계는 쓰기에서 재므로, 연습(`--dry-run`)이 그것을
+/// 모르면 사람이 "좋다" 한 계획을 진짜가 물린다. **이 쓰기가 짓는 조상은 제목으로 댄다**(moai-1rkl) — 거절은 쓰기를
+/// 통째로 물리므로 방금 뽑은 그 id 는 어디에도 안 남는다.
+#[test]
+fn a_rehearsal_refuses_the_deadlines_the_write_refuses() {
+    let s = init("duerehearse");
+    let late = "# 늦은 에픽 @2026-10-10\n- 늦은 멤버 @2026-10-11\n";
+    let dry = from_stdin(s.path(), &["add", "--from", "-", "--dry-run"], late);
+    let real = from_stdin(s.path(), &["add", "--from", "-"], late);
+    assert!(!dry.status.success() && !real.status.success(), "{}\n{}", text(&dry), text(&real));
+    let said = String::from_utf8_lossy(&real.stderr).to_string();
+    assert!(said.contains("새 줄 '늦은 에픽'") && !said.contains("argos-"), "안 남을 조상의 id 를 댔다 — {said}");
+    assert_eq!(String::from_utf8_lossy(&dry.stderr), said, "연습과 진짜가 다른 말을 한다");
+    assert_eq!(issues(s.path()).trim(), "", "물린 계획이 남았다");
+
+    // 꼴이 틀린 `--due`, 마일스톤의 기한을 넘는 뿌리 — 연습도 물린다.
+    let plan = "# 에픽\n- 멤버\n";
+    let out = from_stdin(s.path(), &["add", "--from", "-", "--due", "2026-02-30", "--dry-run"], plan);
+    assert!(!out.status.success(), "꼴이 틀린 --due 를 연습이 받았다");
+    let m = add(s.path(), &["v0.1", "--type", "milestone", "--due", "2026-10-30"]);
+    for dry in [true, false] {
+        let mut args = vec!["add", "--from", "-", "--milestone", m.as_str(), "--due", "2026-11-01"];
+        if dry {
+            args.push("--dry-run");
+        }
+        assert!(!from_stdin(s.path(), &args, plan).status.success(), "{args:?}");
+    }
+    // promote 가 데려가는 기한이 데려가는 마일스톤보다 늦으면 연습도 물린다.
+    let b =
+        ok(s.path(), &["backlog", "add", "생각", "--milestone", &m, "--due", "2026-10-25", "-q"]).trim().to_string();
+    ok(s.path(), &["edit", &m, "--due", "2026-10-20"]);
+    for dry in [true, false] {
+        let mut args = vec!["backlog", "promote", b.as_str(), "--from", "-"];
+        if dry {
+            args.push("--dry-run");
+        }
+        assert!(!from_stdin(s.path(), &args, plan).status.success(), "{args:?}");
+    }
+    // `#` 줄이 제 `@날짜` 로 이기면 받는다.
+    let fine = "# 에픽 @2026-10-19\n- 멤버\n";
+    assert!(from_stdin(s.path(), &["backlog", "promote", &b, "--from", "-", "--dry-run"], fine).status.success());
+}
+
+/// **위계의 조상은 그 줄이 서는 자리다**(리뷰) — 셈과 트리가 짚는 자리와 같다. 점 id 의 부모를 다 세던 판은 `-e` 로
+/// 옮긴 멤버를 떠난 에픽으로, 생각 밑의 이슈를 그 생각으로, 이슈 밑에 id 로 선 에픽·마일스톤을 그 이슈로, 에픽 아닌
+/// 줄을 가리킨 `-e` 를 그 줄로 막았다.
+#[test]
+fn a_deadline_answers_to_where_the_row_stands() {
+    let s = init("dueplace");
+    let id_of = |title: &str| {
+        let rows = issues(s.path());
+        field(rows.lines().find(|l| l.contains(&format!(r#""title":"{title}""#))).expect(title), "id")
+    };
+    // 옮긴 멤버는 새 에픽의 기한을 받는다 — id 가 가리키는 옛 에픽이 아니다.
+    let out = from_stdin(s.path(), &["add", "--from", "-"], "# 첫 에픽 @2026-10-10\n- 옮길 멤버\n");
+    assert!(out.status.success(), "{}", text(&out));
+    let (first, member) = (id_of("첫 에픽"), id_of("옮길 멤버"));
+    let other = add(s.path(), &["다른 에픽", "--type", "epic", "--due", "2026-10-30"]);
+    ok(s.path(), &["edit", &member, "-e", &other]);
+    ok(s.path(), &["edit", &member, "--due", "2026-10-25"]);
+    assert!(!moai(s.path(), &["edit", &member, "--due", "2026-10-31"]).status.success(), "새 에픽의 기한을 넘었다");
+    // 옛 에픽을 당겨도 옮긴 멤버는 그 밑이 아니다.
+    let out = moai(s.path(), &["edit", &first, "--due", "2026-10-01"]);
+    assert!(out.status.success() && !String::from_utf8_lossy(&out.stderr).contains(&member), "{}", text(&out));
+
+    // 생각은 이슈를 안 막는다 — 위계는 마일스톤 > 에픽 > 이슈 > backlog 다.
+    let b = ok(s.path(), &["backlog", "add", "생각", "--due", "2026-10-12", "-q"]).trim().to_string();
+    add(s.path(), &["생각 밑의 일", "--parent", &b, "--due", "2026-10-20"]);
+    // 생각 밑에 접힌 생각은 막는다 — 제 에픽을 든 생각이어도, 그 밑의 생각은 그 생각 밑에 그려진다(트리가 접는 자).
+    let thought = |args: &[&str]| {
+        let mut v = vec!["backlog", "add"];
+        v.extend_from_slice(args);
+        v.push("-q");
+        moai(s.path(), &v)
+    };
+    let held = thought(&["에픽 든 생각", "-e", &other, "--due", "2026-10-20"]);
+    let held = String::from_utf8_lossy(&held.stdout).trim().to_string();
+    assert!(
+        !thought(&["그 밑의 생각", "--parent", &held, "--due", "2026-10-25"]).status.success(),
+        "접힌 생각을 안 막았다"
+    );
+    // 제 에픽을 적어 이슈 곁에 선 생각은 아무것도 안 넘긴다 — 같은 에픽을 적은 그 밑의 줄은 그 곁에 선다.
+    let i1 = add(s.path(), &["첫 에픽의 이슈", "-e", &first]);
+    let r2 = thought(&["곁에 선 생각", "--parent", &i1, "-e", &other, "--due", "2026-10-20"]);
+    let r2 = String::from_utf8_lossy(&r2.stdout).trim().to_string();
+    assert!(thought(&["그 곁의 생각", "--parent", &r2, "-e", &other, "--due", "2026-10-25"]).status.success());
+    // 이슈 밑에 id 로 선 에픽·마일스톤은 그 이슈 밑에 안 그려진다.
+    let i = add(s.path(), &["이슈", "--due", "2026-10-20"]);
+    add(s.path(), &["이슈 밑의 에픽", "--type", "epic", "--parent", &i, "--due", "2026-10-25"]);
+    add(s.path(), &["이슈 밑의 마일스톤", "--type", "milestone", "--parent", &i, "--due", "2026-10-25"]);
+    // 에픽·마일스톤 아닌 줄을 가리킨 `-e`·`--milestone` 은 못 쓸 참조다 — 조상이 아니다.
+    add(s.path(), &["엉뚱한 에픽", "-e", &i, "--due", "2026-10-25"]);
+    add(s.path(), &["엉뚱한 마일스톤", "--milestone", &i, "--due", "2026-10-25"]);
+    // 이슈 밑의 이슈는 그대로 막는다.
+    assert!(!moai(s.path(), &["add", "자식", "--parent", &i, "--due", "2026-10-21"]).status.success());
+    // 기한 든 에픽을 더 이른 마일스톤으로 옮기는 것도 이 줄의 쓰기다.
+    let early = add(s.path(), &["v0.0", "--type", "milestone", "--due", "2026-10-28"]);
+    assert!(!moai(s.path(), &["edit", &other, "--milestone", &early]).status.success(), "늦은 에픽을 옮겼다");
+}
+
+/// **넘쳤다는 알림은 이 쓰기가 넘치게 한 줄만 댄다**(리뷰) — 쓰기 앞에도 넘쳤던 줄, 계획 밖의 줄은 빼고 댄다. 조상을
+/// 늦추는 쓰기가 남은 넘침을 제 탓으로 대면 받는 쪽은 그때마다 남의 기한을 고치러 가고, `status` 가 안 세는 미룬 줄을
+/// "센다" 고 하면 거짓말이다.
+#[test]
+fn the_overflow_notice_names_what_this_write_pushed_over() {
+    let s = init("dueoverflow");
+    let m = add(s.path(), &["v0.1", "--type", "milestone", "--due", "2026-09-30"]);
+    let e = add(s.path(), &["에픽", "--type", "epic", "--milestone", &m]);
+    let i = add(s.path(), &["멤버", "-e", &e, "--due", "2026-09-28"]);
+    let put = add(s.path(), &["미룬 멤버", "-e", &e, "--due", "2026-09-27"]);
+    ok(s.path(), &["defer", &put, "-m", "나중에"]);
+    let shut = add(s.path(), &["닫은 멤버", "-e", &e, "--due", "2026-09-29"]);
+    ok(s.path(), &["mv", &shut, "done"]);
+    // 멤버가 다 닫힌 묶음도 안 댄다 — 묶음의 칸은 멤버에서 읽는다.
+    let closed = add(s.path(), &["닫힌 에픽", "--type", "epic", "--milestone", &m, "--due", "2026-09-29"]);
+    let last = add(s.path(), &["닫힌 에픽의 멤버", "-e", &closed]);
+    ok(s.path(), &["mv", &last, "done"]);
+    let out = moai(s.path(), &["edit", &m, "--due", "2026-09-20"]);
+    let said = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(said.contains(&i) && !said.contains(&put) && !said.contains(&shut) && !said.contains(&closed), "{said}");
+    // 보드도 같은 줄을 센다 — 미룬 줄과 닫은 줄은 안 센다.
+    let board: serde_json::Value = serde_json::from_str(&ok(s.path(), &["status", "--json"])).unwrap();
+    let beyond = board["warnings"].as_array().unwrap().iter().find(|w| w["kind"] == "due_beyond_parent").cloned();
+    assert_eq!(beyond.map(|w| w["ids"].clone()), Some(serde_json::json!([i])), "{board}");
+    // 늦추는 쓰기는 남은 넘침을 제 탓으로 안 댄다.
+    let out = moai(s.path(), &["edit", &m, "--due", "2026-09-25"]);
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("due_beyond_parent"), "{}", text(&out));
+    assert!(ok(s.path(), &["status", "--json"]).contains("due_beyond_parent"), "남은 넘침을 보드가 안 비춘다");
+}
+
+/// **도는 마일스톤 안이 기한보다 먼저다**(리뷰) — AGENTS 블록의 약속("`p0` 이 먼저고 마일스톤이 둘째다")이
+/// `ready` 의 차례에도 선다. 같은 자리 안에서는 이른 기한이 먼저다.
+#[test]
+fn ready_puts_the_running_milestone_before_a_deadline() {
+    let s = init("dueready");
+    let m = add(s.path(), &["v0.1", "--type", "milestone"]);
+    let e = add(s.path(), &["에픽", "--type", "epic", "--milestone", &m]);
+    let going = add(s.path(), &["도는 일", "-e", &e]);
+    ok(s.path(), &["mv", &going, "in_progress"]);
+    let inside = add(s.path(), &["안의 급한 일", "-e", &e, "-p", "0"]);
+    let outside = add(s.path(), &["밖의 급한 일", "-p", "0", "--due", "2027-06-01"]);
+    let ready = ids_in(&ok(s.path(), &["ready", "--json"]));
+    let at = |id: &str| ready.iter().position(|x| x == id).unwrap_or_else(|| panic!("{id} 가 없다 {ready:?}"));
+    assert!(at(&inside) < at(&outside), "{ready:?}");
+}
+
+/// **꼴이 틀린 기한은 기한이 아니다**(리뷰) — 손으로 푼 줄의 값은 상세에 적힌 그대로 서지만, 거르개·차례는 기한
+/// 없는 줄로 읽는다. `*_at=` 이 못 읽는 시각을 어느 폭에도 안 넣는 것과 같은 결이다. 빈 `due_on=` 은 거절한다.
+#[test]
+fn a_malformed_deadline_is_no_deadline() {
+    let s = init("duemalformed");
+    let bad = add(s.path(), &["꼴이 틀린 줄", "--due", "2026-10-05"]);
+    let good = add(s.path(), &["바른 줄", "--due", "2026-10-07"]);
+    let line = line_of(s.path(), &bad);
+    std::fs::write(
+        s.path().join(".moai/issues.jsonl"),
+        issues(s.path())
+            .replace(&line, &line.replace(r#""due_on":"2026-10-05""#, r#""due_on":"2026-10-05T00:00:00Z""#)),
+    )
+    .unwrap();
+    let picked = ids_in(&ok(s.path(), &["show", "--filter", "due_on=2026-10-01~2026-10-31", "--json"]));
+    assert_eq!(picked, vec![good.clone()], "꼴이 틀린 기한이 폭에 들었다");
+    let sorted = ids_in(&ok(s.path(), &["show", "--sort", "due", "--json"]));
+    assert_eq!(sorted.first(), Some(&good), "꼴이 틀린 기한이 날짜로 섰다 {sorted:?}");
+    for empty in ["due_on=", "due_on=,"] {
+        assert!(!moai(s.path(), &["show", "--filter", empty]).status.success(), "빈 {empty} 를 받았다");
+    }
+    // 하루는 그 하루다 — 뒤로 열린 폭이 아니다. 기한으로 물어도 숨긴 줄(done)은 안 연다.
+    let later = add(s.path(), &["뒤의 줄", "--due", "2026-10-09"]);
+    assert_eq!(ids_in(&ok(s.path(), &["show", "--filter", "due_on=2026-10-07", "--json"])), vec![good.clone()]);
+    ok(s.path(), &["mv", &later, "done"]);
+    assert!(ids_in(&ok(s.path(), &["show", "--filter", "due_on=2026-10-09", "--json"])).is_empty(), "닫힌 줄을 열었다");
+    assert_eq!(ids_in(&ok(s.path(), &["show", "--all", "--filter", "due_on=2026-10-09", "--json"])), vec![later]);
+
+    // 같은 id 의 줄이 둘이면(머지를 잘못 푼 흉터) 줄마다 잰다 — 뒷줄 하나로 재면 파일 차례가 경고를 켰다 껐다 한다.
+    let e = add(s.path(), &["에픽", "--type", "epic", "--due", "2026-10-20"]);
+    let twin = add(s.path(), &["쌍둥이", "-e", &e, "--due", "2026-10-15"]);
+    let line = line_of(s.path(), &twin);
+    let late = line.replace(r#""due_on":"2026-10-15""#, r#""due_on":"2026-10-25""#);
+    std::fs::write(s.path().join(".moai/issues.jsonl"), issues(s.path()).replace(&line, &format!("{late}\n{line}")))
+        .unwrap();
+    let board: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&moai(s.path(), &["status", "--json"]).stdout)).unwrap();
+    let kinds: Vec<&str> = board["warnings"].as_array().unwrap().iter().filter_map(|w| w["kind"].as_str()).collect();
+    assert!(kinds.contains(&"due_beyond_parent"), "앞줄의 넘침을 뒷줄이 가렸다 {kinds:?}");
+}
+
+/// **연습과 되뽑기는 기한도 보인다**(리뷰) — `@날짜` 는 제목에서 떼어지므로 연습 화면이 안 그리면 사람은 날짜 오타를
+/// 못 본다. `--due` 가 어느 에픽에도 안 서면 말한다. 되뽑은 틀이 도로 안 들어가는 줄(에픽보다 늦은 멤버)은 댄다.
+#[test]
+fn a_plan_shows_its_deadlines() {
+    let s = init("dueshow");
+    let shown = String::from_utf8_lossy(
+        &from_stdin(
+            s.path(),
+            &["add", "--from", "-", "--due", "2026-10-30", "--dry-run"],
+            "# 에픽\n- 멤버 @2026-10-20\n",
+        )
+        .stdout,
+    )
+    .to_string();
+    assert!(shown.contains("@2026-10-30") && shown.contains("@2026-10-20"), "{shown}");
+    let out = from_stdin(
+        s.path(),
+        &["add", "--from", "-", "--due", "2026-10-30", "--dry-run"],
+        "# 에픽 @2026-10-25\n- 멤버\n",
+    );
+    assert!(String::from_utf8_lossy(&out.stdout).contains("--due 2026-10-30"), "{}", text(&out));
+    // 기계가 받는 길에서도 말한다 — stderr 로.
+    let out = from_stdin(
+        s.path(),
+        &["add", "--from", "-", "--due", "2026-10-30", "--dry-run", "--json"],
+        "# 에픽 @2026-10-25\n- 멤버\n",
+    );
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--due 2026-10-30"), "{}", text(&out));
+    // 빈 `--due` 는 없는 것이다 — 쓰기가 지우는 값을 연습만 그리면 안 된다.
+    let out = from_stdin(s.path(), &["add", "--from", "-", "--due", " ", "--dry-run", "--json"], "# 에픽\n- 멤버\n");
+    assert!(out.status.success() && !String::from_utf8_lossy(&out.stdout).contains("due_on"), "{}", text(&out));
+    // 펼치기의 연습도 데려갈 기한을 댄다.
+    let b = ok(s.path(), &["backlog", "add", "생각", "--due", "2026-11-01", "-q"]).trim().to_string();
+    let json =
+        from_stdin(s.path(), &["backlog", "promote", &b, "--from", "-", "--dry-run", "--json"], "# 펼침\n- 멤버\n");
+    assert!(String::from_utf8_lossy(&json.stdout).contains(r#""due_on":"2026-11-01""#), "{}", text(&json));
+
+    let e = add(s.path(), &["에픽", "--type", "epic", "--due", "2026-10-31"]);
+    let member = add(s.path(), &["멤버", "-e", &e, "--due", "2026-10-28"]);
+    ok(s.path(), &["edit", &e, "--due", "2026-10-20"]);
+    let json = ok(s.path(), &["show", &e, "--as-plan", "--json"]);
+    assert!(json.contains(&format!(r#""lossy":["{member}"]"#)), "{json}");
 }
 
 /// **쓰기는 엄하다.** `--due 2026-02-30` 은 오타지 옛 줄이 아니다 — 받으면 그 마일스톤은

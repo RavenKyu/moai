@@ -432,8 +432,9 @@ pub fn run(ctx: &Ctx, args: AddArgs, kind_override: Option<Kind>) -> R<Vec<Strin
         // **본문은 계획보다 먼저 읽는다.** 바로 위가 둘 다 `-` 인 부름을 걷어 냈으므로 여기서
         // stdin 을 읽는 쪽은 많아야 하나다.
         let body = read_body_told(args.body.clone(), ctx, reads_stdin(from))?;
-        // `--due +N` 은 여기서 날짜로 바꾼다 — 연습과 진짜가 같은 날을 낸다(락 밖, [`super::due_arg`]).
-        let due = args.due.as_deref().map(|d| super::due_arg(ctx, d, &model::now()));
+        // `--due +N` 은 여기서 날짜로 바꾼다 — 연습과 진짜가 같은 날을 낸다(락 밖, [`super::due_arg`]). **빈 값은 없는
+        // 것이다**(리뷰) — 쓰기는 빈 기한을 지우므로(`Issue::normalize`) 여기서 안 걸러 두면 연습만 `@ ` 를 그린다.
+        let due = args.due.as_deref().map(|d| super::due_arg(ctx, d, &model::now())).filter(|d| !d.trim().is_empty());
         return bulk(
             ctx,
             &repo,
@@ -524,8 +525,8 @@ pub fn run(ctx: &Ctx, args: AddArgs, kind_override: Option<Kind>) -> R<Vec<Strin
             // 기한 둘(moai-tfcp) — 만들 때 바로 준다. 안 주면 `milestone add` 뒤에 `edit` 를
             // 한 번 더 쳐야 하고, 그 사이의 줄은 기한 없는 마일스톤으로 한 번 커밋된다.
             // `none` 은 여기서 뜻이 없다(새 줄에 비울 것이 없다) — 빈 값은 `normalize` 가
-            // 지우고, 꼴·종류·차례는 락 안에서 `Repo::write_locked` 가 거절한다
-            // (`store::admit` 은 검사를 안 한다, moai-yve0).
+            // 지우고, 꼴·차례·종류(시작 기한은 마일스톤 줄에만)·위계(종료 기한은 조상을 못 넘는다)는 락 안에서
+            // `Repo::write_locked` 가 거절한다(`store::admit` 은 검사를 안 한다, moai-yve0).
             issue.starts_on = args.start.clone();
             issue.due_on = due.clone();
             (issue.assignee, issue.assignee_email) = assignee_of(args.assignee.as_deref(), &by);
@@ -630,23 +631,32 @@ fn bulk(
 
     if dry_run {
         check_plan(&drafts, rooted, ctx.lang())?;
-        // 연습은 락을 안 쥐고 읽는다 — 진짜는 락 안에서 다시 잰다. 마일스톤이 없으면 읽지도 않는다.
-        let known = match milestone {
-            Some(_) => is_milestone(&repo.read()?.issues, milestone),
-            None => false,
+        // 연습은 락을 안 쥐고 읽는다 — 진짜는 락 안에서 다시 잰다. 마일스톤도 기한도 없으면 읽지도 않는다 — 그
+        // 계획의 위계는 계획 안에서 끝난다([`check_plan_rows`]).
+        let dated = due.is_some() || drafts.iter().any(|d| d.due.is_some());
+        let load = match milestone.is_some() || dated {
+            true => Some(repo.read()?),
+            false => None,
         };
+        let issues = load.as_ref().map_or(&[][..], |l| l.issues.as_slice());
+        check_plan_rows(issues, &repo.config, &drafts, None, rooted, ctx.lang())?;
+        let known = is_milestone(issues, milestone);
         if ctx.json {
             say_no_such_milestone(milestone, known, ctx.lang());
-            return json_rehearsal(&drafts, None, None, milestone, body_lands_on(&drafts, body), due);
+            if let Some(said) = due_nowhere(&drafts, due, ctx.lang()) {
+                super::tell(&format!("moai: {said}"));
+            }
+            return json_rehearsal(&drafts, None, None, rooted);
         }
         // 만들지 않으므로 id 가 없다. 무엇이 어디에 붙는지만 보여 준다.
         let mut out = vec![paint(style::HEAD, crate::i18n::say(ctx.lang(), "add.will_make"))];
-        out.extend(drafts.iter().map(|d| line_of(d, None)));
+        out.extend(drafts.iter().map(|d| line_of(d, None, rooted.due_for(d, None))));
         out.push(String::new());
         out.push(tally(&drafts, ctx.lang()));
         let roots = drafts.iter().filter(|d| d.epic.is_none()).count();
         out.extend(milestone_line(milestone, known, roots, ctx.lang()));
         out.extend(body_line(&drafts, body, ctx.lang()));
+        out.extend(due_line(&drafts, due, ctx.lang()));
         return Ok(out);
     }
 
@@ -666,16 +676,20 @@ fn bulk(
 
     if ctx.json {
         say_no_such_milestone(stood_on(&made), known, ctx.lang());
+        if let Some(said) = due_nowhere(&drafts, due, ctx.lang()) {
+            super::tell(&format!("moai: {said}"));
+        }
         let rows: Vec<super::Row> = made.iter().map(|i| super::Row::from(i, &read)).collect();
         return super::json_line(&rows);
     }
     let mut out = vec![paint(style::HEAD, crate::i18n::say(ctx.lang(), "add.made"))];
-    out.extend(drafts.iter().zip(&made).map(|(d, i)| line_of(d, Some(&i.id))));
+    out.extend(drafts.iter().zip(&made).map(|(d, i)| line_of(d, Some(&i.id), i.due_on.as_deref())));
     out.push(String::new());
     out.push(tally(&drafts, ctx.lang()));
     // **만든 줄에서 읽는다** — `backlog promote` 와 한 자리다(리뷰). 적은 값을 그대로 찍으면
     // 같은 한 줄을 한쪽은 argv 로, 한쪽은 파일로 셈해, 쓰기에 정규화가 붙는 날 둘이 갈린다.
     out.extend(milestone_line(stood_on(&made), known, made.iter().filter(|i| is_root(i)).count(), ctx.lang()));
+    out.extend(due_line(&drafts, due, ctx.lang()));
     Ok(out)
 }
 
@@ -723,6 +737,18 @@ pub struct Rooted<'a> {
     /// 내린다: 기한은 물려받는 값이 아니고(`report::DueLadder` 가 천장으로만 읽는다), 멤버마다 적으면
     /// 우선순위를 올리는 셈(`moai due apply`)이 한 기한으로 멤버 전부를 p0 로 올린다.
     pub due: Option<&'a str>,
+}
+
+impl<'a> Rooted<'a> {
+    /// 그 초안이 받을 기한 — 제 `@날짜`, 없으면 뿌리일 때 [`Rooted::due`]. 진짜([`create_drafts`])와 연습
+    /// ([`json_rehearsal`]·[`line_of`])이 이 하나로 고른다(리뷰) — 뿌리를 가르는 글을 저마다 적던 때는 한쪽만
+    /// 고치는 날 연습이 진짜와 다른 기한을 댈 길이 열려 있었다([`body_lands_on`] 이 본문에 대해 닫은 그것).
+    pub fn due_for<'d>(&self, d: &'d Draft, into: Option<&str>) -> Option<&'d str>
+    where
+        'a: 'd,
+    {
+        d.due.as_deref().or(self.due.filter(|_| d.epic.is_none() && into.is_none()))
+    }
 }
 
 /// 초안 묶음을 실제 이슈로 빚어 `issues` 에 밀어 넣는다. **쓰기 트랜잭션
@@ -794,8 +820,8 @@ pub fn create_drafts(
         let mut issue = Issue::new(id, d.title.clone(), d.kind, Status::new(cfg.first_status()), at);
         issue.priority = d.priority;
         issue.tags = d.tags.clone();
-        // 줄 끝의 `@날짜`(moai-ghkp.u1w). 뿌리가 안 적었으면 아래에서 `Rooted::due` 로 채운다.
-        issue.due_on = d.due.clone();
+        // 줄 끝의 `@날짜`(moai-ghkp.u1w), 없으면 뿌리가 받는 기한 — 고르는 자는 [`Rooted::due_for`] 하나다.
+        issue.due_on = rooted.due_for(d, into).map(str::to_string);
         // **소속은 id 하나에만 선다**(moai-exh7, 2026-09-23 사용자 결정). 멤버의 id 가 에픽 밑에
         // 붙으므로 `report::groups` 가 "부모가 에픽이면 그 에픽이 소속"(moai-9t3l)으로 이미
         // 물려준다 — 여기서 `epic` 을 또 적으면 같은 사실이 두 자리에 서고, 그것이 파생값을
@@ -807,9 +833,6 @@ pub fn create_drafts(
             // **뿌리에만 적는다**(moai-xoyg·moai-07v1). 멤버는 이 뿌리에서 물려받으니 여기
             // 적으면 같은 값이 줄마다 한 벌씩 서고, 에픽을 옮기는 날 그 줄들이 옛 자리에 남는다.
             issue.milestone = rooted.milestone.map(str::to_string);
-            if issue.due_on.is_none() {
-                issue.due_on = rooted.due.map(str::to_string);
-            }
             // **본문은 첫 뿌리에만 간다**(리뷰). 마일스톤은 멤버가 물려받으니 뿌리마다 서야
             // 하지만 본문은 물려받는 값이 아니다 — 계획은 `#` 줄을 여럿 받으므로
             // (`draft::Shape::Plan`) 뿌리마다 적으면 같은 글이 에픽 수만큼 베껴진다. 재 봤다:
@@ -831,7 +854,11 @@ pub fn create_drafts(
     Ok((entries, made))
 }
 
-pub fn line_of(d: &Draft, id: Option<&str>) -> String {
+/// 계획의 한 줄을 그린다 — `due` 는 그 줄이 받을 기한([`Rooted::due_for`], 만든 뒤면 그 줄의 것)이다.
+///
+/// **기한도 그린다**(리뷰) — 연습은 사람이 "좋다" 하는 자리인데 `@날짜` 는 제목에서 떼어져 화면 어디에도 없었다.
+/// 날짜 오타(`@2026-01-20` 를 바란 `@2026-10-20`)를 보고 고칠 자리가 여기다.
+pub fn line_of(d: &Draft, id: Option<&str>, due: Option<&str>) -> String {
     let head = match id {
         Some(id) => paint(style::ID, id),
         None => String::new(),
@@ -849,7 +876,23 @@ pub fn line_of(d: &Draft, id: Option<&str>) -> String {
     } else {
         format!("   {}", paint(style::TAG, &crate::view::tag_line(&d.tags)))
     };
-    format!("{indent}{head}  {mark}  {}{tags}", d.title).trim_end().to_string()
+    let due = due.map(|d| format!("   {}", paint(style::DIM, &format!("@{d}")))).unwrap_or_default();
+    format!("{indent}{head}  {mark}  {}{tags}{due}", d.title).trim_end().to_string()
+}
+
+/// `--due` 가 **어느 에픽에도 안 섰으면** 한 줄로 댄다(리뷰) — `#` 줄마다 제 `@날짜` 가 있으면 그것이 이겨
+/// ([`Rooted::due`]) `--due` 는 아무 데도 안 선다. 말없이 0 으로 끝나면 깃발 하나가 조용히 버려진 것이다 —
+/// [`flags_a_plan_cannot_keep`] 이 막으려던 그 꼴이다. 선 자리는 줄마다 `@날짜` 로 그린다([`line_of`]).
+fn due_line(drafts: &[Draft], due: Option<&str>, lang: crate::i18n::Lang) -> Option<String> {
+    due_nowhere(drafts, due, lang).map(|said| paint(style::DIM, &said))
+}
+
+/// [`due_line`] 의 글 — `--json` 은 사람 줄을 안 내므로 stderr 로 댄다(`say_no_such_milestone` 와 같은 자리, 리뷰).
+/// 기계가 받는 길에서만 말없이 버리면 그 깃발은 에이전트에게서 조용히 사라진다.
+fn due_nowhere(drafts: &[Draft], due: Option<&str>, lang: crate::i18n::Lang) -> Option<String> {
+    let due = due?;
+    let lands = drafts.iter().any(|d| d.epic.is_none() && d.due.is_none());
+    (!lands).then(|| crate::i18n::fill(crate::i18n::say(lang, "add.due_nowhere"), &[("due", due)]))
 }
 
 /// 계획의 제목들이 상한 안인가 — **연습이 진짜와 같은 것을 보게 하는 자**(moai-5229).
@@ -862,9 +905,9 @@ pub fn line_of(d: &Draft, id: Option<&str>) -> String {
 /// 연습에도 진짜에도 아직 id 가 없다.
 ///
 /// **여기서 거른다고 연습과 진짜가 같아진 것은 아니다.** 진짜는 `store::with_write` 에서
-/// `Issue::validate` 도 지나고 사람 이름도 푼다 — 쉼표가 든 태그(`#bug,perf`)나 git 사용자 정보가
-/// 없는 기계는 아직 연습을 지나 진짜에서 거절당한다. 그 자리를 닫는 길은 검사를 하나씩 옮겨
-/// 적는 것이 아니라 초안을 **id 를 뽑기 전에** 이슈로 빚어 한 번에 재는 것이다.
+/// `Issue::validate` 와 기한의 위계도 지나고 사람 이름도 푼다. 앞의 둘은 [`check_plan_rows`] 가 초안을
+/// 이슈로 빚어 한 번에 잰다 — 검사를 하나씩 옮겨 적는 대신 이 문서가 적어 둔 그 길이다. git 사용자 정보가
+/// 없는 기계는 아직 연습을 지나 진짜에서 거절당한다.
 ///
 /// **마일스톤의 모양도 여기서 잰다**(리뷰). `--milestone` 이 계획에 닿은 날(moai-xoyg) 이
 /// 어긋남이 다시 열렸다 — `moai add --from - --milestone none --dry-run` 이 0 으로 끝나며
@@ -913,6 +956,51 @@ pub fn check_plan(drafts: &[Draft], rooted: Rooted<'_>, lang: crate::i18n::Lang)
     Ok(())
 }
 
+/// 연습이 **진짜가 쓰기에서 거는 줄 검사도 건다**(리뷰) — 필드(`Issue::validate_keeping`: `--due`·데려간 기한의
+/// 꼴, 쉼표가 든 태그…)와 기한의 위계([`crate::report::first_beyond`]). 초안을 지금 줄 곁에 빚어(`create_drafts`)
+/// 진짜와 같은 자로 한 번에 잰다 — [`check_plan`] 의 문서가 적어 둔 길이다. 검사를 하나씩 옮겨 적던 판은 기한의 꼴과
+/// 위계라는 두 거절을 연습이 몰라, `--dry-run` 이 0 으로 끝낸 계획을 진짜가 물렸다(계획 안의 `@날짜`, `--due`,
+/// `--milestone`·데려간 마일스톤의 기한).
+///
+/// 차례도 진짜와 같다 — 지은 차례대로 줄마다 필드를 재고(`store::write_locked` 의 고리), 위계는 그 뒤에 잰다.
+/// 가리키는 말도 같다: 거절당한 줄과 이 계획이 짓는 조상은 제목으로 댄다(moai-1rkl).
+///
+/// `issues` 는 연습이 락 없이 읽은 지금 줄이다 — 진짜는 락 안에서 다시 읽고 다시 잰다. 줄을 안 읽은 연습(마일스톤도
+/// 기한도 없는 계획)은 빈 것을 준다: 그 계획의 위계는 계획 안에서 끝난다.
+pub fn check_plan_rows(
+    issues: &[Issue],
+    cfg: &crate::config::Config,
+    drafts: &[Draft],
+    into: Option<&str>,
+    rooted: Rooted<'_>,
+    lang: crate::i18n::Lang,
+) -> R<()> {
+    let mut rows = issues.to_vec();
+    // 저널 줄은 버린다 — 연습이라 누가 적는지는 안 쓰인다. 사람은 묻지 않는다: 그 물음은 진짜의 것이다.
+    let nobody = Actor { name: String::new(), email: String::new() };
+    let (_, made) = create_drafts(
+        &mut rows,
+        cfg,
+        &Default::default(),
+        drafts,
+        into,
+        rooted,
+        &(None, None),
+        &nobody,
+        &model::now(),
+    )?;
+    let at = |i: &Issue| store::At::Unwritten(crate::model::fit_title(&i.title));
+    for i in &made {
+        i.validate_keeping(cfg, false).map_err(|why| Fail::new(crate::view::invalid(lang, &at(i), &why)))?;
+    }
+    let measured: Vec<&str> = made.iter().filter(|i| i.due_on.is_some()).map(|i| i.id.as_str()).collect();
+    if let Some((i, c)) = crate::report::first_beyond(&rows, &measured) {
+        let why = c.refusal(i, made.iter().any(|m| m.id == c.above.id));
+        return Err(Fail::new(crate::view::invalid(lang, &at(i), &why)));
+    }
+    Ok(())
+}
+
 /// 연습의 기계 출력. **`--dry-run` 도 `--json` 을 지킨다** — 연습은 계획을
 /// 미리 보는 자리인데 거기서만 사람 글이 나오면, 미리 보는 쪽은 파싱에
 /// 실패하고 결국 진짜로 만들어 보고서야 계획을 읽는다.
@@ -923,14 +1011,18 @@ pub fn check_plan(drafts: &[Draft], rooted: Rooted<'_>, lang: crate::i18n::Lang)
 ///
 /// `dry_run` 을 적어 두는 것은 **id 가 없는 까닭**이 거기서 나오기 때문이다.
 /// 진짜 출력은 만든 줄을 그대로 내므로, 이 깃발이 두 모양을 가른다.
+///
+/// **뿌리가 받아 갈 것은 [`Rooted`] 하나로 받는다**(리뷰) — 마일스톤·본문·기한을 같은 꼴의 `Option<&str>` 로
+/// 나란히 받던 판은 두 부름 어디서든 말없이 뒤집혀도 컴파일됐다([`check_plan`] 이 적어 둔 그 까닭). 본문이 설
+/// 자리([`body_lands_on`])와 줄마다의 기한([`Rooted::due_for`])도 진짜가 고르는 자로 여기서 고른다. 펼치기는
+/// 데려가는 본문을 안 준다 — 그 글은 생각이 이미 들고 있어 `moai show <backlog>` 가 낸다(moai-07v1).
 pub fn json_rehearsal(
     drafts: &[Draft],
     promoted: Option<&str>,
     into: Option<&str>,
-    milestone: Option<&str>,
-    body_on: Option<usize>,
-    due: Option<&str>,
+    rooted: Rooted<'_>,
 ) -> R<Vec<String>> {
+    let (milestone, body_on) = (rooted.milestone, body_lands_on(drafts, rooted.body));
     /// 기본 우선순위는 **여기서 풀어 낸다.** `null` 을 내면 받는 쪽이 기본값을
     /// 다시 알아야 하고, 그러면 그 값이 두 곳에 적힌다. 우선순위가 없는 종류
     /// (에픽·마일스톤)에는 아예 내지 않는다 — 없는 것에 기본값을 씌우면
@@ -988,7 +1080,7 @@ pub fn json_rehearsal(
                 priority: d.priority.or_else(|| (d.kind == Kind::Issue).then_some(model::DEFAULT_PRIORITY)),
                 tags: &d.tags,
                 epic: d.epic,
-                due_on: d.due.as_deref().or(due.filter(|_| d.epic.is_none() && into.is_none())),
+                due_on: rooted.due_for(d, into),
             })
             .collect(),
         promoted,

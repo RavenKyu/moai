@@ -240,6 +240,45 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
                 i.updated_at = at.clone();
             }
             let out = i.clone();
+            // **조상을 당긴 쓰기는 자식을 안 막는다**(moai-ghkp.cb3) — 자식은 남의 줄이라, 막으면 제 기한
+            // 하나 못 옮긴다. 넘친 줄을 대기만 한다.
+            //
+            // **이 쓰기가 넘치게 한 줄만 댄다**(리뷰) — 쓰기 뒤에 넘친 줄에서 쓰기 앞에도 넘쳤던 줄을 뺀다. 조상을 늦추는
+            // 쓰기나 기한 곁에 제목을 고친 쓰기가 남은 넘침을 제 탓으로 대면, 받는 쪽은 그때마다 남의 기한을 고치러 간다.
+            // 기한·자리가 그대로인 쓰기는 묻지도 않는다 — 지도를 락 안에서 짓는 셈이다. 쓰기 앞의 모습은 고친 줄 하나를
+            // 잠시 되돌려 잰다 — 다른 줄은 이 쓰기가 안 건드린다. 계획 밖의 줄(미룬 것과 그 밑)과 멤버가 다 닫힌 묶음은
+            // 빼고 댄다: `status` 의 `due_beyond_parent` 가 안 세는 줄을 "센다" 고 하면 거짓말이다. 묶음의 칸은 멤버에서
+            // 읽는다(`report::group_states_of` — 묶음이 섞였을 때만 센다).
+            let moved = before.due_on != out.due_on || before.epic != out.epic || before.milestone != out.milestone;
+            let overflow: Vec<String> = match moved {
+                false => Vec::new(),
+                true => {
+                    let now: Vec<String> =
+                        crate::report::due_overflow_of(issues, &out.id).into_iter().map(|i| i.id.clone()).collect();
+                    match now.is_empty() {
+                        true => now,
+                        false => {
+                            let k = issues.iter().position(|x| x.id == out.id).expect("방금 고친 줄이다");
+                            let edited = std::mem::replace(&mut issues[k], before.clone());
+                            let was: std::collections::BTreeSet<String> =
+                                crate::report::due_overflow_of(issues, &out.id)
+                                    .into_iter()
+                                    .map(|i| i.id.clone())
+                                    .collect();
+                            issues[k] = edited;
+                            let off = crate::report::deferred_roots(issues);
+                            let ids: Vec<&str> = now.iter().map(String::as_str).collect();
+                            let states = crate::report::group_states_of(issues, cfg, &ids);
+                            let shut =
+                                |id: &str| states.iter().any(|((_, g), col)| *g == id && *col == crate::config::DONE);
+                            now.iter()
+                                .filter(|id| !was.contains(*id) && !off.contains_key(id.as_str()) && !shut(id))
+                                .cloned()
+                                .collect()
+                        }
+                    }
+                }
+            };
             // **아래의 판단은 아카이브로 옮긴 줄까지 겹쳐 읽는다**(moai-tzzt) — `-e` 로 적은 에픽이나 이 줄의 부모·
             // 막는 줄이 아카이브에 있으면 산 줄만으로는 "없는 에픽" 이 되는데, 보드는 같은 줄을 멀쩡하다고 센다.
             // 고친 줄은 산 파일의 것이 이긴다([`super::in_context`]).
@@ -331,12 +370,6 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
             let read = super::read_of(issues, cfg, &near, ctx.json);
             // 막음도 **락 안에서 본 모습으로** 가른다 — `ready` 의 자(`report::blocks_of`)다.
             let blocked = Blocked::of(issues, cfg, &out);
-            // **조상을 당긴 쓰기는 자식을 안 막는다**(moai-ghkp.cb3) — 자식은 남의 줄이라, 막으면 제 기한
-            // 하나 못 옮긴다. 넘친 줄을 대기만 한다. 기한·자리를 안 건드린 쓰기는 묻지 않는다.
-            let overflow = match args.due.is_some() || args.epic.is_some() || args.milestone.is_some() {
-                true => crate::report::due_overflow_of(live, &out.id).into_iter().map(|i| i.id.clone()).collect(),
-                false => Vec::new(),
-            };
             Ok((
                 vec![],
                 Edited {
@@ -384,15 +417,19 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
     super::add::say_held_epic(&edited, held_epic, ctx.lang());
     super::add::say_no_such_milestone(edited.milestone.as_deref(), known_milestone, ctx.lang());
     // 넘친 줄은 쓰기가 선 뒤에 stderr 한 줄로 — `--json` 도 가리지 않는다. 남은 것은 `status` 의
-    // `due_beyond_parent` 가 비춘다.
+    // `due_beyond_parent` 가 비춘다. **[`super::tell`] 로 낸다**(리뷰) — `eprintln!` 은 닫힌 stderr 에서 패닉해,
+    // 이미 쓴 쓰기의 답(`--json`)을 못 내고 101 로 끝난다. **앞의 셋만 대고 나머지는 수로 접는다**(리뷰) — 마일스톤
+    // 하나를 당기면 넘친 줄이 수백이고, 그 줄이 에이전트의 맥락에 통째로 든다. 다 보려면 `moai status` 다.
     if !overflow.is_empty() {
-        eprintln!(
+        const SHOW: usize = 3;
+        let mut ids = overflow.iter().take(SHOW).map(String::as_str).collect::<Vec<_>>().join(", ");
+        if overflow.len() > SHOW {
+            ids = format!("{ids} {}", crate::view::more_of(overflow.len() - SHOW, ctx.lang()));
+        }
+        super::tell(&format!(
             "moai: {}",
-            crate::i18n::fill(
-                crate::i18n::say(ctx.lang(), "edit.due_overflow"),
-                &[("id", &edited.id), ("ids", &overflow.join(", "))],
-            )
-        );
+            crate::i18n::fill(crate::i18n::say(ctx.lang(), "edit.due_overflow"), &[("id", &edited.id), ("ids", &ids)])
+        ));
     }
     if ctx.json {
         // **이 키는 우리 것이다** — `--json` 을 되써 넣어 모르는 필드로 든 줄이면 한 객체에 같은

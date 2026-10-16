@@ -731,10 +731,15 @@ impl Filter {
             archived,
             backlog,
             deferred,
+            // **빈 값은 거절한다**(리뷰) — [`spans`] 와 같은 까닭이다. 빈 `또는` 묶음은 어느 줄에도 안 맞아,
+            // `--filter "due_on=$DUE"` 의 빈 변수가 말없이 0건이 되고 받는 쪽은 "기한 든 일이 없다" 로 읽는다.
             due: raw
                 .due_on
                 .iter()
-                .map(|v| csv(v).iter().map(|d| DaySpan::parse(d)).collect::<Result<Vec<_>, _>>())
+                .map(|v| match csv(v).as_slice() {
+                    [] => Err(BadFilter::NotADay(v.clone())),
+                    days => days.iter().map(|d| DaySpan::parse(d)).collect::<Result<Vec<_>, _>>(),
+                })
                 .collect::<Result<Vec<_>, _>>()?,
         };
         // **시간으로 물으면 숨김을 다 연다**(moai-efoc.ip5, 2026-09-30 사용자 결정) — done·미룸·생각·아카이브까지.
@@ -935,9 +940,10 @@ impl Filter {
         // 셈해지고(위의 `--milestone` 과 같은 까닭), 탐색기의 거름망은 키 하나에 줄마다 여기를 지난다.
         // 날로 친 끝은 읽는 사람의 벽시계로 견준다([`End::Wall`]) — 시간대가 안 실렸으면(`None`) 도장 그대로다.
         let within = |spans: &[Vec<Span>], at: Option<i64>| spans_hold(spans, at, wh.zone);
-        // 기한은 **줄 자신의 그 필드**를 날로 견준다(moai-ghkp.7uy) — 없으면 어느 폭에도 안 든다.
+        // 기한은 **줄 자신의 그 필드**를 날로 견준다(moai-ghkp.7uy) — 없으면 어느 폭에도 안 든다. 꼴이 틀린 값도
+        // 없는 것이다([`Issue::deadline`]) — `*_at=` 이 못 읽는 시각을 어느 폭에도 안 넣는 것과 같은 결이다.
         if !self.due.is_empty()
-            && !i.due_on.as_deref().is_some_and(|d| self.due.iter().all(|any| any.iter().any(|s| s.holds(d))))
+            && !i.deadline().is_some_and(|d| self.due.iter().all(|any| any.iter().any(|s| s.holds(d))))
         {
             return false;
         }
@@ -1391,6 +1397,19 @@ pub fn display_order(a: &Issue, b: &Issue) -> std::cmp::Ordering {
     a.priority().cmp(&b.priority()).then_with(|| a.id.cmp(&b.id))
 }
 
+/// 기한의 차례 — **이른 기한이 먼저고 기한 없는 줄이 뒤다**(moai-ghkp.7uy). 꼴이 틀린 값은 없는 것이다
+/// ([`Issue::deadline`]). `--sort due`·탐색기의 `SPC s w`·`ready` 가 이 하나로 잰다(리뷰) — 저마다 적던 때는
+/// 셋이 같은 줄을 다른 차례로 세울 길이 열려 있었다. 날짜는 고정폭이라 글로 견준다.
+pub fn due_order(a: &Issue, b: &Issue) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    match (a.deadline(), b.deadline()) {
+        (Some(x), Some(y)) => x.cmp(y),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => Ordering::Equal,
+    }
+}
+
 /// 사람이 고르는 차례의 한 필드(moai-55cp). 기본은 [`display_order`] 다.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SortKey {
@@ -1612,12 +1631,7 @@ pub fn order_by(
             (None, None) => Ordering::Equal,
         },
         SortKey::Title => caseless(&a.0.title, &b.0.title),
-        SortKey::Due => match (&a.0.due_on, &b.0.due_on) {
-            (Some(x), Some(y)) => x.cmp(y),
-            (Some(_), None) => Ordering::Less,
-            (None, Some(_)) => Ordering::Greater,
-            (None, None) => Ordering::Equal,
-        },
+        SortKey::Due => due_order(a.0, b.0),
         SortKey::Id => a.0.id.cmp(&b.0.id),
     };
     let order = fields
