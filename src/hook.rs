@@ -6547,15 +6547,19 @@ pub fn guard_shell_in(
 /// 절대 경로를 낸다 — 절대 경로의 `kill-server` 와 `pkill tmux` 의 거절문이 shim 이 막을 줄을 대던 것을 고쳤다
 /// (리뷰 moai-e7vm.rl8 10번).
 ///
-/// **환경은 `tmux` 낱말에 닿았을 때만 읽는다** — 규칙 4 는 [`Line`] 처럼 게을러야 한다. 읽는 것은
-/// [`TmuxEnv::read`] 하나고, 판정은 순수한 [`guard_tmux_in`] 이다. 게으름은 [`std::cell::LazyCell`] 이 진다 —
-/// 판정 앞에 낱말을 따로 훑는 문을 두던 판은 판정과 같은 낱말 목록을 두 벌 들어, 한쪽에만 낱말을 더하는 날
-/// 그 낱말이 말없이 안 보였고, 환경을 안 쓰는 `pkill`·`killall` 줄에서도 `PATH` 를 훑었다(리뷰 moai-e7vm.rl8).
+/// **환경은 판정이 그것에 달렸을 때만 읽는다** — 규칙 4 는 [`Line`] 처럼 게을러야 한다. `tmux` 뒤에 shim 이
+/// 사람의 cmux 에 옮길 하위 명령이 섰을 때([`cmux_hit`])와, 막기로 정해 거절문의 줄([`own_line`])을 지을 때뿐이다 —
+/// `tmux ls`·`type -a tmux`·`grep tmux` 는 안 읽는다. 읽는 것은 [`TmuxEnv::read`] 하나고, 판정은 순수한
+/// [`guard_tmux_in`] 이다. 게으름은 [`std::cell::LazyCell`] 이 진다 — 판정 앞에 낱말을 따로 훑는 문을 두던 판은
+/// 판정과 같은 낱말 목록을 두 벌 들어, 한쪽에만 낱말을 더하는 날 그 낱말이 말없이 안 보였다(리뷰 moai-e7vm.rl8).
+/// 훅은 이 함수를 한 부름에 여러 번 부른다(`cmd/hook.rs` 의 앞문과 [`guard_shell_in`]) — 그래서 지나가는 줄에서
+/// 안 읽는 것이 값이다.
 pub fn guard_tmux(line: &Line<'_>) -> Decision {
     guard_tmux_in(line, &std::cell::LazyCell::new(TmuxEnv::read))
 }
 
-/// 규칙 4 가 보는 **환경**(moai-e7vm) — `guard_tmux` 가 한 번 읽어 [`guard_tmux_in`] 에 넘긴다.
+/// 규칙 4 가 보는 **환경**(moai-e7vm) — `guard_tmux` 가 게으른 칸에 담아 [`guard_tmux_in`] 에 넘긴다. 판정이
+/// 그것에 달린 줄에서 한 번 읽히고, 지나가는 줄에서는 안 읽힌다.
 pub struct TmuxEnv {
     /// `$TMUX` 가 cmux 의 가짜([`crate::skill::CMUX_STAND_IN`])로 시작하는가.
     pub stand_in: bool,
@@ -6689,9 +6693,10 @@ pub fn guard_tmux_in(line: &Line<'_>, env: &impl std::ops::Deref<Target = TmuxEn
             let rest = &seg[i + 1..];
             match basename(word) {
                 "tmux" => {
-                    if env.stand_in
+                    // 순수한 낱말 물음이 먼저다 — 환경(`PATH` 훑기)은 그것이 걸린 줄에서만 읽는다.
+                    if let Some((first, at)) = cmux_hit(rest)
+                        && env.stand_in
                         && env.is_shim(word)
-                        && let Some((first, at)) = cmux_hit(rest)
                     {
                         // 낱말마다 감싼다 — 껍데기가 벗긴 따옴표를 되살려야 `'sleep 60'`·`';'` 가 그 낱말 하나로 돌아간다.
                         let tail = rest[first..].iter().map(|w| crate::text::quoted(w)).collect::<Vec<_>>().join(" ");
@@ -11952,11 +11957,50 @@ mod tests {
         {
             assert_eq!(guard_shell(&held, &cfg(), &here(), root, root, cmd), Decision::Pass, "막혔다 — {cmd}");
         }
-        // 거절문이 댄 줄은 자리표시자만 채우면 지나간다.
-        let why = denied(&pass("tmux kill-server")).to_string();
-        let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
-        assert!(line.ends_with("kill-server"), "{why}");
-        assert_eq!(pass(&line), Decision::Pass, "{line}");
+        // 거절문이 댄 줄은 자리표시자만 채우면 지나간다. **가짜 밖의 줄은 글자째 못박는다**(moai-e7vm) — 가짜 아래의
+        // 갈래가 거절문을 [`own_line`] 으로 옮기면서 밖의 줄은 이전 그대로여야 했는데, 끝말만 보던 판은 그 줄이 바뀌어도
+        // 푸르게 섰다.
+        for cmd in ["tmux kill-server", "pkill tmux"] {
+            let why = denied(&pass(cmd)).to_string();
+            let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
+            assert_eq!(line, "env -u TMUX tmux -L moai-t kill-server", "{cmd}\n{why}");
+            assert_eq!(pass(&line), Decision::Pass, "{line}");
+        }
+    }
+
+    /// **규칙 4 는 판정이 환경에 달린 줄에서만 그것을 읽는다**(moai-e7vm) — 가짜 `$TMUX` 아래에서 환경을 읽는 것은
+    /// `PATH` 의 자리마다 `access`·`canonicalize` 를 치르는 일이고, 훅은 한 부름에 규칙 4 를 여러 번 부른다. 세는
+    /// 자리로 환경을 건네 몇 번 풀었는지 본다 — `tmux` 낱말마다 환경을 먼저 묻던 판은 `tmux ls`·`type -a tmux` 에서도
+    /// 읽어 여기서 붉어진다.
+    #[test]
+    fn rule_four_reads_the_environment_only_where_it_decides_on_it() {
+        struct Counted(std::cell::Cell<usize>, TmuxEnv);
+        impl std::ops::Deref for Counted {
+            type Target = TmuxEnv;
+            fn deref(&self) -> &TmuxEnv {
+                self.0.set(self.0.get() + 1);
+                &self.1
+            }
+        }
+        let reads = |cmd: &str| {
+            let env = Counted(Default::default(), TmuxEnv { stand_in: true, shim: None, real: None, canon: |_| None });
+            let _ = guard_tmux_in(&Line::new(cmd), &env);
+            env.0.get()
+        };
+        for cmd in [
+            "cargo test",
+            "echo x > f",
+            "pkill cargo",
+            "tmux ls",
+            "type -a tmux",
+            "grep -rn tmux src",
+            "tmux display -p x",
+        ] {
+            assert_eq!(reads(cmd), 0, "환경을 읽었다 — {cmd}");
+        }
+        for cmd in ["tmux -L x kill-session", "tmux kill-server", "pkill tmux"] {
+            assert!(reads(cmd) > 0, "환경을 안 읽고 판정했다 — {cmd}");
+        }
     }
 
     /// **cmux 의 가짜 `$TMUX` 아래에서는 `-L`·`-S` 도 사람의 cmux 를 못 지킨다**(moai-e7vm, 리뷰 moai-xpa8.yv6) —
