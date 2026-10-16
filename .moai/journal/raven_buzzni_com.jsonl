@@ -7005,3 +7005,4 @@
 {"ts":"2026-10-16T18:45:26Z","id":"moai-cabg","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: none — 머지 ba518b44 (milestone/moai-4d0z), 가지 worktree-moai-cabg 는 push 해 두고 릴리스까지 둔다"}
 {"ts":"2026-10-16T18:45:46Z","id":"moai-cabg","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: ba518b44 in milestone/moai-4d0z, origin/worktree-moai-cabg pushed, members closed"}
 {"ts":"2026-10-16T18:46:04Z","id":"moai-e7vm","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-6d (83t, then the epic-end review again)"}
+{"ts":"2026-10-16T18:47:04Z","id":"moai-e7vm.83t","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
