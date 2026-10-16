@@ -7085,7 +7085,7 @@ fn a_plan_refuses_the_flags_it_cannot_use() {
     // **`--body` 는 여기서 빠졌다**(moai-kqid) — 계획은 본문을 받아 첫 뿌리에 단다. 못 서는
     // 판은 stdin 을 정말 다투는 판뿐이고, 그것은 아래 [`a_plan_takes_a_body_unless_stdin_is_contested`] 가 잰다.
     //
-    // **열 가지를 남김없이 돈다**(리뷰). clap 의 `conflicts_with_all` 이 거저 지키던 목록을
+    // **아홉 가지를 남김없이 돈다**(리뷰 — `--due` 는 계획이 짓는 에픽에 서서 빠졌다, moai-ghkp.u1w). clap 의 `conflicts_with_all` 이 거저 지키던 목록을
     // 손으로 옮겨 적었는데 시험은 셋만 돌아, 그 목록에서 한 줄이 빠지는 날 아무것도 안 붉어졌다 —
     // 빠진 깃발은 받아서 버려지고 그 부름이 0 으로 끝난다(`--type` 이 실제로 그랬다, moai-g9a8).
     for extra in [
@@ -7095,7 +7095,6 @@ fn a_plan_refuses_the_flags_it_cannot_use() {
         ["--priority", "1"].as_slice(),
         ["--parent", "moai-aaaa"].as_slice(),
         ["--start", "2026-09-01"].as_slice(),
-        ["--due", "2026-09-30"].as_slice(),
         ["--status", "in_progress"].as_slice(),
         ["--quiet"].as_slice(),
         ["--type", "issue"].as_slice(),
@@ -10169,6 +10168,46 @@ fn deadlines_order_and_filter_the_list() {
     let at = |id: &str| ready.iter().position(|x| x == id).unwrap_or_else(|| panic!("{id} 가 ready 에 없다 {ready:?}"));
     assert!(at(&urgent) < at(&soon), "{ready:?}");
     assert!(at(&soon) < at(&mid) && at(&mid) < at(&late) && at(&late) < at(&none), "{ready:?}");
+}
+
+/// **계획이 기한을 든다**(moai-ghkp.u1w) — 줄 끝의 `@날짜` 가 그 줄의 기한이고, `add --from --due` 는
+/// 계획이 짓는 에픽에 선다(`--milestone` 과 같은 길). 줄이 제 `@날짜` 를 들었으면 그것이 이긴다. 멤버에는
+/// 안 내린다. `backlog promote` 는 backlog 의 기한을 에픽으로 데려간다. 위계는 같은 쓰기 안에서도 선다.
+#[test]
+fn a_plan_carries_deadlines() {
+    let s = init("dueplan");
+    let plan = "# 첫 에픽\n- 멤버 @2026-10-20\n- 기한 없는 멤버\n# 둘째 에픽 @2026-10-25\n- 다른 멤버\n";
+    let out = from_stdin(s.path(), &["add", "--from", "-", "--due", "2026-10-30", "--json"], plan);
+    assert!(out.status.success(), "{}", text(&out));
+    let rows = issues(s.path());
+    let line = |title: &str| rows.lines().find(|l| l.contains(&format!(r#""title":"{title}""#))).unwrap().to_string();
+    assert!(line("첫 에픽").contains(r#""due_on":"2026-10-30""#), "{}", line("첫 에픽"));
+    assert!(line("둘째 에픽").contains(r#""due_on":"2026-10-25""#), "줄의 @날짜가 --due 에 졌다");
+    assert!(line("멤버").contains(r#""due_on":"2026-10-20""#));
+    assert!(!line("기한 없는 멤버").contains("due_on"), "멤버에 기한을 내렸다");
+
+    // 연습도 같은 날을 댄다.
+    let dry = from_stdin(s.path(), &["add", "--from", "-", "--due", "2026-10-30", "--dry-run", "--json"], plan);
+    let said = String::from_utf8_lossy(&dry.stdout).to_string();
+    assert!(said.contains(r#""due_on":"2026-10-30""#) && said.contains(r#""due_on":"2026-10-25""#), "{said}");
+
+    // 같은 쓰기 안의 위계 — 멤버가 제 에픽보다 늦으면 계획째 물린다.
+    let before = issues(s.path());
+    let out = from_stdin(s.path(), &["add", "--from", "-"], "# 에픽 @2026-10-10\n- 늦은 멤버 @2026-10-11\n");
+    assert!(!out.status.success(), "에픽보다 늦은 멤버를 받았다");
+    assert_eq!(issues(s.path()), before, "물린 계획이 남았다");
+    // 꼴이 틀린 @날짜는 줄 번호와 거절한다.
+    let out = from_stdin(s.path(), &["add", "--from", "-"], "# 에픽\n- 멤버 @2026-13-01\n");
+    assert!(!out.status.success() && String::from_utf8_lossy(&out.stderr).contains("2"), "{}", text(&out));
+
+    // promote 는 backlog 의 기한을 에픽으로 데려간다.
+    let b = ok(s.path(), &["backlog", "add", "나중", "--due", "2026-11-01", "-q"]).trim().to_string();
+    let out = from_stdin(s.path(), &["backlog", "promote", &b, "--from", "-"], "# 펼친 에픽\n- 펼친 멤버\n");
+    assert!(out.status.success(), "{}", text(&out));
+    let rows = issues(s.path());
+    let line = |title: &str| rows.lines().find(|l| l.contains(&format!(r#""title":"{title}""#))).unwrap().to_string();
+    assert!(line("펼친 에픽").contains(r#""due_on":"2026-11-01""#), "{}", line("펼친 에픽"));
+    assert!(!line("펼친 멤버").contains("due_on"));
 }
 
 /// **`--due +N` 은 오늘에서 N 일 뒤다**(moai-ghkp.kz7) — 저장하는 것은 날짜다. `+3` 을 그대로 두면

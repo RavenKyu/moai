@@ -1014,6 +1014,8 @@
   "git.not_utf8": "what git gave could not be read — {said}",
   "draft.unclosed_bracket": "line {line}: `[` was never closed — {raw}",
   "draft.not_a_priority": "line {line}: `[{tag}]` is not a priority. `[p0]`–`[p{max}]`",
+  "draft.not_a_due": "line {line}: `{due}` is not a deadline. It is `@YYYY-MM-DD`; a title that ends in `@` and a digit writes `\\@`",
+  "draft.two_dues": "line {line}: two deadlines on one line — {raw}",
   "draft.no_title": "line {line}: no title — {raw}",
   "draft.var_missing": "variables left unfilled {names} — pass them with `--var name=value`. For a literal `{{` write `\\{{`",
   "draft.var_unknown": "variables the plan does not have {names} — check the names",

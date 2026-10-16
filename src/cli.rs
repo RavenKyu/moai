@@ -236,15 +236,16 @@ BODY
 Several at once (`--from`):
 
 moai add --from - <<'PLAN'
-# Storage layer
-- [p1] write atomically #bug
+# Storage layer @2026-10-31
+- [p1] write atomically #bug @2026-10-20
 - recover a truncated line
 - \\[WIP] issue \\#12
 PLAN
 
   A `#` line is an epic, a `-` line is an issue of the epic above it.
-  [pN] and #tag are optional.
-  Put \\ in front of a leading [ or a trailing #word in a title.
+  [pN], #tag and @YYYY-MM-DD (the deadline) are optional. --due goes on
+  each epic the plan creates that carries no @date of its own.
+  Put \\ in front of a leading [, a trailing #word or @digit in a title.
   --dry-run keeps a heredoc typo from creating six wrong issues.
 
 Plan templates (`{{name}}` filled by --var, every variable required):

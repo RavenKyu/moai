@@ -1014,6 +1014,8 @@
   "git.not_utf8": "git 이 낸 글을 못 읽었다 — {said}",
   "draft.unclosed_bracket": "{line}줄: `[` 를 닫지 않았다 — {raw}",
   "draft.not_a_priority": "{line}줄: `[{tag}]` 는 우선순위가 아니다. `[p0]`~`[p{max}]`",
+  "draft.not_a_due": "{line}줄: `{due}` 는 기한이 아니다. `@YYYY-MM-DD` 다 — `@` 와 숫자로 끝나는 제목이면 `\\@` 로 적는다",
+  "draft.two_dues": "{line}줄: 한 줄에 기한이 둘이다 — {raw}",
   "draft.no_title": "{line}줄: 제목이 없다 — {raw}",
   "draft.var_missing": "채우지 않은 변수 {names} — `--var 이름=값` 으로 준다. 글자 `{{` 면 `\\{{` 로 적는다",
   "draft.var_unknown": "계획에 없는 변수 {names} — 이름이 맞는지 본다",

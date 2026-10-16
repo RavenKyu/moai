@@ -285,10 +285,11 @@ fn flags_a_plan_cannot_keep(args: &AddArgs) -> Vec<&'static str> {
         priority,
         parent,
         start,
-        due,
         status,
         quiet,
-        // 계획이 받아서 지키는 것들 — 여기 들면 안 된다.
+        // 계획이 받아서 지키는 것들 — 여기 들면 안 된다. **`--due` 는 계획이 짓는 에픽에 선다**
+        // (moai-ghkp.u1w) — `--milestone` 과 같은 길이다. `#` 줄이 제 `@날짜` 를 들었으면 그것이 이긴다.
+        due: _,
         milestone: _,
         body: _,
         assignee: _,
@@ -315,7 +316,6 @@ fn flags_a_plan_cannot_keep(args: &AddArgs) -> Vec<&'static str> {
         (parent.is_some(), "--parent"),
         // 계획은 마일스톤을 못 짓는다(`refuse.plan_has_no_milestone`) — 날짜가 설 줄이 없다.
         (start.is_some(), "--start"),
-        (due.is_some(), "--due"),
         // `--status` 는 계획이 늘 첫 칸에 세우므로 갈 곳이 없다.
         (status.is_some(), "--status"),
         // `-q` 는 "id 하나" 라는 뜻인데 계획은 id 를 여럿 낸다 — 기계가 받을 것은 `--json` 이다.
@@ -432,6 +432,8 @@ pub fn run(ctx: &Ctx, args: AddArgs, kind_override: Option<Kind>) -> R<Vec<Strin
         // **본문은 계획보다 먼저 읽는다.** 바로 위가 둘 다 `-` 인 부름을 걷어 냈으므로 여기서
         // stdin 을 읽는 쪽은 많아야 하나다.
         let body = read_body_told(args.body.clone(), ctx, reads_stdin(from))?;
+        // `--due +N` 은 여기서 날짜로 바꾼다 — 연습과 진짜가 같은 날을 낸다(락 밖, [`super::due_arg`]).
+        let due = args.due.as_deref().map(|d| super::due_arg(ctx, d, &model::now()));
         return bulk(
             ctx,
             &repo,
@@ -441,6 +443,7 @@ pub fn run(ctx: &Ctx, args: AddArgs, kind_override: Option<Kind>) -> R<Vec<Strin
             args.assignee.clone(),
             args.milestone.as_deref(),
             body.as_deref(),
+            due.as_deref(),
         );
     }
     // **`--var` 도 `--from` 이 있어야 뜻이 있다**(moai-cypw) — 아래 `--dry-run` 과 같은 까닭이다.
@@ -616,13 +619,14 @@ fn bulk(
     assignee: Option<String>,
     milestone: Option<&str>,
     body: Option<&str>,
+    due: Option<&str>,
 ) -> R<Vec<String>> {
     let drafts = read_plan(from, vars, draft::Shape::Plan, ctx.lang())?;
     // **마일스톤은 계획의 뿌리로 간다**(moai-xoyg) — 에픽에 서고 이슈는 물려받는다.
     // 본문은 **첫 뿌리 하나**다(moai-kqid) — 물려받는 값이 아니라, 뿌리마다 적으면 같은 글이
     // 에픽 수만큼 베껴진다. 고르는 자는 `create_drafts` 하나고 `backlog promote` 가 데려가는
     // 본문도 그 자리를 지난다.
-    let rooted = Rooted { milestone, body };
+    let rooted = Rooted { milestone, body, due };
 
     if dry_run {
         check_plan(&drafts, rooted, ctx.lang())?;
@@ -633,7 +637,7 @@ fn bulk(
         };
         if ctx.json {
             say_no_such_milestone(milestone, known, ctx.lang());
-            return json_rehearsal(&drafts, None, None, milestone, body_lands_on(&drafts, body));
+            return json_rehearsal(&drafts, None, None, milestone, body_lands_on(&drafts, body), due);
         }
         // 만들지 않으므로 id 가 없다. 무엇이 어디에 붙는지만 보여 준다.
         let mut out = vec![paint(style::HEAD, crate::i18n::say(ctx.lang(), "add.will_make"))];
@@ -714,6 +718,11 @@ pub fn is_root(i: &Issue) -> bool {
 pub struct Rooted<'a> {
     pub milestone: Option<&'a str>,
     pub body: Option<&'a str>,
+    /// 뿌리마다 서는 기한(moai-ghkp.u1w) — `add --from --due` 와 `backlog promote` 가 데려가는 기한이다.
+    /// **줄이 제 `@날짜` 를 들었으면 그것이 이긴다** — 사람이 그 줄에 콕 집어 적은 값이다. 멤버에는 안
+    /// 내린다: 기한은 물려받는 값이 아니고(`report::DueLadder` 가 천장으로만 읽는다), 멤버마다 적으면
+    /// 우선순위를 올리는 셈(`moai due apply`)이 한 기한으로 멤버 전부를 p0 로 올린다.
+    pub due: Option<&'a str>,
 }
 
 /// 초안 묶음을 실제 이슈로 빚어 `issues` 에 밀어 넣는다. **쓰기 트랜잭션
@@ -785,6 +794,8 @@ pub fn create_drafts(
         let mut issue = Issue::new(id, d.title.clone(), d.kind, Status::new(cfg.first_status()), at);
         issue.priority = d.priority;
         issue.tags = d.tags.clone();
+        // 줄 끝의 `@날짜`(moai-ghkp.u1w). 뿌리가 안 적었으면 아래에서 `Rooted::due` 로 채운다.
+        issue.due_on = d.due.clone();
         // **소속은 id 하나에만 선다**(moai-exh7, 2026-09-23 사용자 결정). 멤버의 id 가 에픽 밑에
         // 붙으므로 `report::groups` 가 "부모가 에픽이면 그 에픽이 소속"(moai-9t3l)으로 이미
         // 물려준다 — 여기서 `epic` 을 또 적으면 같은 사실이 두 자리에 서고, 그것이 파생값을
@@ -796,6 +807,9 @@ pub fn create_drafts(
             // **뿌리에만 적는다**(moai-xoyg·moai-07v1). 멤버는 이 뿌리에서 물려받으니 여기
             // 적으면 같은 값이 줄마다 한 벌씩 서고, 에픽을 옮기는 날 그 줄들이 옛 자리에 남는다.
             issue.milestone = rooted.milestone.map(str::to_string);
+            if issue.due_on.is_none() {
+                issue.due_on = rooted.due.map(str::to_string);
+            }
             // **본문은 첫 뿌리에만 간다**(리뷰). 마일스톤은 멤버가 물려받으니 뿌리마다 서야
             // 하지만 본문은 물려받는 값이 아니다 — 계획은 `#` 줄을 여럿 받으므로
             // (`draft::Shape::Plan`) 뿌리마다 적으면 같은 글이 에픽 수만큼 베껴진다. 재 봤다:
@@ -915,6 +929,7 @@ pub fn json_rehearsal(
     into: Option<&str>,
     milestone: Option<&str>,
     body_on: Option<usize>,
+    due: Option<&str>,
 ) -> R<Vec<String>> {
     /// 기본 우선순위는 **여기서 풀어 낸다.** `null` 을 내면 받는 쪽이 기본값을
     /// 다시 알아야 하고, 그러면 그 값이 두 곳에 적힌다. 우선순위가 없는 종류
@@ -932,6 +947,10 @@ pub fn json_rehearsal(
         /// 자리로 말하는 수밖에 없고, 그 자리는 `drafts` 의 첨자다.
         #[serde(skip_serializing_if = "Option::is_none")]
         epic: Option<usize>,
+        /// 그 줄이 받을 기한(moai-ghkp.u1w) — 제 `@날짜`, 없으면 뿌리가 받는 `--due`·데려간 기한.
+        /// 진짜([`create_drafts`])와 같은 차례로 고른다. **없으면 안 낸다.**
+        #[serde(skip_serializing_if = "Option::is_none")]
+        due_on: Option<&'a str>,
     }
     #[derive(serde::Serialize)]
     struct Out<'a> {
@@ -969,6 +988,7 @@ pub fn json_rehearsal(
                 priority: d.priority.or_else(|| (d.kind == Kind::Issue).then_some(model::DEFAULT_PRIORITY)),
                 tags: &d.tags,
                 epic: d.epic,
+                due_on: d.due.as_deref().or(due.filter(|_| d.epic.is_none() && into.is_none())),
             })
             .collect(),
         promoted,
