@@ -52,6 +52,10 @@ file says, so read membership from the `derived_` keys. A closed row is in no
 plan, so it carries no `shelved_by` even when it was deferred — `--deferred`
 picks it by its own `deferred_at`. A row is deferred when it carries either.
 
+`due_on` is the row's own deadline and nothing else — no key carries the deadline
+inherited from its epic or milestone, because a deadline is not inherited: the one
+above only bounds it. Read the ancestors' `due_on` to find the earliest that applies.
+
 ## Keep the payload small
 
 A whole tracker with bodies runs to megabytes — this repository's
