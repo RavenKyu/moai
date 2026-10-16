@@ -7298,6 +7298,8 @@ stop sending outside work while a release runs",
         let path = format!("{}:{}", bin.display(), std::env::var("PATH").unwrap_or_default());
         let out = std::process::Command::new("bash")
             .args(["-c", script, "watch", "/root", "e", "2026-10-12T00:00:00Z"])
+            // 세션의 `BASH_ENV` 는 자식 bash 가 읽어 PATH 의 앞을 바꿀 수 있다 — 가짜 `moai` 가 져서 진짜가 돈다.
+            .env_remove("BASH_ENV")
             .env("PATH", path)
             .output()
             .unwrap();
