@@ -32,6 +32,8 @@ struct Edited {
     held_epic: Option<crate::report::HeldEpic>,
     /// 고친 줄의 막음을 가른 답. 상세가 `show <id>` 와 같은 막음 줄을 그린다(moai-xe74).
     blocked: Blocked,
+    /// 이 쓰기가 기한을 당겨 그보다 늦어진 자손·멤버의 id(moai-ghkp.cb3). 막지 않고 알린다.
+    overflow: Vec<String>,
 }
 
 /// 락 밖으로 들고 나오는 막음 답. **여기서 챙긴다** — `report::Block` 은 줄 전부를 빌리는데
@@ -298,6 +300,7 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
                         held_epic,
                         // 바뀐 것이 없으면 상세를 안 그린다.
                         blocked: Blocked::default(),
+                        overflow: Vec::new(),
                     },
                 ));
             }
@@ -328,6 +331,12 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
             let read = super::read_of(issues, cfg, &near, ctx.json);
             // 막음도 **락 안에서 본 모습으로** 가른다 — `ready` 의 자(`report::blocks_of`)다.
             let blocked = Blocked::of(issues, cfg, &out);
+            // **조상을 당긴 쓰기는 자식을 안 막는다**(moai-ghkp.cb3) — 자식은 남의 줄이라, 막으면 제 기한
+            // 하나 못 옮긴다. 넘친 줄을 대기만 한다. 기한·자리를 안 건드린 쓰기는 묻지 않는다.
+            let overflow = match args.due.is_some() || args.epic.is_some() || args.milestone.is_some() {
+                true => crate::report::due_overflow_of(live, &out.id).into_iter().map(|i| i.id.clone()).collect(),
+                false => Vec::new(),
+            };
             Ok((
                 vec![],
                 Edited {
@@ -342,6 +351,7 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
                     known_milestone,
                     held_epic,
                     blocked,
+                    overflow,
                 },
             ))
         },
@@ -360,6 +370,7 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
         known_milestone,
         held_epic,
         blocked,
+        overflow,
     } = done;
     // 쓰기가 선 **뒤에** 말한다 — `add` 와 같은 자리다. `--json` 도 가리지 않는다(stderr 라 stdout 의 JSON 은
     // 그대로다). 필드가 에픽·조상에게 져서 `kept_milestone` 줄이 함께 나는 경우에도 말한다 — 제 에픽이 멀쩡한
@@ -372,6 +383,17 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
     // 보므로 이 줄이 앞에 선다.
     super::add::say_held_epic(&edited, held_epic, ctx.lang());
     super::add::say_no_such_milestone(edited.milestone.as_deref(), known_milestone, ctx.lang());
+    // 넘친 줄은 쓰기가 선 뒤에 stderr 한 줄로 — `--json` 도 가리지 않는다. 남은 것은 `status` 의
+    // `due_beyond_parent` 가 비춘다.
+    if !overflow.is_empty() {
+        eprintln!(
+            "moai: {}",
+            crate::i18n::fill(
+                crate::i18n::say(ctx.lang(), "edit.due_overflow"),
+                &[("id", &edited.id), ("ids", &overflow.join(", "))],
+            )
+        );
+    }
     if ctx.json {
         // **이 키는 우리 것이다** — `--json` 을 되써 넣어 모르는 필드로 든 줄이면 한 객체에 같은
         // 키가 둘 서거나, 끊긴 줄이 안 끊긴 것처럼 읽힌다. `Row::of` 가 `cmd::OURS` 로 걷는다.

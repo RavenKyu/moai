@@ -10101,6 +10101,41 @@ fn a_deadline_cannot_pass_its_ancestors() {
     add(s.path(), &["기한 없음", "-e", &e]);
 }
 
+/// **조상을 당긴 쓰기는 자식을 안 막는다**(moai-ghkp.cb3) — 자식은 남의 줄이다. 쓰기 뒤에 stderr 한
+/// 줄로 넘친 줄을 대고, `status` 가 `due_beyond_parent` 로 비춘다. 경고는 종료 코드를 안 바꾼다.
+#[test]
+fn pulling_a_parent_deadline_in_warns_about_the_children() {
+    let s = init("duepull");
+    let m = add(s.path(), &["v0.1", "--type", "milestone", "--due", "2026-09-30"]);
+    let e = add(s.path(), &["에픽", "--type", "epic", "--milestone", &m]);
+    let i = add(s.path(), &["멤버", "-e", &e, "--due", "2026-09-28"]);
+    let quiet = add(s.path(), &["기한 없는 멤버", "-e", &e]);
+    assert!(!ok(s.path(), &["status", "--json"]).contains("due_beyond_parent"), "넘친 줄이 없는데 경고가 섰다");
+
+    let out = moai(s.path(), &["edit", &m, "--due", "2026-09-20"]);
+    assert!(out.status.success(), "조상을 당기는 쓰기가 막혔다\n{}", text(&out));
+    let said = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(said.contains(&i) && said.contains("due_beyond_parent"), "넘친 줄을 안 댄다 — {said}");
+    assert!(!said.contains(&quiet), "기한 없는 줄을 댔다 — {said}");
+
+    let out = moai(s.path(), &["status", "--json"]);
+    assert!(out.status.success(), "경고가 종료 코드를 바꿨다");
+    let board = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(board.contains("due_beyond_parent") && board.contains(&i), "{board}");
+    assert!(ok(s.path(), &["status"]).contains(&i), "보드가 넘친 줄을 안 댄다");
+
+    // **에픽을 더 이른 마일스톤으로 옮겨도** 멤버가 넘치면 그 쓰기가 댄다 — 천장은 에픽이 아니라 마일스톤이다.
+    ok(s.path(), &["edit", &i, "--due", "2026-09-20"]);
+    let early = add(s.path(), &["v0.0", "--type", "milestone", "--due", "2026-09-15"]);
+    let out = moai(s.path(), &["edit", &e, "--milestone", &early]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(String::from_utf8_lossy(&out.stderr).contains(&i), "옮긴 에픽 밑에서 넘친 멤버를 안 댄다\n{}", text(&out));
+
+    // 닫으면 안 센다.
+    ok(s.path(), &["mv", &i, "done"]);
+    assert!(!ok(s.path(), &["status", "--json"]).contains("due_beyond_parent"), "닫은 줄을 셌다");
+}
+
 /// **`--due +N` 은 오늘에서 N 일 뒤다**(moai-ghkp.kz7) — 저장하는 것은 날짜다. `+3` 을 그대로 두면
 /// 읽을 때마다 다른 날을 가리킨다. 오늘은 읽는 사람의 달이다: 서울의 아침은 UTC 로 아직 어제다.
 #[test]

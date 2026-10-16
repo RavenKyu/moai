@@ -912,6 +912,9 @@ fn says(w: &Warning, screen: Screen) -> String {
         "orphan_child" => one(say(lang, "warn.orphan_child")),
         // 고칠 곳은 이 줄이 아니라 부모 id 의 쌍둥이다 — 그 id 는 `duplicate_id` 가 댄다(moai-mibi.wpj).
         "twin_parent" => one(say(lang, "warn.twin_parent")),
+        // 쓰기는 지금 쓰는 줄만 재므로 조상을 당긴 쓰기가 남긴 어긋남이다(moai-ghkp.cb3). 고칠 것은
+        // 이 줄의 기한이거나 조상의 기한이다 — 어느 쪽인지는 사람이 정한다.
+        "due_beyond_parent" => one(say(lang, "warn.due_beyond_parent")),
         "dangling_blocked_by" => one(say(lang, "warn.dangling_blocked_by")),
         // 도구는 제 시계로만 적으므로 이런 시각은 손으로 고친 줄이나 틀린 시계다(moai-ugjp).
         "future_timestamp" => one(say(lang, "warn.future_timestamp")),
@@ -1231,6 +1234,7 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
             | "unknown_field"
             | "dangling_epic"
             | "dangling_milestone"
+            | "due_beyond_parent"
             | "milestone_focus"
             | "milestones_running"
     ) {

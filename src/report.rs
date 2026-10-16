@@ -3175,15 +3175,7 @@ impl<'a> DueLadder<'a> {
     /// 그 줄의 조상 가운데 가장 이른 기한. 기한 든 조상이 없으면 `None` 이다. 꼴이 틀린 기한은
     /// 안 센다 — 그 줄을 고칠 때 제 검사(`Invalid::Date`)가 드러낸다.
     pub fn ceiling(&self, i: &'a Issue) -> Option<Ceiling<'a>> {
-        let mut above: Vec<&'a str> = Vec::new();
-        if let Some(m) = self.epic_of.stood(i, &self.lines) {
-            above.push(m);
-        }
-        if let Some(e) = self.epic_of.at(i) {
-            above.push(e);
-        }
-        above.extend(std::iter::successors(crate::id::parent_of(&i.id), |p| crate::id::parent_of(p)));
-        above
+        self.above(i)
             .into_iter()
             .filter_map(|id| self.lines.at(id))
             .filter(|a| a.id != i.id)
@@ -3195,11 +3187,42 @@ impl<'a> DueLadder<'a> {
             .min_by(|a, b| a.due.cmp(b.due))
     }
 
+    /// 그 줄의 조상 id — 선 마일스톤, 든 에픽, 점 id 의 부모들. 차례는 그 셋 그대로다.
+    fn above(&self, i: &'a Issue) -> Vec<&'a str> {
+        let mut above: Vec<&'a str> = Vec::new();
+        if let Some(m) = self.epic_of.stood(i, &self.lines) {
+            above.push(m);
+        }
+        if let Some(e) = self.epic_of.at(i) {
+            above.push(e);
+        }
+        above.extend(std::iter::successors(crate::id::parent_of(&i.id), |p| crate::id::parent_of(p)));
+        above
+    }
+
     /// 그 줄의 기한이 조상보다 늦으면 그 조상 — 기한이 없거나 꼴이 틀리면 `None` 이다.
     pub fn beyond(&self, i: &'a Issue) -> Option<Ceiling<'a>> {
         let due = i.due_on.as_deref().filter(|d| crate::model::parse_date(d).is_some())?;
         self.ceiling(i).filter(|c| due > c.due)
     }
+}
+
+/// 그 줄 **밑에서** 기한이 넘친 줄 — 그 줄을 조상으로 든 줄 가운데 조상보다 늦은 것(moai-ghkp.cb3).
+///
+/// 조상의 기한을 당기는 쓰기는 자식을 안 막으므로(자식은 남의 줄이다) 그 쓰기 뒤에 한 줄로 알린다.
+/// **천장이 그 줄인 것만 고르지 않는다** — 에픽을 더 이른 마일스톤으로 옮기면 멤버의 천장은 에픽이
+/// 아니라 그 마일스톤이 되는데, 그것을 넘긴 쓰기는 에픽을 고친 이 쓰기다.
+/// 닫힌 줄은 안 센다 — `status` 의 `due_beyond_parent` 와 같은 까닭이다. 묶음 줄의 칸은 멤버에서
+/// 읽으므로 여기서는 묶음을 닫혔다고 치지 않는다.
+pub fn due_overflow_of<'a>(all: &'a [Issue], id: &str) -> Vec<&'a Issue> {
+    if !all.iter().any(|i| i.due_on.is_some() && i.id != id) {
+        return Vec::new();
+    }
+    let ladder = DueLadder::of(all);
+    all.iter()
+        .filter(|i| i.due_on.is_some() && (is_group(i) || i.status.as_str() != crate::config::DONE))
+        .filter(|i| ladder.above(i).contains(&id) && ladder.beyond(i).is_some())
+        .collect()
 }
 
 /// **뿌리로 올라간 생각** — 제 부모 밑에 접히지 않는 backlog 의 id.
@@ -5740,6 +5763,28 @@ fn status_in_scope<'a, 'c>(
     let twin_parent: Vec<&Issue> = issues.iter().filter(|i| visible(i) && in_epic.lost(i)).collect();
     if !twin_parent.is_empty() {
         warnings.push(Warning::new("twin_parent", ids_of(&twin_parent)));
+    }
+    // **부모를 당겨 넘친 자식**(moai-ghkp.cb3, 2026-10-16 사용자 결정). 쓰기는 지금 쓰는 줄만 재므로
+    // (`store::write_locked`) 조상의 기한을 당기는 쓰기는 자식을 안 막는다 — 자식은 남의 줄이다. 머지
+    // 드라이버도 줄 사이를 안 잰다. 그 둘이 남긴 어긋남을 여기서 비춘다. 자는 쓰기와 같은 [`DueLadder`]
+    // 다. 닫힌 줄과 계획 밖의 줄은 안 센다 — 고칠 까닭이 없는 기한이다.
+    //
+    // **지도는 넘칠 수 있는 줄이 있을 때만 짓는다** — 훅이 도구 호출마다 이 판정을 돈다. 마일스톤은 조상이
+    // 없으므로, 마일스톤 밖에 기한 든 줄이 없으면 넘칠 줄도 없다.
+    let beyond: Vec<&Issue> = match issues.iter().any(|i| i.due_on.is_some() && i.kind != Kind::Milestone) {
+        false => Vec::new(),
+        true => {
+            let ladder = DueLadder::of(issues);
+            issues
+                .iter()
+                .filter(|i| i.due_on.is_some() && visible(i) && !out_of_plan.contains(i.id.as_str()))
+                .filter(|i| column(i, &states) != crate::config::DONE)
+                .filter(|i| ladder.beyond(i).is_some())
+                .collect()
+        }
+    };
+    if !beyond.is_empty() {
+        warnings.push(Warning::new("due_beyond_parent", ids_of(&beyond)));
     }
     let dangling_blockers: Vec<&Issue> =
         issues.iter().filter(|i| visible(i) && i.blocked_by.iter().any(|b| !known.contains(b.as_str()))).collect();
