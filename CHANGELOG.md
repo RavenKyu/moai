@@ -12,6 +12,41 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+### Added
+
+- **Any row can carry a deadline, not only a milestone.** `--due` works on
+  `add`, `edit`, `epic add` and `backlog add`, and `+N` means N days from today
+  in your time zone (stored as the date). A deadline cannot be later than the
+  milestone, epic or parent the row is drawn under — the write is refused and
+  the message names that ancestor, its deadline and the `--due` to give. Only
+  the row being written is checked: pulling an ancestor's deadline in never
+  blocks, it prints one line naming the rows it pushed past, and `moai status`
+  warns `due_beyond_parent` without changing the exit code. `--start` stays on
+  milestone rows. (moai-ghkp)
+- **Deadlines order and filter the list.** `--sort due` (and `SPC s w` in the
+  explorer) puts the earliest first and rows without one last;
+  `--filter due_on=2026-10-01~2026-10-05` keeps rows whose own deadline falls
+  on those calendar days, both ends in. Within one priority `moai ready` puts
+  the running milestone's work first and then the nearer deadline.
+  (moai-ghkp.7uy)
+- **A plan line can end in `@YYYY-MM-DD`.** `add --from --due` puts the
+  deadline on each epic the plan creates that has none of its own, and
+  `backlog promote` carries the backlog item's deadline onto the epic.
+  `--dry-run` checks them the way the real write does, and `show --as-plan`
+  writes them back. (moai-ghkp.u1w)
+
+### Changed
+
+- **`due_on` is no longer refused on rows that are not milestones.** A binary
+  from before this release still refuses it: it cannot edit an issue, epic or
+  backlog item that carries a deadline — not even its title — and says to clear
+  it with `moai edit <id> --due none`. Upgrade every binary that writes the
+  tracker before giving such a row a deadline. (moai-ghkp.kz7)
+- **A plan line that ends in `@` and a digit is read as a deadline.** A title
+  such as `retina icons @2x` now stops the plan with its line number; write
+  `\@2x` to keep it as text. Saved plan templates with such titles need the
+  backslash. (moai-ghkp.u1w)
+
 ## [0.17.0] - 2026-10-14
 
 ### Added
