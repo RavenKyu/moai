@@ -18765,7 +18765,10 @@ fn the_tmux_rule_stands_outside_a_tracker() {
     let s = Scratch::new("hooktmuxbare");
     let bash = |cmd: &str| tool_at(&s, s.path(), "Bash", &format!("{{\"command\":{}}}", json_str(cmd)));
     assert!(refusal(&bash("tmux kill-server")).starts_with("Rule 4"), "트래커 밖에서 사람의 서버를 겨눈 줄이 지나간다");
-    assert_eq!(bash("env -u TMUX tmux -L t kill-server"), "", "제 서버를 가리킨 줄을 막는다");
+    // 가짜 `$TMUX`(cmux claude-teams) 아래에서는 shim 이 `-L` 을 버려 이 줄도 막히는 것이 맞다(moai-e7vm) — 자식 훅이 그 환경을 물려받는다.
+    if !std::env::var("TMUX").is_ok_and(|t| t.starts_with("/tmp/cmux-")) {
+        assert_eq!(bash("env -u TMUX tmux -L t kill-server"), "", "제 서버를 가리킨 줄을 막는다");
+    }
     assert_eq!(bash("echo x > f"), "", "트래커 밖에서 트래커의 규칙을 세운다");
 }
 
