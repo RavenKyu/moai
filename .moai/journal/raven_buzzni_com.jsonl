@@ -6840,3 +6840,6 @@
 {"ts":"2026-10-16T13:02:36Z","id":"moai-ghkp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: 멤버 다섯 다 커밋했고 에픽 끝 리뷰 moai-ghkp.9uh 가 돈다. 리뷰 고침을 받고 병합 뒤 멤버를 닫는다"}
 {"ts":"2026-10-16T14:05:46Z","id":"moai-7bqy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-6d (ghkp 리뷰와 나란히 — 글만 고쳐 파일이 안 겹친다)"}
 {"ts":"2026-10-16T14:05:46Z","id":"moai-hddd","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Decided alone: 7bqy 를 ghkp 리뷰와 나란히 보냈다. 글만이라 파일이 안 겹친다. dr8a 는 report.rs·cli.rs 가 ghkp 와 겹쳐 ghkp 병합 뒤에 보낸다"}
+{"ts":"2026-10-16T14:06:19Z","id":"moai-7bqy.a84","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-16T14:06:19Z","id":"moai-7bqy.fvo","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-16T14:06:20Z","id":"moai-7bqy.0i5","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
