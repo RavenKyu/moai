@@ -26,8 +26,11 @@ does not tag — see `CONTRIBUTING.md`.
   rule 4 now refuses the shim's `kill-server`, `kill-session`, `kill-window`,
   `kill-pane` and `new-session` (aliases, prefixes, flag clusters and `\;`
   sequences included) whatever socket the line names, and the refusal hands the
-  same line on the real tmux's absolute path. Outside cmux nothing changes.
-  (moai-e7vm)
+  same line on the real tmux's absolute path. Its other refusals (a bare
+  `kill-server` on an absolute path, `pkill`/`killall tmux`) hand that line
+  too, and rule 4 in the `AGENTS.md` block and the worker steps teach it, where
+  they taught `env -u TMUX tmux -L …`, which runs the shim. Outside cmux
+  nothing changes. (moai-e7vm)
 
 ## [0.18.0] - 2026-10-16
 
