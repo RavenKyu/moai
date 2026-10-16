@@ -554,6 +554,15 @@ members inherit it; without it the whole plan stands outside the release, and of
 `moai ready` then hands out only what is `p0`. Do not hang a running release on a plan
 because the plan looks urgent: that is the release changing size while it runs.
 
+**Ask when it is due, in that same breath.** A deadline is never required, but it is
+always asked about — for a plan, an epic, an issue or a backlog item that comes out of
+the person's own request. Write the answer as `@YYYY-MM-DD` at the end of the line it
+belongs to (`# Epic title @2026-10-31`, `- [p1] first issue @2026-10-20`), or give
+`--due <day>` to put it on every epic the plan creates that carries no `@` of its own;
+`--due +3` is three days from today. **No answer, no deadline** — leave it empty, never
+make one up. A review issue and a backlog item you park mid-work are not asked about.
+Nothing checks this: it is a question for you to ask, not a gate.
+
 **`--body` says why these issues are one bundle.** It goes onto the first epic the
 plan creates, which is where `moai show <epic>` reads it from. `--body <text>` takes
 the text itself (a file path there becomes the body as written), `--body -` reads
@@ -1282,7 +1291,8 @@ Start a session by running `moai status`. The board and the warnings come up on 
 ### When a feature request comes in
 
 1. Look at the epics that already exist with `moai status`. If it may overlap, `moai show -g <keyword>`.
-2. Show a plan split the way fork 3 says, once, and on a "yes" create it in one go.
+2. Show a plan split the way fork 3 says, once, ask when it is due in the same breath,
+   and on a "yes" create it in one go. No answer leaves the deadline empty.
 3. Pick it up with `moai mv <id> in_progress`, and move it to `done` when it is finished.
 4. Park what you find along the way that is out of scope with `moai backlog add` — if the
    epic promised it, it is not a backlog item even when you cannot do it now (fork 1).
