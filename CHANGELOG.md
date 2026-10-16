@@ -14,6 +14,11 @@ does not tag — see `CONTRIBUTING.md`.
 
 ### Fixed
 
+- **An editor that saves in a non-UTF-8 encoding no longer loses what you wrote.**
+  When the editor opened by `SPC n` saved the thought as, say, Notepad ANSI or vim
+  `fenc=latin1`, moai could not read the file and then deleted it — the only copy.
+  It now keeps that file (readable by you alone), names its path at the front of
+  the message, and prints the path once more on the shell when the explorer quits.
 - **Hook rule 4 no longer lets `tmux -L …` through inside `cmux claude-teams`.**
   There `$TMUX` is cmux's stand-in (`/tmp/cmux-…`) and the `tmux` on `PATH` is
   cmux's shim, which drops `-L`, `-S` and `-f`: `env -u TMUX tmux -L x
