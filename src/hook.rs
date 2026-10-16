@@ -6535,8 +6535,139 @@ pub fn guard_shell_in(
 /// 트래커 밖이어도 선다.
 /// 토막 안의 **어느 낱말이든** `tmux` 면 본다: `env -u TMUX tmux …`·`sudo tmux …` 의 tmux 는
 /// 명령 자리에 있지 않다. 따옴표로 묶인 글(`moai note … "tmux kill-server"`)은 낱말 하나라
-/// `tmux` 가 아니다. 창·칸을 닫는 `kill-window`·`kill-pane` 은 서버를 안 끝내 안 본다.
+/// `tmux` 가 아니다. 창·칸을 닫는 `kill-window`·`kill-pane` 은 서버를 안 끝내 **보통은** 안 본다.
+///
+/// **cmux 의 가짜 `$TMUX` 아래에서는 이 말이 뒤집힌다**(moai-e7vm, 리뷰 moai-xpa8.yv6). `cmux
+/// claude-teams`(와 omo·omx·omc)는 `$TMUX` 를 [`crate::skill::CMUX_STAND_IN`] 으로 시작하는 가짜로 세우고
+/// `PATH` 앞에 cmux 의 shim `tmux` 를 둔다 — 그 shim 은 `-L`·`-S`·`-f` 를 **버리고** `new-session` 을 사람의
+/// cmux 에 워크스페이스로, `kill-session`·`kill-window` 를 `workspace.close`(`-t` 가 없으면 부른 쪽 자기
+/// 워크스페이스), `kill-pane` 을 `surface.close` 로 옮긴다. 그래서 `env -u TMUX tmux -L x kill-session` 이
+/// 제 서버가 아니라 사람의 워크스페이스를 닫는다. 그 아래에서는 shim 으로 읽히는 `tmux` 의 만들기·죽이기를
+/// `-L`·`-S` 와 무관하게 막고, 거절문은 shim 이 아닌 진짜 tmux 의 절대 경로를 낸다.
+///
+/// **환경은 `tmux` 낱말에 닿았을 때만 읽는다** — 규칙 4 는 [`Line`] 처럼 게을러야 한다. 읽는 것은
+/// [`TmuxEnv::read`] 하나고, 판정은 순수한 [`guard_tmux_in`] 이다. 게으름은 [`std::cell::LazyCell`] 이 진다 —
+/// 판정 앞에 낱말을 따로 훑는 문을 두던 판은 판정과 같은 낱말 목록을 두 벌 들어, 한쪽에만 낱말을 더하는 날
+/// 그 낱말이 말없이 안 보였고, 환경을 안 쓰는 `pkill`·`killall` 줄에서도 `PATH` 를 훑었다(리뷰 moai-e7vm.rl8).
 pub fn guard_tmux(line: &Line<'_>) -> Decision {
+    guard_tmux_in(line, &std::cell::LazyCell::new(TmuxEnv::read))
+}
+
+/// 규칙 4 가 보는 **환경**(moai-e7vm) — `guard_tmux` 가 한 번 읽어 [`guard_tmux_in`] 에 넘긴다.
+pub struct TmuxEnv {
+    /// `$TMUX` 가 cmux 의 가짜([`crate::skill::CMUX_STAND_IN`])로 시작하는가.
+    pub stand_in: bool,
+    /// shim 의 정규 경로 — `PATH` 의 `tmux` 가운데 정규 경로에 `cmux` 가 든 첫 것, 없으면 첫 것.
+    /// `None` 이면 못 풀었다 — 모든 `tmux` 를 shim 으로 읽는다.
+    pub shim: Option<std::path::PathBuf>,
+    /// shim 이 아닌 진짜 tmux — `PATH` 에서 정규 경로가 shim 과 다르고 `cmux` 가 안 든 첫 `tmux`(절대 경로).
+    pub real: Option<String>,
+    /// 절대 경로 낱말을 정규 경로로 푸는 자 — 시험이 가짜로 갈아 끼운다.
+    pub canon: fn(&str) -> Option<std::path::PathBuf>,
+}
+
+/// 이 정규 경로가 cmux 의 것으로 보이는가 — `PATH` 의 차례가 틀려도 거절문이 shim 을 "진짜 tmux" 로 내지 않게
+/// 하는 둘째 잣대다([`TmuxEnv::read`]).
+fn cmux_path(c: &std::path::Path) -> bool {
+    c.to_string_lossy().to_ascii_lowercase().contains("cmux")
+}
+
+impl TmuxEnv {
+    fn canon_fs(w: &str) -> Option<std::path::PathBuf> {
+        std::fs::canonicalize(w).ok()
+    }
+
+    /// 환경을 읽는다. 가짜 `$TMUX` 가 아니면 파일 시스템을 건드리지 않는다.
+    ///
+    /// - **껍데기가 고르는 것만 센다** — 돌릴 수 있는 파일([`crate::cmd::runnable`])이고 절대 자리의 것이다. 실행
+    ///   비트 없는 `tmux` 를 shim 으로 세면 진짜 shim 이 `real` 로 나가, 거절문이 댄 줄이 사람의 cmux 를 닫는다.
+    ///   상대 자리는 훅이 세션의 자리로 옮기기 전에 풀리고(`cmd/hook.rs`), 그 자리의 `tmux` 를 `real` 로 내면
+    ///   거절문이 댄 줄이 다시 shim 으로 읽힌다
+    /// - **shim 을 `PATH` 의 차례 하나로만 가리지 않는다** — 훅의 `PATH` 에서 첫 `tmux` 가 진짜이고 cmux 의 것이
+    ///   뒤에 서면, 차례로만 가리는 판은 그 cmux 의 것을 `real` 로 내 거절문이 바로 그 shim 을 지나가는 줄로 건넨다
+    pub fn read() -> Self {
+        let stand_in = std::env::var("TMUX").is_ok_and(|t| t.starts_with(crate::skill::CMUX_STAND_IN));
+        let mut env = TmuxEnv { stand_in, shim: None, real: None, canon: Self::canon_fs };
+        if !stand_in {
+            return env;
+        }
+        let found: Vec<(std::path::PathBuf, std::path::PathBuf)> =
+            std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+                .filter(|dir| dir.is_absolute())
+                .map(|dir| dir.join("tmux"))
+                .filter(|cand| crate::cmd::runnable(cand))
+                .filter_map(|cand| std::fs::canonicalize(&cand).ok().map(|c| (cand, c)))
+                .collect();
+        env.shim = found.iter().find(|(_, c)| cmux_path(c)).or(found.first()).map(|(_, c)| c.clone());
+        env.real = found
+            .iter()
+            .find(|(_, c)| Some(c) != env.shim.as_ref() && !cmux_path(c))
+            .map(|(cand, _)| cand.display().to_string());
+        env
+    }
+
+    /// 이 `tmux` 낱말이 shim 인가 — 맨 이름·상대 경로는 shim 이고, 절대 경로는 정규 경로가 shim 과 같거나
+    /// cmux 의 것으로 보일 때다.
+    fn is_shim(&self, word: &str) -> bool {
+        if !word.starts_with('/') {
+            return true;
+        }
+        let Some(shim) = &self.shim else { return true };
+        (self.canon)(word).is_some_and(|c| c == *shim || cmux_path(&c))
+    }
+}
+
+/// 가짜 `$TMUX` 아래에서 shim 이 사람의 cmux 를 건드리게 하는 하위 명령인가 — 만들기(`new-session`·`new`)와
+/// 죽이기(`kill-server`·`kill-session`·`kill-window`·`kill-pane` 과 `killw`·`killp`). tmux 는 모호하지 않은
+/// 앞머리도 받으니 `kill-w`·`new-s` 도 센다 — 모호한 앞머리(`kill-s`)는 tmux 가 어차피 거절하니 같이 막아도 잃는 것이 없다.
+fn cmux_touching(w: &str) -> bool {
+    matches!(w, "new" | "killw" | "killp")
+        || (w.len() >= "kill-s".len()
+            && ["kill-server", "kill-session", "kill-window", "kill-pane"].iter().any(|k| k.starts_with(w)))
+        || (w.len() >= "new-s".len() && "new-session".starts_with(w))
+}
+
+/// 전역 플래그와 값을 건너뛴 첫 낱말의 자리 — tmux 의 하위 명령.
+///
+/// **getopt 처럼 읽는다**(리뷰 moai-e7vm.rl8). 값을 받는 글자(`c`·`f`·`L`·`S`·`T`)가 묶음의 끝에 서면 다음
+/// 낱말이 그 값이다 — `-uL x` 의 `x` 를 하위 명령으로 읽던 판은 `tmux -uL x kill-window` 를 지나보냈다.
+/// `--` 는 플래그의 끝이다.
+fn tmux_sub(rest: &[String]) -> Option<usize> {
+    let mut n = 0;
+    while n < rest.len() {
+        let w = rest[n].as_str();
+        if w == "--" {
+            return (n + 1 < rest.len()).then_some(n + 1);
+        }
+        let Some(flags) = w.strip_prefix('-').filter(|f| !f.is_empty()) else { return Some(n) };
+        n += match flags.find(['c', 'f', 'L', 'S', 'T']) {
+            Some(at) if at + 1 == flags.len() => 2,
+            _ => 1,
+        };
+    }
+    None
+}
+
+/// 가짜 `$TMUX` 아래에서 shim 이 사람의 cmux 를 건드리게 할 명령의 자리 — `(첫 하위 명령, 건드리는 하위 명령)`.
+///
+/// **명령 묶음의 뒤 명령도 본다**(리뷰 moai-e7vm.rl8). tmux 는 `;` 로 끝나는 낱말(`\;`·`';'`)에서 다음 명령을
+/// 받으니 그 뒤의 첫 낱말도 하위 명령이다 — 첫 명령만 보던 판은 `tmux -L x ls \; kill-session` 을 지나보냈다.
+/// 인자 자리의 낱말(`tmux display new`)은 하위 명령이 아니다.
+fn cmux_hit(rest: &[String]) -> Option<(usize, usize)> {
+    let first = tmux_sub(rest)?;
+    let mut head = true;
+    for (n, w) in rest.iter().enumerate().skip(first) {
+        if head && cmux_touching(w.strip_suffix(';').unwrap_or(w)) {
+            return Some((first, n));
+        }
+        head = w.ends_with(';');
+    }
+    None
+}
+
+/// [`guard_tmux`] 의 순수한 몸 — 환경은 인자로 받는다. 받는 것은 [`TmuxEnv`] 로 풀리는 무엇이든이라
+/// `guard_tmux` 는 게으른 칸을, 시험은 손으로 세운 값을 건넨다.
+pub fn guard_tmux_in(line: &Line<'_>, env: &impl std::ops::Deref<Target = TmuxEnv>) -> Decision {
     // tmux 는 모호하지 않은 앞머리도 그 명령으로 받는다 — `kill-ser` 가 `kill-server` 다.
     let kills = |w: &str| w.len() > "kill-s".len() && ["kill-server", "kill-session"].iter().any(|k| k.starts_with(w));
     for seg in line.words() {
@@ -6544,6 +6675,28 @@ pub fn guard_tmux(line: &Line<'_>) -> Decision {
             let rest = &seg[i + 1..];
             match basename(word) {
                 "tmux" => {
+                    if env.stand_in
+                        && env.is_shim(word)
+                        && let Some((first, at)) = cmux_hit(rest)
+                    {
+                        // 낱말마다 감싼다 — 껍데기가 벗긴 따옴표를 되살려야 `'sleep 60'`·`';'` 가 그 낱말 하나로 돌아간다.
+                        let tail = rest[first..].iter().map(|w| crate::text::quoted(w)).collect::<Vec<_>>().join(" ");
+                        let handed = match &env.real {
+                            Some(real) => format!("env -u TMUX {} -L <unique name> {tail}", crate::text::quoted(real)),
+                            None => "There is no real tmux on this PATH — run the test outside the claude-teams shell."
+                                .into(),
+                        };
+                        return refuse(
+                            4,
+                            format!(
+                                "`tmux {}` would reach the person's cmux, not a tmux server.\n\
+                             Under cmux claude-teams the tmux on PATH is cmux's shim: it drops -L, -S and -f, so this line\n\
+                             closes or opens a workspace or tab in the person's cmux whatever socket it names.\n\
+                             \x20 {handed}",
+                                rest[at].trim_end_matches(';')
+                            ),
+                        );
+                    }
                     let Some(at) = rest.iter().position(|w| kills(w)) else { continue };
                     // `-L default` 는 이름을 댔어도 사람의 기본 서버다 — 맨 tmux 가 붙는 바로 그 소켓이다.
                     let own = rest[..at].iter().enumerate().any(|(n, f)| match f.as_str() {
@@ -11770,6 +11923,11 @@ mod tests {
                 assert!(why.starts_with(&crate::guide::rule_head(4)), "규칙 4 가 안 섰다 — {cmd}\n{why}");
             }
         }
+        // **cmux 의 가짜 `$TMUX` 아래에서 도는 시험 프로세스는 통과 쪽을 못 잰다**(moai-e7vm) — 그 아래에서는
+        // `-L` 을 단 줄도 막히는 것이 맞다. 막는 쪽은 위에서 쟀고, 가짜 아래는 아래 시험이 환경을 갈아 끼워 잰다.
+        if std::env::var("TMUX").is_ok_and(|t| t.starts_with(crate::skill::CMUX_STAND_IN)) {
+            return;
+        }
         for cmd in [
             "tmux -L moai-ju21 kill-server",
             "env -u TMUX tmux -L t kill-session -t x",
@@ -11788,6 +11946,100 @@ mod tests {
         let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
         assert!(line.ends_with("kill-server"), "{why}");
         assert_eq!(guard_shell(&idle, &cfg(), &here(), root, root, &line), Decision::Pass, "{line}");
+    }
+
+    /// **cmux 의 가짜 `$TMUX` 아래에서는 `-L`·`-S` 도 사람의 cmux 를 못 지킨다**(moai-e7vm, 리뷰 moai-xpa8.yv6) —
+    /// shim 은 그 플래그를 버린다. 환경을 갈아 끼워 순수한 몸을 잰다. 가짜 아래 갈래를 걷으면 첫 묶음이 붉어진다.
+    #[test]
+    fn under_the_cmux_stand_in_the_shim_is_refused_whatever_the_socket() {
+        fn canon(w: &str) -> Option<std::path::PathBuf> {
+            match w {
+                "/opt/cmux/bin/tmux" | "/usr/local/bin/tmux" => Some("/opt/cmux/bin/tmux".into()),
+                "/usr/bin/tmux" => Some("/usr/bin/tmux".into()),
+                "/Applications/cmux.app/Contents/Resources/bin/tmux" => Some(w.into()),
+                _ => None,
+            }
+        }
+        let env = |stand_in, real: Option<&str>| TmuxEnv {
+            stand_in,
+            shim: Some("/opt/cmux/bin/tmux".into()),
+            real: real.map(String::from),
+            canon,
+        };
+        let inside = env(true, Some("/usr/bin/tmux"));
+        let run = |e: &TmuxEnv, cmd: &str| guard_tmux_in(&Line::new(cmd), &e);
+        for cmd in [
+            "env -u TMUX tmux -L t kill-session",
+            "tmux -S /tmp/s kill-server",
+            "tmux -L x kill-window",
+            "tmux -L x kill-window -t 1",
+            "tmux killw",
+            "tmux killp",
+            "tmux kill-p",
+            "tmux kill-pane -t 1",
+            "tmux -L x new -d",
+            "tmux new-session -d -s x",
+            "tmux -L x new-s -d",
+            "./tmux -L x new-session",
+            "/opt/cmux/bin/tmux -L x kill-session",
+            "/usr/local/bin/tmux -L x kill-session",
+            "/usr/local/bin/tmux -L x new-session",
+            // 정규 경로에 cmux 가 든 것은 `PATH` 의 첫 tmux 가 아니어도 shim 이다(리뷰 moai-e7vm.rl8).
+            "/Applications/cmux.app/Contents/Resources/bin/tmux -L x kill-session",
+            // getopt 의 묶음 — 값을 받는 글자가 끝에 서면 다음 낱말이 그 값이다(리뷰 moai-e7vm.rl8).
+            "tmux -uL x kill-window",
+            "tmux -2S /tmp/s kill-pane",
+            "tmux -- new-session -d",
+            // 명령 묶음의 뒤 명령 — `\;`·`';'`·`;` 로 끝나는 낱말 뒤도 하위 명령이다(리뷰 moai-e7vm.rl8).
+            "tmux -L x ls \\; kill-session -t foo",
+            "tmux -L x ls ';' new-session -d",
+            "tmux -L x display -p x\\; killp",
+        ] {
+            let why = denied(&run(&inside, cmd)).to_string();
+            assert!(why.starts_with(&crate::guide::rule_head(4)), "규칙 4 가 안 섰다 — {cmd}\n{why}");
+        }
+        for cmd in [
+            "tmux ls",
+            "tmux display -p x",
+            "tmux -L x list-sessions",
+            "tmux display new",
+            "/usr/bin/tmux -L x kill-server",
+            "/usr/bin/tmux -S /tmp/s new-session -d",
+            "echo 'tmux -L x kill-session'",
+            "tmux -L x ls \\; display -p new",
+            "tmux -Lx list-sessions",
+        ] {
+            assert_eq!(run(&inside, cmd), Decision::Pass, "막혔다 — {cmd}");
+        }
+        // 거절문이 댄 줄은 자리표시자만 채우면 지나간다.
+        for (cmd, tail) in [
+            ("env -u TMUX tmux -L t kill-session -t x", "kill-session -t x"),
+            ("tmux new -d", "new -d"),
+            // 따옴표와 묶음의 `;` 는 되살아난다 — 벗긴 채 내면 `;` 가 껍데기의 토막 가르개가 된다.
+            ("tmux -L x new-session -d 'sleep 60' \\; kill-pane", "new-session -d 'sleep 60' ';' kill-pane"),
+        ] {
+            let why = denied(&run(&inside, cmd)).to_string();
+            assert!(why.contains("cmux's shim"), "{why}");
+            let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
+            assert_eq!(line, format!("env -u TMUX /usr/bin/tmux -L moai-t {tail}"), "{why}");
+            assert_eq!(run(&inside, &line), Decision::Pass, "{line}");
+        }
+        // 진짜 tmux 가 없으면 줄 대신 그렇다고 말한다.
+        let why = denied(&run(&env(true, None), "tmux kill-session")).to_string();
+        assert!(why.contains("no real tmux"), "{why}");
+        // shim 을 못 풀었으면 절대 경로도 shim 으로 읽는다.
+        let blind = TmuxEnv { shim: None, ..env(true, None) };
+        assert!(matches!(run(&blind, "/usr/bin/tmux -L x kill-server"), Decision::Deny(_)));
+        // `PATH` 의 첫 tmux 가 진짜여도 cmux 의 것은 shim 이다.
+        let inverted = TmuxEnv { shim: Some("/usr/bin/tmux".into()), ..env(true, None) };
+        let cmux = "/Applications/cmux.app/Contents/Resources/bin/tmux -L x kill-session";
+        assert!(matches!(run(&inverted, cmux), Decision::Deny(_)), "{cmux}");
+        // 가짜 밖에서는 이전 그대로다.
+        let outside = env(false, None);
+        for cmd in ["tmux -L x new-session", "tmux kill-pane", "tmux killw", "tmux -L x kill-session", "tmux ls"] {
+            assert_eq!(run(&outside, cmd), Decision::Pass, "막혔다 — {cmd}");
+        }
+        assert!(matches!(run(&outside, "tmux kill-server"), Decision::Deny(_)));
     }
 
     /// **`hook --help` 의 이벤트 목록은 `Event` 의 글과 같다**(moai-h0r2) — clap 의 값 목록을 숨기고
