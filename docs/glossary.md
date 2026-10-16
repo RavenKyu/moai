@@ -55,9 +55,10 @@ the [milestone](#milestone), [epic](#epic) or parent above it: such a write is r
 and a row the one above overtook by being pulled in is a [warning](#warning),
 `due_beyond_parent`. It is not inherited — a member is bounded by its epic's deadline
 without carrying it. `moai due apply` raises an open, not deferred issue's or backlog
-item's priority as its own deadline nears (one day left or less, today and past included,
-`p0`; two or less `p1`; seven or less `p2`), never lowers it, and leaves a
-`Due-priority:` note — an epic's or a milestone's deadline raises none of its members.
+item's priority as the deadline it follows nears — the earliest of its own and those of
+the rows above it (one day left or less, today and past included, `p0`; two or less
+`p1`; seven or less `p2`), never lowers it, and leaves a `Due-priority:` note. A group
+row is never raised itself; its members are.
 More in
 [the workflow](workflow.md#plan-something-bigger).
 

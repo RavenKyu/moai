@@ -40,6 +40,21 @@ does not tag — see `CONTRIBUTING.md`.
   up. The supervisor's message carries a `Due:` line that the worker hangs on
   the epic it unfolds, and each supervisor round starts with `moai due apply`.
   Run `moai init` to bring a repository's block in line. (moai-7bqy)
+- **`moai due apply` raises priority as a deadline nears.** An open, not
+  deferred issue or backlog item follows the earliest of its own deadline and
+  those of the milestone, epic and parent it stands under; one day left or
+  less (today and past included) makes it `p0`, two or less `p1`, seven or
+  less `p2`. It only raises, never lowers, and leaves a
+  `Due-priority: p2 → p0 (1 days left, due 2026-10-17 from <epic>)` note in
+  the same write. With nothing to raise it writes nothing; `--dry-run` shows
+  what it would do. `due_priority = "off"` and `due_p0_days`, `due_p1_days`,
+  `due_p2_days` in `.moai/config.toml` set it (on, 1, 2, 7 by default), and
+  `moai config` shows them. Reading never writes, so nothing raises by itself.
+  (moai-dr8a)
+- **`moai status` says when a priority lags its deadline**, as a notice that
+  names `moai due apply`, and warns `overdue` about a row other than a
+  milestone whose own deadline has passed. Neither changes the exit code.
+  (moai-dr8a.rl4)
 
 ### Changed
 

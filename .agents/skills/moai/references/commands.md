@@ -27,13 +27,14 @@ own deadlines come in. `moai show --sort due` puts the nearest first, and
 `--filter due_on=<from>~<to>` picks rows by their own deadline.
 
 **A near deadline raises priority, by one verb.** `moai due apply` (`--dry-run` shows it
-first) raises an open, not deferred issue or backlog item by its own deadline — one day
-left or less (today and past included) is `p0`, two or less `p1`, seven or less `p2` —
-and leaves on the row a note `Due-priority: pX → pY (N days left, due D)` in the same
-write. It only raises, never lowers, so the value a person set is never fought over and
-the old one stays in that note. Only a row's own deadline counts: an epic's or a
-milestone's deadline raises none of its members — so the deadline a plan's `--due` puts
-on an epic bounds its members and raises none of them. Reading never writes, so nothing
+first) raises an open, not deferred issue or backlog item by the deadline it follows —
+the earliest of its own and those of the milestone, epic and parent it stands under. One
+day left or less (today and past included) is `p0`, two or less `p1`, seven or less `p2`,
+and it leaves on the row a note `Due-priority: pX → pY (N days left, due D)` in the same
+write, ending in `from <id>` when the deadline was that row's. It only raises, never
+lowers, so the value a person set is never fought over and the old one stays in that
+note. A group row is never raised itself — its members are: the deadline a plan's
+`--due` puts on an epic raises its members as it nears. Reading never writes, so nothing
 raises by itself — when `moai status` says rows lag their deadline, run
 `moai due apply`. The thresholds are `due_p0_days`,
 `due_p1_days` and `due_p2_days` in `.moai/config.toml` (1, 2 and 7), and

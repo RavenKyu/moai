@@ -776,13 +776,14 @@ own deadlines come in. `moai show --sort due` puts the nearest first, and
 `--filter due_on=<from>~<to>` picks rows by their own deadline.
 
 **A near deadline raises priority, by one verb.** `moai due apply` (`--dry-run` shows it
-first) raises an open, not deferred issue or backlog item by its own deadline — one day
-left or less (today and past included) is `p0`, two or less `p1`, seven or less `p2` —
-and leaves on the row a note `Due-priority: pX → pY (N days left, due D)` in the same
-write. It only raises, never lowers, so the value a person set is never fought over and
-the old one stays in that note. Only a row's own deadline counts: an epic's or a
-milestone's deadline raises none of its members — so the deadline a plan's `--due` puts
-on an epic bounds its members and raises none of them. Reading never writes, so nothing
+first) raises an open, not deferred issue or backlog item by the deadline it follows —
+the earliest of its own and those of the milestone, epic and parent it stands under. One
+day left or less (today and past included) is `p0`, two or less `p1`, seven or less `p2`,
+and it leaves on the row a note `Due-priority: pX → pY (N days left, due D)` in the same
+write, ending in `from <id>` when the deadline was that row's. It only raises, never
+lowers, so the value a person set is never fought over and the old one stays in that
+note. A group row is never raised itself — its members are: the deadline a plan's
+`--due` puts on an epic raises its members as it nears. Reading never writes, so nothing
 raises by itself — when `moai status` says rows lag their deadline, run
 `moai due apply`. The thresholds are `due_p0_days`,
 `due_p1_days` and `due_p2_days` in `.moai/config.toml` (1, 2 and 7), and
@@ -2206,10 +2207,10 @@ refusal — to the new name (2).
 **1. Pick.** First raise what a near deadline calls for, once a round, and when it raised
 anything take it into the root with a commit with a path — reading never writes, so a
 deadline raises nothing until someone runs the verb, and the order `moai ready` gives is
-only as fresh as that run. It reads each row's own deadline only, so the one an epic
-carries raises none of its members
+only as fresh as that run. A member follows the earliest deadline above it as well as its
+own, so the one an epic carries raises its members
 
-    moai due apply                        raises priority by each row's own deadline, never lowers
+    moai due apply                        raises priority by the deadline each row follows, never lowers
 
 A row it raises to `p0` takes the hotfix slot even outside a running milestone — that is
 what the person asked a deadline to do. Then, out of the backlog that have piled up, keep
@@ -7429,8 +7430,8 @@ stop sending outside work while a release runs",
 
     /// **기한은 계획과 같은 숨에 묻고, 답이 없으면 비운다**(moai-7bqy.a84). 글이지 게이트가 아니라 이 글이 빠지면
     /// 아무것도 묻지 않는다 — 걷어도 초록이던 자리를 맨다. 혼자 만드는 줄의 `--due` 와, 에픽의 기한이 멤버를 안
-    /// 올린다는 말도 맨다: `--due` 는 계획이 짓는 에픽에만 서고 `moai due apply` 는 제 기한만 읽어, 그 말이 없으면
-    /// 사람의 기한이 아무것도 안 올리는데 글은 올린다고 읽힌다(리뷰).
+    /// 올린다는 말도 맨다: `--due` 는 계획이 짓는 에픽에만 서고 `moai due apply` 는 멤버가 조상의 기한도 따르게 읽어
+    /// (moai-dr8a.7rs), 그 말이 없으면 에픽의 기한이 멤버를 올리는지를 글에서 못 읽는다(리뷰).
     #[test]
     fn the_agents_block_asks_when_it_is_due() {
         let agents = agents();
@@ -7439,8 +7440,8 @@ stop sending outside work while a release runs",
         assert!(FORKS.contains("`--due` on `moai add` or `moai backlog add`"), "혼자 만드는 줄에 기한을 다는 길이 없다");
         assert!(agents.contains("ask when it is due in the same breath"), "기능 요청 2 단계가 기한을 안 묻는다");
         assert!(
-            GROUPS.contains("`moai due apply`") && GROUPS.contains("an epic's or a\nmilestone's deadline raises none"),
-            "그룹 글이 에픽·마일스톤의 기한은 멤버를 안 올린다고 안 댄다"
+            GROUPS.contains("`moai due apply`") && GROUPS.contains("puts on an epic raises its members as it nears"),
+            "그룹 글이 에픽의 기한이 멤버를 올린다고 안 댄다"
         );
         assert!(GROUPS.contains("**Within one `p` the nearer deadline comes first**, whether"), "ready 의 기한 차례가 두 마일스톤 줄에 묶였다");
         assert!(backlog().contains("own deadline\ncomes over onto the epic"), "promote 가 기한을 데려간다는 말이 없다");

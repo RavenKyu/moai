@@ -231,10 +231,10 @@ refusal — to the new name (2).
 **1. Pick.** First raise what a near deadline calls for, once a round, and when it raised
 anything take it into the root with a commit with a path — reading never writes, so a
 deadline raises nothing until someone runs the verb, and the order `moai ready` gives is
-only as fresh as that run. It reads each row's own deadline only, so the one an epic
-carries raises none of its members
+only as fresh as that run. A member follows the earliest deadline above it as well as its
+own, so the one an epic carries raises its members
 
-    moai due apply                        raises priority by each row's own deadline, never lowers
+    moai due apply                        raises priority by the deadline each row follows, never lowers
 
 A row it raises to `p0` takes the hotfix slot even outside a running milestone — that is
 what the person asked a deadline to do. Then, out of the backlog that have piled up, keep
