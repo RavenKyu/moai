@@ -308,8 +308,8 @@ never in the root
    it stands in `ListAgents` as a session of this repository and a supervisor takes it for a worker.
    **Under cmux claude-teams** (`$TMUX` starts with `/tmp/cmux-`) the `tmux` on `PATH` is cmux's shim,
    which drops `-L`, `-S` and `-f` and so reaches the person's cmux whatever socket you name — call a
-   real tmux by absolute path instead (`env -u TMUX <real tmux> -L <unique name> …`; `type -a tmux` lists them, take one with no
-   `cmux` in its real path), and point a wrapper script at that same path. With no real tmux there,
+   real tmux by absolute path instead (`env -u TMUX <real tmux> -L <unique name> …`; `type -a tmux` lists the candidates, take one whose
+   `readlink -f` has no `cmux` in it), and point a wrapper script at that same path. With no real tmux there,
    do not test tmux in that shell.
    **Give a review subagent these words too**
 

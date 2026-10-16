@@ -1,4 +1,4 @@
-<!-- moai:begin v:0.18.0 hash:b7261c1c -->
+<!-- moai:begin v:0.18.0 hash:117d9520 -->
 ## Issue tracker — moai
 
 This repository's work lives in `.moai/issues.jsonl`.
@@ -547,9 +547,9 @@ own server.
 
 Under cmux claude-teams (`$TMUX` starts with `/tmp/cmux-`) the `tmux` on `PATH` is cmux's shim: it
 drops `-L`, `-S` and `-f`, so `new-session` and the `kill-*` commands open and close workspaces and
-tabs in the person's cmux, and `env -u TMUX` takes away only the fake `$TMUX`. There call a real tmux
-by its absolute path — `type -a tmux` lists them; take one whose real path has no `cmux` in it — and
-the hook refuses the shim's:
+tabs in the person's cmux, and `env -u TMUX` takes away only the fake `$TMUX`. The hook refuses
+those through the shim. Call a real tmux by its absolute path instead — `type -a tmux` lists the
+candidates; take one whose `readlink -f` has no `cmux` in it:
 
     env -u TMUX <real tmux> -L <unique name> …
 
