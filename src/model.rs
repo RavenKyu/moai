@@ -657,6 +657,14 @@ pub enum Invalid {
         id: String,
         field: Field,
     },
+    /// 기한이 조상(선 마일스톤·든 에픽·점 id 의 부모) 가운데 가장 이른 기한보다 늦다
+    /// (moai-ghkp.33i). 줄 사이의 검사라 [`Issue::validate_fields`] 가 아니라 쓰기 경로가 낸다 —
+    /// 그 조상의 id 와 기한을 들어, 거절문이 당길 날짜와 먼저 고칠 자리를 함께 댄다.
+    DueBeyond {
+        due: String,
+        above: String,
+        above_due: String,
+    },
     /// 시작 기한이 종료 기한보다 뒤다.
     DateOrder {
         starts_on: String,

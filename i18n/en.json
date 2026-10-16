@@ -992,6 +992,7 @@
   "invalid.milestone_in_milestone": "a milestone does not sit in another milestone — a milestone stands at the root. When creating one leave `--milestone` out; on a row already written, empty it with `moai edit {id} --milestone none`",
   "invalid.date": "{field} takes a date as YYYY-MM-DD — {value}. When creating one type the day again; on a row already written, empty it with `moai edit {id} {field} none`",
   "invalid.date_not_milestone": "{field} stands on a milestone row only. When creating one leave `{field}` out; on a row already written, empty it with `moai edit {id} {field} none`",
+  "invalid.due_beyond": "deadline {due} is later than {above}, which is due {above_due} — a deadline cannot pass its milestone, epic or parent. Give `--due {above_due}` or earlier, or move the deadline of {above} first",
   "invalid.date_order": "the start {starts_on} falls after the deadline {due_on}",
   "invalid.self_block": "it cannot block itself",
   "invalid.blocked_id": "blocked_by is not an id — {value}",

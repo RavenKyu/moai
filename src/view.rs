@@ -3297,6 +3297,10 @@ fn invalid_at(lang: Lang, at: &str, why: &crate::model::Invalid) -> String {
         Invalid::DateNotMilestone { id, field: f } => {
             fill(say(lang, "invalid.date_not_milestone"), &[("id", id), ("field", field(f))])
         }
+        Invalid::DueBeyond { due, above, above_due } => fill(
+            say(lang, "invalid.due_beyond"),
+            &[("due", due), ("above", above), ("above_due", above_due)],
+        ),
         Invalid::DateOrder { starts_on, due_on } => {
             fill(say(lang, "invalid.date_order"), &[("starts_on", starts_on), ("due_on", due_on)])
         }

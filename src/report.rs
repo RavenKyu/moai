@@ -3139,6 +3139,69 @@ pub fn milestone_from_above<'a>(
     }
 }
 
+/// 그 줄의 기한이 넘으면 안 되는 자리 — 조상 가운데 **가장 이른 기한**(moai-ghkp.33i).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ceiling<'a> {
+    /// 그 기한을 든 조상의 id — 거절문이 고칠 자리로 댄다.
+    pub id: &'a str,
+    /// 그 조상의 `due_on`.
+    pub due: &'a str,
+}
+
+/// 기한의 위계를 재는 자(moai-ghkp, 2026-10-16 사용자 결정) — **마일스톤 > 에픽 > 이슈 > backlog**.
+/// 자식의 기한은 조상의 기한보다 늦을 수 없다.
+///
+/// 조상은 셋이다 — 그 줄이 **선** 마일스톤(물려받은 것 포함, [`Handing::stood`]), 든 에픽
+/// ([`Handing::at`]), 점 id 의 부모 줄 전부. 소속을 다시 재지 않고 셈이 짚는 그 자를 든다 — 자를
+/// 따로 두면 `show --milestone` 이 세는 자리와 이 검사가 막는 자리가 갈린다.
+///
+/// **판정만 한다.** 막는 자리는 쓰기 경로(`store::write_locked`, 지금 쓰는 줄)고, 부모를 당겨 넘친
+/// 자식을 비추는 자리는 `status` 다. 둘이 이 한 자를 든다.
+///
+/// 지도를 한 번 짓고 줄마다 묻는다 — 쓰기가 락을 쥔 채 부르므로 줄마다 [`Lines`] 를 다시 지으면
+/// 줄 수의 제곱이 든다.
+pub struct DueLadder<'a> {
+    lines: Lines<'a>,
+    epic_of: Handing<'a>,
+}
+
+impl<'a> DueLadder<'a> {
+    pub fn of(all: &'a [Issue]) -> DueLadder<'a> {
+        let lines = Lines::of(all);
+        let epic_of = Handing::over(all, &lines);
+        DueLadder { lines, epic_of }
+    }
+
+    /// 그 줄의 조상 가운데 가장 이른 기한. 기한 든 조상이 없으면 `None` 이다. 꼴이 틀린 기한은
+    /// 안 센다 — 그 줄을 고칠 때 제 검사(`Invalid::Date`)가 드러낸다.
+    pub fn ceiling(&self, i: &'a Issue) -> Option<Ceiling<'a>> {
+        let mut above: Vec<&'a str> = Vec::new();
+        if let Some(m) = self.epic_of.stood(i, &self.lines) {
+            above.push(m);
+        }
+        if let Some(e) = self.epic_of.at(i) {
+            above.push(e);
+        }
+        above.extend(std::iter::successors(crate::id::parent_of(&i.id), |p| crate::id::parent_of(p)));
+        above
+            .into_iter()
+            .filter_map(|id| self.lines.at(id))
+            .filter(|a| a.id != i.id)
+            .filter_map(|a| {
+                let due = a.due_on.as_deref()?;
+                crate::model::parse_date(due).map(|_| Ceiling { id: a.id.as_str(), due })
+            })
+            // 날짜는 고정폭이라 글로 견준다. 같은 날이면 먼저 선 조상(마일스톤 → 에픽 → 부모)이 남는다.
+            .min_by(|a, b| a.due.cmp(b.due))
+    }
+
+    /// 그 줄의 기한이 조상보다 늦으면 그 조상 — 기한이 없거나 꼴이 틀리면 `None` 이다.
+    pub fn beyond(&self, i: &'a Issue) -> Option<Ceiling<'a>> {
+        let due = i.due_on.as_deref().filter(|d| crate::model::parse_date(d).is_some())?;
+        self.ceiling(i).filter(|c| due > c.due)
+    }
+}
+
 /// **뿌리로 올라간 생각** — 제 부모 밑에 접히지 않는 backlog 의 id.
 ///
 /// 소속·마일스톤·미룸은 이것을 지나 내려오지 않는다. 생각인 부모에서 무조건

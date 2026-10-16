@@ -10054,6 +10054,53 @@ fn a_deadline_stands_on_every_kind_of_row() {
     assert!(json.contains(r#""starts_on":"2026-09-05""#), "적힌 값이 기계 표면에서 사라졌다\n{json}");
 }
 
+/// **자식의 기한은 조상보다 늦을 수 없다**(moai-ghkp.33i, 2026-10-16 사용자 결정) — 마일스톤 > 에픽 >
+/// 이슈 > backlog. 조상은 선 마일스톤(물려받은 것 포함)·든 에픽·점 id 의 부모다. 막는 것은 **지금 쓰는
+/// 줄**뿐이고, 거절문은 당길 날짜와 먼저 고칠 조상을 함께 댄다.
+#[test]
+fn a_deadline_cannot_pass_its_ancestors() {
+    let s = init("dueladder");
+    let m = add(s.path(), &["v0.1", "--type", "milestone", "--due", "2026-09-30"]);
+    let e = add(s.path(), &["에픽", "--type", "epic", "--milestone", &m, "--due", "2026-09-25"]);
+
+    // 에픽이 마일스톤을 넘는다.
+    let out = moai(s.path(), &["edit", &e, "--due", "2026-10-01"]);
+    assert!(!out.status.success(), "마일스톤보다 늦은 에픽 기한을 받았다");
+    let said = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(said.contains(&m) && said.contains("--due 2026-09-30"), "고칠 길을 안 댄다 — {said}");
+
+    // 멤버는 에픽에도, 에픽이 선 마일스톤에도 걸린다 — 가장 이른 것이 이긴다.
+    let out = moai(s.path(), &["add", "멤버", "-e", &e, "--due", "2026-09-26"]);
+    assert!(!out.status.success(), "에픽보다 늦은 멤버 기한을 받았다");
+    let said = String::from_utf8_lossy(&out.stderr).to_string();
+    assert!(said.contains(&e) && said.contains("2026-09-25"), "{said}");
+    let before = issues(s.path());
+    assert!(!before.contains("멤버"), "거절한 줄이 남았다");
+    let i = add(s.path(), &["멤버", "-e", &e, "--due", "2026-09-25"]);
+
+    // 점 id 의 자식은 부모 이슈에도 걸린다.
+    let out = moai(s.path(), &["add", "자식", "--parent", &i, "--due", "2026-09-26"]);
+    assert!(!out.status.success(), "부모보다 늦은 자식 기한을 받았다");
+    add(s.path(), &["자식", "--parent", &i, "--due", "2026-09-24"]);
+
+    // **기한 든 줄을 더 이른 에픽으로 옮기는 것도 이 줄의 쓰기다.**
+    let late = add(s.path(), &["늦은 에픽", "--type", "epic", "--due", "2026-10-10"]);
+    let loose = add(s.path(), &["떠도는 일", "-e", &late, "--due", "2026-10-05"]);
+    let out = moai(s.path(), &["edit", &loose, "-e", &e]);
+    assert!(!out.status.success(), "기한이 넘는 에픽으로 옮겼다");
+    assert!(line_of(s.path(), &loose).contains(&late), "거절한 옮김이 남았다");
+
+    // **기한을 안 건드린 쓰기는 안 막는다** — 손으로 넘긴 줄도 제목은 고친다.
+    let line = line_of(s.path(), &loose);
+    let over = line.replace(r#""due_on":"2026-10-05""#, r#""due_on":"2026-10-20""#);
+    assert_ne!(line, over);
+    std::fs::write(s.path().join(".moai/issues.jsonl"), issues(s.path()).replace(&line, &over)).unwrap();
+    ok(s.path(), &["edit", &loose, "--title", "제목만 고친다"]);
+
+    // 기한 없는 줄은 조상 기한이 있어도 그대로 선다 — 기한은 필수가 아니다.
+    add(s.path(), &["기한 없음", "-e", &e]);
+}
+
 /// **`--due +N` 은 오늘에서 N 일 뒤다**(moai-ghkp.kz7) — 저장하는 것은 날짜다. `+3` 을 그대로 두면
 /// 읽을 때마다 다른 날을 가리킨다. 오늘은 읽는 사람의 달이다: 서울의 아침은 UTC 로 아직 어제다.
 #[test]
