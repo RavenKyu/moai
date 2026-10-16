@@ -6860,3 +6860,10 @@
 {"ts":"2026-10-16T14:39:11Z","id":"moai-ghkp.9uh","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"model: anthropic/opus-5.5 (max — epic-end review)"}
 {"ts":"2026-10-16T14:39:11Z","id":"moai-ghkp.9uh","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"done","note":"15건 모두 받음(fix 커밋). ready 차례·천장 규칙 변경은 7uy·33i 노트에 적음. 작은 잔손질 넷은 moai-agsg 로 넘김. @숫자 제목은 CHANGELOG Changed 로 밝힘. 남은 둘은 이미 서 있는 moai-dr8a.rl4(빨간 기한 표시)·moai-7bqy.0i5(GROUPS 글)"}
 {"ts":"2026-10-16T14:39:23Z","id":"moai-ghkp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: 에픽은 milestone/moai-hddd 에 병합됐고 멤버·리뷰가 닫혔다. 머지 뒤 할 일 — 루트와 마일스톤 워크트리를 다시 빌드(옛 바이너리는 기한 든 비마일스톤 줄을 못 고친다). 이 에픽을 기다리던 moai-dr8a·moai-7bqy 를 보낼 수 있다. 잔손질은 moai-agsg"}
+{"ts":"2026-10-16T14:40:27Z","id":"moai-7bqy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: 멤버 셋 커밋, milestone/moai-hddd 받음. CHANGELOG 줄과 ready 차례 글 하나가 커밋 전이고 전체 cargo test 가 돈다. 그다음 에픽 끝 리뷰(xhigh) 뒤 병합"}
+{"ts":"2026-10-16T14:44:35Z","id":"moai-7bqy.2d8","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"review — 기한을 묻는 글 (moai-7bqy 에픽 끝)"}
+{"ts":"2026-10-16T14:44:50Z","id":"moai-7bqy.a84","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T14:44:51Z","id":"moai-7bqy.fvo","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T14:44:53Z","id":"moai-7bqy.0i5","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T14:44:55Z","id":"moai-7bqy.2d8","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-16T14:45:20Z","id":"moai-ghkp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: de002236 in milestone/moai-hddd, origin/worktree-moai-ghkp pushed, members closed"}
