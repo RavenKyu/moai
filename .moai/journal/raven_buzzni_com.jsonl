@@ -6928,3 +6928,4 @@
 {"ts":"2026-10-16T16:52:06Z","id":"moai-dr8a.rl4","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"review","to":"done"}
 {"ts":"2026-10-16T16:52:07Z","id":"moai-dr8a.c0f","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"done","note":"고침 11건 + 직접 고친 2건(backlog overdue, 문턱 비킴)을 d240ceb4·3dc9a9fc 로 받았다. 4번은 감독 결정대로 유지, 9번은 moai-pzzl, 15번은 moai-x6xz 로 넘겼다"}
 {"ts":"2026-10-16T16:52:07Z","id":"moai-dr8a","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: milestone/moai-hddd 에 1890a1af 로 병합했다. 가지 worktree-moai-dr8a 는 origin 에 push 해 두었고 릴리스까지 지우지 않는다. 남은 것은 backlog moai-pzzl·moai-x6xz 다"}
+{"ts":"2026-10-16T16:52:29Z","id":"moai-dr8a","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: 1890a1af in milestone/moai-hddd, origin/worktree-moai-dr8a pushed (3dc9a9fc), members closed. The one red test is moai-rle0 (known)."}
