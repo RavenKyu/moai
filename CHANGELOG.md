@@ -12,6 +12,8 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-16
+
 ### Added
 
 - **Any row can carry a deadline, not only a milestone.** `--due` works on
