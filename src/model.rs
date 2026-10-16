@@ -321,8 +321,14 @@ pub struct Issue {
     /// 아니다(2026-09-22 사용자 결정). 시각으로 두면 `--due 2026-09-30` 한 줄을 `T23:59:59Z`
     /// 같은 값으로 늘려 적어야 하고, 그 늘림이 시간대마다 다른 날을 가리킨다.
     ///
-    /// **마일스톤 줄에만 선다**([`Issue::validate_fields`]). 다른 종류에 적힌 값은 아무 화면도
-    /// 안 읽으므로 조용히 받으면 적은 사람은 걸린 줄 안다 — `MilestoneInMilestone` 과 같은 자다.
+    /// **모든 종류의 줄에 선다**(moai-ghkp.kz7, 2026-10-16 사용자 결정). moai-tfcp 는 이것을
+    /// 마일스톤 줄에만 두었고, 그 막음을 걷을 때 **키를 새로 짓지 않았다** — 같은 `due_on` 이라 꼴·
+    /// 정규화·머지 드라이버가 그대로 선다. 대가는 옛 바이너리다: 그쪽은 마일스톤 아닌 줄의 이 값을
+    /// 거절하므로, 기한 든 이슈를 옛 바이너리로는 못 고치고 `--due none` 으로 비우라는 말을 듣는다.
+    /// 짝인 `starts_on` 은 여전히 마일스톤 줄에만 선다.
+    ///
+    /// **조상보다 늦을 수 없다**(moai-ghkp.33i) — 줄 사이의 검사라 여기가 아니라 쓰기 경로
+    /// (`store::write_locked` → [`crate::report::due_ceiling`])가 잰다.
     ///
     /// **파생값이 아니다.** 멤버를 닫아도 이 값은 안 바뀌고, 남은 날수·지났는가는 읽을 때 센다.
     ///
@@ -564,14 +570,15 @@ impl Issue {
         if self.kind == Kind::Milestone && self.milestone.is_some() {
             return Err(Invalid::MilestoneInMilestone { id: self.id.clone() });
         }
-        // **기한은 마일스톤 줄에만 선다**(moai-tfcp). 꼴부터 잰다 — 종류가 틀린 줄에 꼴까지
-        // 틀린 값이 적히면 두 말을 다 해야 하는데, 사람이 먼저 고칠 것은 꼴이다.
+        // **시작 기한은 마일스톤 줄에만 선다**(moai-tfcp). 종료 기한은 모든 줄에 선다
+        // (moai-ghkp.kz7) — 막는 갈래를 `StartsOn` 하나로 좁혔다. 꼴부터 잰다 — 종류가 틀린 줄에
+        // 꼴까지 틀린 값이 적히면 두 말을 다 해야 하는데, 사람이 먼저 고칠 것은 꼴이다.
         for (what, v) in [(Field::StartsOn, &self.starts_on), (Field::DueOn, &self.due_on)] {
             let Some(v) = v else { continue };
             if parse_date(v).is_none() {
                 return Err(Invalid::Date { id: self.id.clone(), field: what, value: format!("{v:?}") });
             }
-            if self.kind != Kind::Milestone {
+            if what == Field::StartsOn && self.kind != Kind::Milestone {
                 return Err(Invalid::DateNotMilestone { id: self.id.clone(), field: what });
             }
         }
@@ -644,7 +651,8 @@ pub enum Invalid {
         field: Field,
         value: String,
     },
-    /// 기한을 마일스톤 아닌 줄에 적었다 — 비우는 명령에 쓸 id 를 든다.
+    /// 시작 기한을 마일스톤 아닌 줄에 적었다 — 비우는 명령에 쓸 id 를 든다. 종료 기한은 모든 줄에
+    /// 서므로(moai-ghkp.kz7) 이 갈래에 안 든다.
     DateNotMilestone {
         id: String,
         field: Field,
@@ -1302,6 +1310,24 @@ pub(crate) fn days_in_month(y: i64, mo: u32) -> u32 {
             false => 28,
         },
     }
+}
+
+/// `--due +N` — **오늘에서 N 일 뒤**의 달력 날짜(moai-ghkp.kz7). `today` 는 읽는 사람의 시간대로
+/// 옮긴 지금이다(`Zone::shift`). 저장하는 것은 이것이 낸 날짜다 — `+3` 을 그대로 두면 읽을
+/// 때마다 다른 날을 가리킨다.
+///
+/// `+` 로 시작하지 않으면 `None` 이다: 그 값은 날짜로 적힌 것이라 [`parse_date`] 가 쓰기에서 잰다.
+/// `+` 뒤가 숫자가 아니거나 너무 크면(만 년 넘게) 받은 글을 그대로 돌려 쓰기의 꼴 검사가
+/// 거절하게 둔다 — 거절하는 자를 둘로 두면 말이 둘이 된다.
+pub fn relative_due(v: &str, today: &str) -> Option<String> {
+    let n = v.strip_prefix('+')?;
+    let days = match n.parse::<u32>() {
+        Ok(d) if d <= 3_650_000 && !n.starts_with('+') => d,
+        _ => return Some(v.to_string()),
+    };
+    let base = today.get(..10).and_then(parse_date)?;
+    let (y, mo, d) = civil_from_days(base + i64::from(days));
+    Some(format!("{y:04}-{mo:02}-{d:02}"))
 }
 
 /// `now` 부터 그 기한까지 **며칠 남았나**. 지났으면 음수다(moai-tfcp).

@@ -487,6 +487,8 @@ pub fn run(ctx: &Ctx, args: AddArgs, kind_override: Option<Kind>) -> R<Vec<Strin
         .map_err(|e| Fail::coded(crate::view::no_such_column(ctx.lang(), &e), super::code::BAD_STATUS))?;
     let at = model::now();
     let by = model::actor(ctx.user.as_deref(), &repo.root).map_err(|e| Fail::no_actor(&e, ctx.lang()))?;
+    // `--due +N` 은 락 밖에서 날짜로 바꾼다 — 시간대를 풀면 tzdb 를 연다([`super::due_arg`]).
+    let due = args.due.as_deref().map(|d| super::due_arg(ctx, d, &at));
 
     // 만든 줄과, 그것이 묶음이면 **멤버에서 읽은 칸.** 에픽을 먼저 만들고 멤버를
     // 나중에 다는 순서가 흔하지만 그 반대도 있다 — 이미 멤버가 있는 에픽을 뒤늦게
@@ -522,7 +524,7 @@ pub fn run(ctx: &Ctx, args: AddArgs, kind_override: Option<Kind>) -> R<Vec<Strin
             // 지우고, 꼴·종류·차례는 락 안에서 `Repo::write_locked` 가 거절한다
             // (`store::admit` 은 검사를 안 한다, moai-yve0).
             issue.starts_on = args.start.clone();
-            issue.due_on = args.due.clone();
+            issue.due_on = due.clone();
             (issue.assignee, issue.assignee_email) = assignee_of(args.assignee.as_deref(), &by);
             issue.body = body.clone();
             let (entry, issue) = store::admit(issues, cfg, issue, &by)?;

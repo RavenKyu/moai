@@ -1301,7 +1301,7 @@ pub struct AddArgs {
     #[arg(long, value_name = "date")]
     pub start: Option<String>,
 
-    /// Deadline of a milestone, `YYYY-MM-DD` (milestone rows only)
+    /// Deadline, `YYYY-MM-DD` or `+N` (N days from today). Any row; not later than its milestone, epic or parent
     #[arg(long, value_name = "date")]
     pub due: Option<String>,
 
@@ -1875,7 +1875,7 @@ pub struct EditArgs {
     #[arg(long, value_name = "date|none")]
     pub start: Option<String>,
 
-    /// Deadline of a milestone. `none` clears it
+    /// Deadline, `YYYY-MM-DD` or `+N` (N days from today). `none` clears it
     #[arg(long, value_name = "date|none")]
     pub due: Option<String>,
 }

@@ -171,6 +171,18 @@ pub(crate) fn tell_after(line: String) {
 /// 비우기로, `-e " <id> "` 가 거절에서 통과로 조용히 바뀐다 — 담당 때문에 옮긴
 /// 헬퍼가 에픽·마일스톤의 뜻을 같이 바꾸는 것은 범위 밖이다. 담당 쪽 공백은
 /// `model::split_assignee` 가 접는다.
+/// `--due` 에 친 값 — `+N` 이면 **오늘에서 N 일 뒤**의 날짜로 바꾼다(moai-ghkp.kz7, [`crate::model::relative_due`]).
+/// 오늘은 읽는 사람의 달이다 — 보드가 남은 날수를 재는 그 달이라야 `+1` 이 "내일" 로 선다.
+///
+/// **락 밖에서 부른다** — 시간대를 풀면 tzdb 를 연다([`Ctx::zone`]). `+` 로 시작하지 않으면 안 연다:
+/// 날짜·`none` 은 그대로 돌아가고 꼴은 쓰기가 잰다.
+pub fn due_arg(ctx: &Ctx, v: &str, now: &str) -> String {
+    match v.trim().starts_with('+') {
+        true => crate::model::relative_due(v.trim(), &ctx.zone().shift(now)).unwrap_or_else(|| v.to_string()),
+        false => v.to_string(),
+    }
+}
+
 pub fn clearable(v: &str) -> Option<String> {
     (v != "none").then(|| v.to_string())
 }

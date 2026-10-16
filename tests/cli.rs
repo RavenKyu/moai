@@ -7517,9 +7517,9 @@ fn a_single_add_says_an_epic_that_is_not_there() {
     let row = String::from_utf8(out.stdout).unwrap();
     assert!(row.trim_start().starts_with('{') && row.contains(r#""epic":"argos-zzzz""#), "{row}");
 
-    // 거절된 쓰기는 알리지 않는다 — 기한은 마일스톤 줄에만 서므로 이 쓰기는 락 안에서 물린다.
-    let out = moai(s.path(), &["add", "거절될 줄", "-e", "argos-zzzz", "--due", "2026-10-10"]);
-    assert!(!out.status.success(), "기한을 든 이슈가 받아들여졌다\n{}", text(&out));
+    // 거절된 쓰기는 알리지 않는다 — 시작 기한은 마일스톤 줄에만 서므로 이 쓰기는 락 안에서 물린다.
+    let out = moai(s.path(), &["add", "거절될 줄", "-e", "argos-zzzz", "--start", "2026-10-10"]);
+    assert!(!out.status.success(), "시작 기한을 든 이슈가 받아들여졌다\n{}", text(&out));
     assert!(!said(&out, "argos-zzzz"), "거절된 쓰기가 알림을 먼저 냈다\n{}", text(&out));
 
     // 에픽이 아닌 줄을 가리켜도 "없다" 고 한다 — 재는 자는 `dangling_epic` 과 같다.
@@ -9983,15 +9983,16 @@ fn a_milestone_carries_a_start_and_a_deadline() {
     assert!(!ok(s.path(), &["show", &m]).contains("기한"), "빈 기한이 줄을 세웠다");
 }
 
-/// **기한은 마일스톤 줄에만 선다.** 다른 종류에 적힌 값은 어느 화면도 안 읽으므로, 조용히
-/// 받으면 적은 사람은 걸린 줄 안다 — 거절문이 비우는 명령을 그대로 낸다.
+/// **시작 기한은 마일스톤 줄에만 선다.** 다른 종류에 적힌 값은 어느 화면도 안 읽으므로, 조용히
+/// 받으면 적은 사람은 걸린 줄 안다 — 거절문이 비우는 명령을 그대로 낸다. **종료 기한은 모든 줄에
+/// 선다**(moai-ghkp.kz7) — 그쪽은 `a_deadline_stands_on_every_kind_of_row` 가 잰다.
 #[test]
-fn a_deadline_stands_on_a_milestone_row_only() {
+fn a_start_date_stands_on_a_milestone_row_only() {
     let s = init("duekind");
-    let made = moai(s.path(), &["add", "그냥 이슈", "--due", "2026-09-20"]);
-    assert!(!made.status.success(), "이슈에 기한을 받았다");
+    let made = moai(s.path(), &["add", "그냥 이슈", "--start", "2026-09-20"]);
+    assert!(!made.status.success(), "이슈에 시작 기한을 받았다");
     let said = String::from_utf8_lossy(&made.stderr).to_string();
-    assert!(said.contains("--due"), "어느 옵션이 틀렸는지를 안 댄다 — {said}");
+    assert!(said.contains("--start"), "어느 옵션이 틀렸는지를 안 댄다 — {said}");
     // **만들다 걸린 줄에는 고칠 id 가 없다**(moai-1rkl, 리뷰) — 거절이 쓰기를 통째로 물리므로
     // 방금 뽑은 id 는 어디에도 안 남는다. 그 id 를 그대로 내밀면 따라 친 쪽이 "없는 이슈" 를 본다.
     assert!(said.contains("빼고"), "만들 때 무엇을 해야 하는지를 안 댄다 — {said}");
@@ -10022,31 +10023,63 @@ fn a_row_that_picked_up_a_broken_deadline_is_told_how_to_clear_it() {
     ok(s.path(), &["edit", &m, "--title", "v0.1.1"]);
 }
 
-/// **기한은 마일스톤 줄의 것이다**(moai-x04r.fn4). 쓰기가 다른 종류의 줄에 `due_on` 을
-/// 거절하므로 그 값이 서는 길은 손으로 푼 충돌과 머지 드라이버가 안 건드리고 넘긴 낡은 줄
-/// (`a_row_neither_side_touched_does_not_block_the_merge`)뿐인데, 상세는 종류를 안 보고 그려
-/// `3일 지남` 이라 말하고 보드는 마일스톤만 세어 아무 말도 안 했다 — 한 줄이 두 표면에서
-/// 다르게 읽혔다. 따르는 것은 쓰기의 규칙(`Issue::check`)이다: 그리는 쪽을 따르면 이슈에
-/// 적힌 날이 기한 경고로 서서 없는 마일스톤이 보드를 채운다.
+/// **종료 기한은 모든 줄에 선다**(moai-ghkp.kz7, 2026-10-16 사용자 결정) — 이슈·에픽·backlog 가
+/// `--due` 를 받고, 상세가 그 날을 그린다. **시작 기한은 마일스톤 줄의 것이다**(moai-x04r.fn4) —
+/// 쓰기가 거절하는 값이라 손으로 푼 충돌이 남겨도 상세는 그리지 않는다. 적힌 값은 지우지 않는다.
 #[test]
-fn a_deadline_on_a_row_that_is_not_a_milestone_is_drawn_nowhere() {
-    let s = init("duekind");
-    let i = add(s.path(), &["손으로 푼 충돌이 남긴 줄"]);
-    let line =
-        line_of(s.path(), &i).replace(r#""status":"#, r#""due_on":"2026-09-20","starts_on":"2026-09-05","status":"#);
-    std::fs::write(s.path().join(".moai/issues.jsonl"), format!("{line}\n")).unwrap();
+fn a_deadline_stands_on_every_kind_of_row() {
+    let s = init("duekinds");
+    let i = add(s.path(), &["그냥 이슈", "--due", "2026-09-20"]);
+    let e = add(s.path(), &["에픽", "--type", "epic", "--due", "2026-09-25"]);
+    let b = ok(s.path(), &["backlog", "add", "생각", "--due", "2026-09-22", "-q"]).trim().to_string();
+    for (id, day) in [(&i, "2026-09-20"), (&e, "2026-09-25"), (&b, "2026-09-22")] {
+        assert!(line_of(s.path(), id).contains(&format!(r#""due_on":"{day}""#)), "{id}: 기한이 안 적혔다");
+        let shown = ok(s.path(), &["show", id]);
+        assert!(shown.contains(day), "{id}: 상세에 기한이 안 섰다\n{shown}");
+        assert!(!shown.contains("—"), "{id}: 시작 기한 자리를 그렸다\n{shown}");
+    }
+    // 고치기도, 비우기도 된다.
+    ok(s.path(), &["edit", &i, "--due", "2026-09-19"]);
+    assert!(line_of(s.path(), &i).contains(r#""due_on":"2026-09-19""#));
+    ok(s.path(), &["edit", &i, "--due", "none"]);
+    assert!(!line_of(s.path(), &i).contains("due_on"), "비운 기한이 남았다");
 
-    let shown = ok(s.path(), &["show", &i]);
-    assert!(!shown.contains("2026-09-20"), "마일스톤 아닌 줄의 상세에 기한이 섰다\n{shown}");
+    // 손으로 끼운 시작 기한은 상세가 그리지 않는다. 적힌 값은 `--json` 에 그대로 선다.
+    let line = line_of(s.path(), &e).replace(r#""status":"#, r#""starts_on":"2026-09-05","status":"#);
+    std::fs::write(s.path().join(".moai/issues.jsonl"), issues(s.path()).replace(&line_of(s.path(), &e), &line))
+        .unwrap();
+    let shown = ok(s.path(), &["show", &e]);
     assert!(!shown.contains("2026-09-05"), "마일스톤 아닌 줄의 상세에 시작 기한이 섰다\n{shown}");
+    let json = ok(s.path(), &["show", &e, "--json"]);
+    assert!(json.contains(r#""starts_on":"2026-09-05""#), "적힌 값이 기계 표면에서 사라졌다\n{json}");
+}
 
-    // **적힌 값은 지우지 않는다** — 읽기는 관대하고, `--json` 은 파일에 있는 그대로 낸다.
-    let json = ok(s.path(), &["show", &i, "--json"]);
-    assert!(json.contains(r#""due_on":"2026-09-20""#), "적힌 값이 기계 표면에서 사라졌다\n{json}");
+/// **`--due +N` 은 오늘에서 N 일 뒤다**(moai-ghkp.kz7) — 저장하는 것은 날짜다. `+3` 을 그대로 두면
+/// 읽을 때마다 다른 날을 가리킨다. 오늘은 읽는 사람의 달이다: 서울의 아침은 UTC 로 아직 어제다.
+#[test]
+fn a_relative_deadline_is_stored_as_a_day() {
+    let s = init("duerel");
+    let now = "2026-09-11T20:00:00Z"; // 서울로는 09-12 05:00
+    let run = |tz: &str, args: &[&str]| {
+        let out = staged(args).current_dir(s.path()).env("MOAI_NOW", now).env("TZ", tz).output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+    let id = run("UTC", &["add", "사흘 뒤", "--due", "+3", "-q"]);
+    assert!(line_of(s.path(), &id).contains(r#""due_on":"2026-09-14""#), "{}", line_of(s.path(), &id));
+    run("UTC", &["edit", &id, "--due", "+0"]);
+    assert!(line_of(s.path(), &id).contains(r#""due_on":"2026-09-11""#), "{}", line_of(s.path(), &id));
+    // **자료가 있는 기계에서만 잰다** — `a_bare_day_is_the_readers_day` 와 같은 까닭이다.
+    let tzdb = std::env::var_os("TZDIR").map_or_else(|| PathBuf::from("/usr/share/zoneinfo"), PathBuf::from);
+    if tzdb.join("Asia/Seoul").exists() {
+        run("Asia/Seoul", &["edit", &id, "--due", "+0"]);
+        assert!(line_of(s.path(), &id).contains(r#""due_on":"2026-09-12""#), "{}", line_of(s.path(), &id));
+    }
 
-    // 보드는 처음부터 조용했다. 이제 상세도 같은 말을 한다.
-    let board = ok(s.path(), &["status"]);
-    assert!(!board.contains("2026-09-20"), "보드가 기한 경고를 세웠다\n{board}");
+    for bad in ["+", "+x", "++3", "+-1"] {
+        let out = moai(s.path(), &["edit", &id, "--due", bad]);
+        assert!(!out.status.success(), "{bad} 를 날짜로 받았다");
+    }
 }
 
 /// **쓰기는 엄하다.** `--due 2026-02-30` 은 오타지 옛 줄이 아니다 — 받으면 그 마일스톤은
@@ -22187,14 +22220,14 @@ fn a_row_neither_side_touched_does_not_block_the_merge() {
     let old = add(root, &["손으로 푼 충돌이 남긴 줄"]);
     let one = add(root, &["이쪽이 고칠 줄"]);
     let two = add(root, &["저쪽이 고칠 줄"]);
-    // **도구로는 못 적는 값이다** — `--due` 는 마일스톤 줄에만 선다. 손으로 끼운다.
+    // **도구로는 못 적는 값이다** — `--start` 는 마일스톤 줄에만 선다. 손으로 끼운다.
     //
     // 닫는 괄호가 아니라 id 뒤에 끼운다. 끝에 붙이면 그 자리가 곧 `Issue` 의 표준 차례라
     // 심은 줄이 표준형이 되고, [`line_of`] 는 `{"id":…` 로 찾으므로 머리는 그대로 둔다.
     //
     // **가지마다 되심는다.** `moai` 쓰기는 파일 전체를 표준형으로 되쓰므로, 한 번만 심으면
     // 그 다음 `edit` 한 줄에 차례가 사라져 셋 다 표준형인 채로 머지에 들어간다.
-    let due = "\"due_on\":\"2026-09-20\"";
+    let due = "\"starts_on\":\"2026-09-05\"";
     let plant = || {
         let was = line_of(root, &old);
         let head = format!("\"id\":\"{old}\",");

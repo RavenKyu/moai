@@ -156,6 +156,8 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
     let repo = super::open_repo(ctx)?;
     let body = super::add::read_body_said(args.body.clone(), ctx)?;
     let at = model::now();
+    // `--due +N` 은 락 밖에서 날짜로 바꾼다 — 시간대를 풀면 tzdb 를 연다([`super::due_arg`]).
+    let due = args.due.as_deref().map(|d| super::due_arg(ctx, d, &at));
     // **말도 락 밖에서 묻는다**(리뷰) — `ctx.lang()` 의 첫 부름은 사용자 설정을 열어 파싱한다.
     // 락 안에서 부르면 그 읽기가 트래커 락을 쥔 채로 서서, 옆 세션의 집기가 그만큼 기다린다.
     // `cmd/mv.rs` 가 `model::actor` 를 밖으로 뺀 것과 같은 자다.
@@ -210,7 +212,7 @@ pub fn run(ctx: &Ctx, args: EditArgs) -> R<Vec<String>> {
             if let Some(d) = &args.start {
                 i.starts_on = super::clearable(d);
             }
-            if let Some(d) = &args.due {
+            if let Some(d) = &due {
                 i.due_on = super::clearable(d);
             }
             if let Some(who) = assignee {
