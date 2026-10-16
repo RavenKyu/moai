@@ -1,4 +1,4 @@
-<!-- moai:begin v:0.17.0 hash:e69beb5b -->
+<!-- moai:begin v:0.17.0 hash:9c525abe -->
 ## Issue tracker — moai
 
 This repository's work lives in `.moai/issues.jsonl`.
@@ -317,7 +317,8 @@ column, it is running. There is no command that opens it and no new field.
 - **Nothing is blocked.** A `moai mv` that picks up work from outside goes straight
   through, and so does a `--milestone` that carries a row in — the rule above is a rule
   for you, not a refusal. What is already picked up is simply finished — the same ground as never taking work back late
-- If two milestones are running, both are inside, and the ordering within them is as it always was (`p` · age)
+- If two milestones are running, both are inside, and the ordering within them is as it always was (`p` · age),
+  except that within one `p` the nearer deadline comes first and a row with none comes last
 - **A setup with only two columns has no running milestone** — there is no column
   that says "started but not finished", so the rule itself does not stand. In that
   setup `ready` and the board are as they were
