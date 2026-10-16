@@ -6739,6 +6739,83 @@ fn config_json_fills_defaults_and_keeps_written_values() {
     assert!(human.contains("due_priority         = \"auto\""), "{human}");
 }
 
+/// `moai due apply` 는 기한이 부르는 만큼 **올리기만** 하고, 같은 쓰기에서 노트를 단다(moai-dr8a.1q4). 미리 보기는 아무것도
+/// 안 쓰고, 두 번 부르면 둘째는 아무것도 안 건드린다 — 감독이 회차마다 치는 동사라 헛 diff 를 내면 안 된다.
+#[test]
+fn due_apply_raises_by_deadline_notes_it_and_writes_nothing_twice() {
+    let s = init("dueapply");
+    let p = s.path();
+    // NOW 는 2026-09-11 이다.
+    let epic = field(&ok(p, &["epic", "add", "기한 든 에픽", "--due", "2026-09-12", "--json"]), "id");
+    let inherits = add(p, &["에픽의 기한을 따른다", "-e", &epic]);
+    let own = add(p, &["사흘 남았다", "--due", "2026-09-14", "-p", "3"]);
+    let far = add(p, &["멀다", "--due", "2026-12-01"]);
+    let urgent = add(p, &["이미 급하다", "--due", "2026-09-11", "-p", "0"]);
+    let shelved = add(p, &["미뤘다", "--due", "2026-09-11"]);
+    ok(p, &["defer", &shelved]);
+    let before = issues(p);
+
+    let dry: serde_json::Value = serde_json::from_str(&ok(p, &["due", "apply", "--dry-run", "--json"])).unwrap();
+    assert_eq!(issues(p), before, "미리 보기가 썼다");
+    let row = |v: &serde_json::Value, i: usize| {
+        let r = &v["raised"][i];
+        (r["id"].as_str().unwrap().to_string(), r["was"].as_u64().unwrap(), r["to"].as_u64().unwrap(), r["days_left"].as_i64().unwrap())
+    };
+    assert_eq!((dry["due_priority"].as_str(), dry["dry_run"].as_bool()), (Some("auto"), Some(true)), "{dry}");
+    assert_eq!(dry["raised"].as_array().unwrap().len(), 2, "{dry}");
+    assert_eq!(row(&dry, 0), (inherits.clone(), 2, 0, 1), "급한 것이 앞이고 에픽의 기한을 따른다 — {dry}");
+    assert_eq!(dry["raised"][0]["due_from"], serde_json::json!(epic), "{dry}");
+    assert_eq!(row(&dry, 1), (own.clone(), 3, 2, 3), "{dry}");
+    assert!(dry["raised"][1].get("due_from").is_none(), "제 기한에 조상을 댔다 — {dry}");
+
+    let done: serde_json::Value = serde_json::from_str(&ok(p, &["due", "apply", "--json"])).unwrap();
+    assert_eq!(done["raised"], dry["raised"], "미리 보기와 쓰기가 갈렸다");
+    let prio = |id: &str| -> u64 {
+        let v: serde_json::Value = serde_json::from_str(&ok(p, &["show", id, "--json"])).unwrap();
+        v["priority"].as_u64().unwrap()
+    };
+    assert_eq!((prio(&inherits), prio(&own), prio(&far), prio(&urgent), prio(&shelved)), (0, 2, 2, 0, 2));
+    assert!(ok(p, &["show", &epic, "--json"]).contains(r#""priority":2"#), "에픽 줄 자신을 올렸다");
+    let said = ok(p, &["show", &inherits]);
+    assert!(said.contains(&format!("Due-priority: p2 → p0 (1 days left, due 2026-09-12 from {epic})")), "{said}");
+    assert!(ok(p, &["show", &own]).contains("Due-priority: p3 → p2 (3 days left, due 2026-09-14)"));
+    assert!(!ok(p, &["show", &far]).contains("Due-priority"), "안 올린 줄에 노트를 달았다");
+
+    // 둘째는 아무것도 안 바꾼다 — 스냅샷도 저널도.
+    let (snap, history) = (issues(p), ok(p, &["show", &inherits]));
+    let again: serde_json::Value = serde_json::from_str(&ok(p, &["due", "apply", "--json"])).unwrap();
+    assert_eq!(again["raised"], serde_json::json!([]), "{again}");
+    assert_eq!((issues(p), ok(p, &["show", &inherits])), (snap, history), "올릴 것이 없는데 썼다");
+    assert!(ok(p, &["due", "apply"]).contains("올릴 것이 없다"));
+}
+
+/// 누군지 모르면 **쓸 것이 있을 때만** 멈춘다. 꺼진 규칙은 아무것도 안 바꾸고, 이미 올린 값을 되돌리지도 않는다.
+#[test]
+fn due_apply_stops_without_a_person_only_when_it_would_write_and_off_changes_nothing() {
+    let s = init("dueoff");
+    let p = s.path();
+    let nothing = without_user(p, &["due", "apply", "--json"]);
+    assert!(nothing.status.success(), "쓸 것이 없는데 사람을 물었다 — {}", String::from_utf8_lossy(&nothing.stderr));
+    let id = add(p, &["오늘까지", "--due", "2026-09-11"]);
+    let before = issues(p);
+    let stopped = without_user(p, &["due", "apply"]);
+    assert!(!stopped.status.success(), "누군지 모르는데 썼다");
+    assert_eq!(issues(p), before);
+    let dry = without_user(p, &["due", "apply", "--dry-run"]);
+    assert!(dry.status.success(), "미리 보기가 사람을 물었다");
+
+    ok(p, &["due", "apply"]);
+    std::fs::write(p.join(".moai/config.toml"), "prefix = \"argos\"\ndue_priority = \"off\"\n").unwrap();
+    let late = add(p, &["꺼진 뒤에 든 줄", "--due", "2026-09-11"]);
+    let before = issues(p);
+    let off: serde_json::Value = serde_json::from_str(&ok(p, &["due", "apply", "--json"])).unwrap();
+    assert_eq!((off["due_priority"].as_str(), &off["raised"]), (Some("off"), &serde_json::json!([])), "{off}");
+    assert_eq!(issues(p), before, "꺼진 규칙이 썼다");
+    assert!(ok(p, &["show", &id, "--json"]).contains(r#""priority":0"#), "꺼질 때 올린 값을 되돌렸다");
+    assert!(ok(p, &["show", &late, "--json"]).contains(r#""priority":2"#));
+    assert!(ok(p, &["due", "apply"]).contains("꺼져 있다"));
+}
+
 /// `show --json` 은 파일에 안 적힌 자리 셋을 낸다(moai-wk7i.rmc) — 물려받은 마일스톤, 계획에서 뺀 줄,
 /// 아카이브. 목록과 하나를 펼칠 때가 같은 답이어야 한다.
 #[test]
@@ -8382,6 +8459,8 @@ const JSON_SWEEP: &[&str] = &[
     // 자리(`target/`)에 서서 거절되므로, 그 밖에 걸어 둔 한 벌([`hoisted`])로 부른다.
     "update",
     "models",
+    // 기한이 우선순위를 올린다(moai-dr8a.1q4). 훑는 판에는 기한 든 줄이 없어 아무것도 안 쓴다.
+    "due",
 ];
 
 /// `install.sh` 가 판을 내는 기계인가 — `latest::SERVED` 와 같은 자다. 다른 기계에서 `moai update` 는 무엇보다
@@ -8932,6 +9011,8 @@ fn every_command_still_speaks_json() {
         vec!["wiki", "ls", "--json"],
         vec!["models", "--json"],
         vec!["config", "--json"],
+        vec!["due", "apply", "--dry-run", "--json"],
+        vec!["due", "apply", "--json"],
     ];
     // **적어 둔 목록과 실제로 부르는 목록을 여기서 잇는다.** 잇지 않으면
     // `JSON_SWEEP` 에 이름만 적고 한 번도 안 부르는 명령이 생기고, 그러면

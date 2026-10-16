@@ -2141,7 +2141,7 @@ pub fn due_of(i: &Issue, now: &str, z: &crate::tz::Zone, lang: Lang) -> Option<D
 /// **상세와 보드가 같은 키를 쓴다**(moai-7cyf 의 결) — 둘로 두면 번역이 갈라져 한 도구가 같은
 /// 것을 두 말로 말한다. 오늘이 기한인 날은 제 낱말이다: `0일 남음` 은 남았다는 말이면서 안
 /// 남았다는 말이라 어느 쪽으로도 읽힌다.
-fn due_tail(left: i64, lang: Lang) -> String {
+pub(crate) fn due_tail(left: i64, lang: Lang) -> String {
     match left {
         0 => say(lang, "detail.due_today").to_string(),
         d if d > 0 => fill(say(lang, "detail.due_left"), &[("d", &d.to_string())]),

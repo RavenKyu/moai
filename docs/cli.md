@@ -46,7 +46,8 @@ Commands:
   merge-driver  Called by git. Merges issues.jsonl per issue, three-way
   skill         Plant skills for Claude, Codex, Antigravity (safe to run again)
   project       Register a directory to watch several projects from one moai
-  config        Read this repository's settings, defaults filled in
+  due           Raise priorities a deadline has caught up with
+  config        
   models        Read the model per role from your user config
   update        Upgrade the moai you are running with install.sh
   init          Put a .moai/ into this repository (safe to run again)
@@ -3285,11 +3286,71 @@ Examples:
   `moai project ls`, which then uses the colour picked by path.
 ```
 
+## `moai due`
+
+```
+Raise priorities a deadline has caught up with
+
+Usage: moai due [OPTIONS] <COMMAND>
+
+Commands:
+  apply  Raise priorities their deadline calls for, with a note on each
+  help   Print this message or the help of the given subcommand(s)
+
+Options:
+      --json                 Machine-readable output. Every human line goes away
+      --no-color             Turn colour off (same as `--color never`)
+      --color <how>          auto|always|never (auto by default, off when piped)
+  -C, --dir <path>           Run in this directory (same as `git -C`)
+      --user <name (email)>  Who is doing this (from `git config` when absent)
+  -h, --help                 Print help
+
+  moai due apply             raise what its deadline calls for, note each one
+  moai due apply --dry-run   show what it would raise, write nothing
+
+  A row follows the earliest deadline among its own and those of the rows it
+  is drawn under - its milestone, its epic, its parent. By days left (today
+  and a past deadline count as 0 or less):
+    due_p0_days  = 1      at most this many days left - p0
+    due_p1_days  = 2      at most this many - p1
+    due_p2_days  = 7      at most this many - p2; more days left, untouched
+  Only issues and backlog items that are open and in the plan are raised -
+  never a group row, never a deferred one. It only raises: a priority that
+  is already that urgent stays, and nothing is ever lowered back.
+
+  Each raise leaves a note in the same write, which keeps the old value:
+    Due-priority: p2 → p0 (1 days left, due 2026-10-17 from <epic>)
+  With nothing to raise it writes nothing and asks nobody who you are.
+  `due_priority = "off"` in .moai/config.toml stops it from changing
+  anything from then on; what it raised before stays. `moai status` says
+  when rows have fallen behind their deadline.
+
+  The day is the reader's day - the timezone the board uses. --json gives
+  {"due_priority","dry_run","raised":[{"id","title","was","to",
+  "days_left","due_on","due_from"}]} - due_from only when the deadline is
+  an ancestor's.
+```
+
+## `moai due apply`
+
+```
+Raise priorities their deadline calls for, with a note on each
+
+Usage: moai due apply [OPTIONS]
+
+Options:
+      --dry-run              Show what would be raised; write nothing
+      --json                 Machine-readable output. Every human line goes away
+      --no-color             Turn colour off (same as `--color never`)
+      --color <how>          auto|always|never (auto by default, off when piped)
+  -C, --dir <path>           Run in this directory (same as `git -C`)
+      --user <name (email)>  Who is doing this (from `git config` when absent)
+  -h, --help                 Print help
+```
+
 ## `moai config`
 
 ```
-Read this repository's settings, defaults filled in
-
 Usage: moai config [OPTIONS]
 
 Options:
@@ -3304,10 +3365,11 @@ Options:
   moai config --json    one object - the keys of .moai/config.toml
 
   Reads .moai/config.toml and fills in what it leaves out with the values moai
-  uses: prefix, statuses (in board order), naming, archive_days, wiki_dir and
-  the status_* thresholds. These are the values this binary acts on, so a
-  surface drawing the board reads them here instead of parsing the file
-  again. --json adds path, the file it read.
+  uses: prefix, statuses (in board order), naming, archive_days, wiki_dir, the
+  status_* thresholds and the due_* rule that `moai due apply` reads. These
+  are the values this binary acts on, so a surface drawing the board reads
+  them here instead of parsing the file again. --json adds path, the file it
+  read.
 
   It only reads; edit the file by hand to change a setting.
 ```

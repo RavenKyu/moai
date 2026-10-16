@@ -8,6 +8,7 @@ pub mod archive;
 pub mod backlog;
 pub mod config;
 pub mod defer;
+pub mod due;
 pub mod edit;
 pub mod hook;
 pub mod init;
@@ -578,6 +579,7 @@ fn dispatch(ctx: &Ctx, cli: Cli) -> R<Vec<String>> {
         Cmd::Note(a) => note::run(ctx, a),
         Cmd::Link(a) => link::run(ctx, a),
         Cmd::Defer(a) => defer::run(ctx, a),
+        Cmd::Due(c) => due::run(ctx, c),
         Cmd::Read(a) => read::run(ctx, a),
         Cmd::Ready(a) => ready::run(ctx, a.worktree.worktree, a.limit),
         Cmd::Prime(w) => prime::run(ctx, w.worktree),
