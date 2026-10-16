@@ -228,9 +228,11 @@ refusal — to the new name (2).
   work to put down (`moai mv <id> todo`, `moai defer <id> -m '<why>'`), ask the person
 - Work handed on to be carried is, like a backlog item, not sent again until its report is checked
 
-**1. Pick.** First raise what a near deadline calls for, once a round, and take it into
-the root with a commit with a path — reading never writes, so a deadline raises nothing
-until someone runs the verb, and the order `moai ready` gives is only as fresh as that run
+**1. Pick.** First raise what a near deadline calls for, once a round, and when it raised
+anything take it into the root with a commit with a path — reading never writes, so a
+deadline raises nothing until someone runs the verb, and the order `moai ready` gives is
+only as fresh as that run. It reads each row's own deadline only, so the one an epic
+carries raises none of its members
 
     moai due apply                        raises priority by each row's own deadline, never lowers
 
@@ -467,11 +469,13 @@ counts the epic as `dangling_milestone`. Copy it off
 the release `moai show --milestone` stands that backlog under; do not write it from memory.
 `<due>` is when the person wants this work done, as `YYYY-MM-DD` — the backlog's own
 `due_on` when it carries one (`promote` carries that onto the epic anyway), else the day
-the person gave when you asked. **Ask when it is due as you pick the work** — never
-required, always asked; a day given as "in three days" you write as the day it lands on.
+the person gave when you asked. **Ask when it is due as you pick work whose backlog
+carries none** — never required, always asked; the backlog's own is an answer the person
+already gave. A day given as "in three days" you write as the day it lands on.
 It is `none` when neither stands — with `Person: away` there is nobody to ask, so it is
-the backlog's own `due_on` or `none`: a deadline is the person's, and you never make one up. The worker hangs it on the epic it
-unfolds, and the epic's deadline then bounds every member's.
+the backlog's own `due_on` or `none`: a deadline is the person's, and you never make one
+up. The worker hangs it on the epic it unfolds, and the epic's deadline then bounds every
+member's without raising or reordering any of them.
 `<model>`, `<difficulty>` and `<why>` are the role's model you read in 2-1, the difficulty
 you measured and your reason; `<effort>` is that role's effort (2-1), the same value you pass
 to `Agent`. **Leave them unfilled** and those placeholders travel as they are, so the note

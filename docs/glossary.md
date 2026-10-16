@@ -54,9 +54,11 @@ carry one, and it is asked about but never required. It cannot pass the deadline
 the [milestone](#milestone), [epic](#epic) or parent above it: such a write is refused,
 and a row the one above overtook by being pulled in is a [warning](#warning),
 `due_beyond_parent`. It is not inherited — a member is bounded by its epic's deadline
-without carrying it. `moai due apply` raises an open issue's or backlog item's priority
-as its own deadline nears (one day or past `p0`, two `p1`, seven `p2`), never lowers it,
-and leaves a `Due-priority:` note. More in
+without carrying it. `moai due apply` raises an open, not deferred issue's or backlog
+item's priority as its own deadline nears (one day left or less, today and past included,
+`p0`; two or less `p1`; seven or less `p2`), never lowers it, and leaves a
+`Due-priority:` note — an epic's or a milestone's deadline raises none of its members.
+More in
 [the workflow](workflow.md#plan-something-bigger).
 
 ## Deferred
@@ -200,7 +202,8 @@ The first pick-up stamps `started_at`. More in
 ## Plan
 
 Markdown that creates an epic and its issues in one go — `# Epic title`, then
-one `- [p1] issue title #tag` line per issue — fed to `moai add --from -`
+one `- [p1] issue title #tag` line per issue, any line ending in an optional
+`@YYYY-MM-DD` [deadline](#deadline) — fed to `moai add --from -`
 (`--dry-run` shows it first) or to `moai backlog promote`. Show it to the person
 once, before writing code. More in
 [the workflow](workflow.md#plan-something-bigger).
