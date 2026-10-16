@@ -12,6 +12,8 @@ does not tag — see `CONTRIBUTING.md`.
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-16
+
 ### Fixed
 
 - **An editor that saves in a non-UTF-8 encoding no longer loses what you wrote.**
