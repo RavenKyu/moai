@@ -18765,11 +18765,55 @@ fn the_tmux_rule_stands_outside_a_tracker() {
     let s = Scratch::new("hooktmuxbare");
     let bash = |cmd: &str| tool_at(&s, s.path(), "Bash", &format!("{{\"command\":{}}}", json_str(cmd)));
     assert!(refusal(&bash("tmux kill-server")).starts_with("Rule 4"), "트래커 밖에서 사람의 서버를 겨눈 줄이 지나간다");
-    // 가짜 `$TMUX`(cmux claude-teams) 아래에서는 shim 이 `-L` 을 버려 이 줄도 막히는 것이 맞다(moai-e7vm) — 자식 훅이 그 환경을 물려받는다.
-    if !std::env::var("TMUX").is_ok_and(|t| t.starts_with("/tmp/cmux-")) {
-        assert_eq!(bash("env -u TMUX tmux -L t kill-server"), "", "제 서버를 가리킨 줄을 막는다");
-    }
+    // 돌리는 사람의 `$TMUX` 가 cmux 의 가짜여도 이 줄은 지난다 — `isolated` 가 훅 프로세스에서 `TMUX` 를 걷는다.
+    // 가짜 아래의 판정은 아래 `under_the_cmux_stand_in_the_hook_reads_the_shim_off_its_path` 가 그 값을 손으로 세워 잰다.
+    assert_eq!(bash("env -u TMUX tmux -L t kill-server"), "", "제 서버를 가리킨 줄을 막는다");
     assert_eq!(bash("echo x > f"), "", "트래커 밖에서 트래커의 규칙을 세운다");
+}
+
+/// **가짜 `$TMUX` 아래의 규칙 4 는 훅이 제 `PATH` 에서 shim 과 진짜 tmux 를 가려 읽는다**(moai-e7vm, 리뷰
+/// moai-e7vm.rl8). `TmuxEnv::read` 를 지나는 하나뿐인 시험이다 — 단위 시험은 환경을 손으로 세워 그 읽기를 안
+/// 지나고, 나머지 시험은 훅 프로세스에서 `TMUX` 를 걷는다. 읽기가 shim 과 진짜를 뒤바꾸면 거절문이 shim 을
+/// "진짜" 로 건네 그 줄이 사람의 cmux 를 닫으니, 그 줄을 다시 훅에 넣어 지나는지까지 본다.
+#[cfg(unix)]
+#[test]
+fn under_the_cmux_stand_in_the_hook_reads_the_shim_off_its_path() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let s = Scratch::new("hooktmuxshim");
+    let (shim, real) = (s.path().join("shim"), s.path().join("real"));
+    for dir in [&shim, &real] {
+        std::fs::create_dir_all(dir).unwrap();
+        let tmux = dir.join("tmux");
+        std::fs::write(&tmux, "#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(&tmux, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    // 실행 비트 없는 `tmux` 는 껍데기가 안 고른다 — 맨 앞에 두어도 shim 으로 세지 않는다. 세면 shim 이 `real` 로
+    // 나가 아래의 두 단언(shim 의 절대 경로가 막힌다, 건넨 줄이 `real` 을 댄다)이 붉어진다.
+    let dud = s.path().join("dud");
+    std::fs::create_dir_all(&dud).unwrap();
+    std::fs::write(dud.join("tmux"), "").unwrap();
+    let path = format!(
+        "{}:{}:{}:{}",
+        dud.display(),
+        shim.display(),
+        real.display(),
+        path_without_moai().to_str().expect("PATH 가 UTF-8 이 아니다")
+    );
+    let env = [("TMUX", "/tmp/cmux-claude-teams/WS,WIN,1"), ("PATH", path.as_str())];
+    let bash = |cmd: &str| {
+        let input = tool_input(s.path(), "Bash", &format!("{{\"command\":{}}}", json_str(cmd)));
+        String::from_utf8(hook_at_home(&s, s.path(), None, &env, "pre-tool-use", &input).stdout).unwrap()
+    };
+    let real_tmux = real.join("tmux").display().to_string();
+    for cmd in ["env -u TMUX tmux -L t kill-session".to_string(), format!("{}/tmux -L t kill-window", shim.display())] {
+        let why = refusal(&bash(&cmd));
+        assert!(why.starts_with("Rule 4") && why.contains("cmux's shim"), "{cmd}\n{why}");
+    }
+    let why = refusal(&bash("env -u TMUX tmux -L t kill-session"));
+    let handed = why.rsplit("\\n").next().unwrap().trim().replace("<unique name>", "moai-t");
+    assert_eq!(handed, format!("env -u TMUX {real_tmux} -L moai-t kill-session"), "{why}");
+    assert_eq!(bash(&handed), "", "거절문이 댄 줄이 막혔다 — {handed}");
+    assert_eq!(bash(&format!("{real_tmux} -L t new-session -d")), "", "진짜 tmux 를 shim 으로 읽었다");
 }
 
 /// 다른 트래커를 가리키는 토막의 판정도 **같은 차례로 잇는다**(`Decision::then`, moai-dw63.e31) —
