@@ -6825,3 +6825,18 @@
 {"ts":"2026-10-16T10:17:12Z","id":"moai-ghkp.7uy","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-16T10:17:13Z","id":"moai-ghkp.u1w","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
 {"ts":"2026-10-16T12:36:24Z","id":"moai-hddd","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Person away from 2026-10-16 ~12:40 UTC (1h+): supervisor decides by recommendation and ships the release. Plan: ghkp -> dr8a -> 7bqy -> release. bump --next will pick 0.18.0 (0.17.0 is the last tag), so per CLAUDE.md this milestone is retitled to the picked version and Windows (moai-c12a) moves to the next one."}
+{"ts":"2026-10-16T12:47:45Z","id":"moai-ghkp.7uy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Decided alone: 탐색기 키는 SPC s w(when) — SPC s d 는 the_old_menu_keys_are_gone 이 죽은 채로 지키는 옛 키라서. 다른 길은 그 시험을 풀고 d 를 되살리는 것"}
+{"ts":"2026-10-16T12:47:45Z","id":"moai-ghkp.7uy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Decided alone: ready 차례에서 기한은 p 바로 다음, 도는 마일스톤 안인가보다 앞 — 같은 p 안에서 날이 박힌 쪽을 사람이 먼저 바랐다. 다른 길은 마일스톤 안을 먼저 두고 그 안에서 기한"}
+{"ts":"2026-10-16T12:47:45Z","id":"moai-ghkp.7uy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Decided alone: due_on= 거르개는 때로 묻는 폭이 아니라 숨김(done·미룸·backlog)을 안 연다 — 그사이 바뀐 것을 묻는 말이 아니다. 다른 길은 *_at= 처럼 숨김을 다 여는 것"}
+{"ts":"2026-10-16T12:56:27Z","id":"moai-ghkp.u1w","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Decided alone: @ 뒤가 숫자일 때만 기한 토큰 — @raven 같은 끝 낱말을 거절하면 멀쩡한 계획이 깨진다. 계획의 @ 는 날짜만 받고 +N 은 안 받는다(+N 은 --due 깃발만). --due 와 줄의 @날짜가 둘 다 서면 줄의 것이 이긴다. 다른 길은 @ 를 모두 기한으로 읽고 \\@ 로 피하게 하는 것"}
+{"ts":"2026-10-16T13:01:46Z","id":"moai-ghkp.9uh","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"review — 기한을 모든 줄에 (moai-ghkp 에픽 끝)"}
+{"ts":"2026-10-16T13:01:50Z","id":"moai-ghkp.kz7","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T13:01:50Z","id":"moai-ghkp.33i","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T13:01:50Z","id":"moai-ghkp.cb3","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T13:01:51Z","id":"moai-ghkp.7uy","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T13:01:51Z","id":"moai-ghkp.u1w","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"in_progress","to":"review"}
+{"ts":"2026-10-16T13:01:51Z","id":"moai-ghkp.9uh","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
+{"ts":"2026-10-16T13:02:35Z","id":"moai-ghkp.9uh","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: 에픽 끝 리뷰(code-review max --fix)가 백그라운드에서 돈다. 돌아오면 고침을 fix 커밋으로 받고 CHANGELOG·docs/explorer.md 를 커밋, milestone/moai-hddd 에 병합, worktree-moai-ghkp push, moa-issue-d3 에 보고"}
+{"ts":"2026-10-16T13:02:36Z","id":"moai-ghkp","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: 멤버 다섯 다 커밋했고 에픽 끝 리뷰 moai-ghkp.9uh 가 돈다. 리뷰 고침을 받고 병합 뒤 멤버를 닫는다"}
+{"ts":"2026-10-16T14:05:46Z","id":"moai-7bqy","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moa-issue-6d (ghkp 리뷰와 나란히 — 글만 고쳐 파일이 안 겹친다)"}
+{"ts":"2026-10-16T14:05:46Z","id":"moai-hddd","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Decided alone: 7bqy 를 ghkp 리뷰와 나란히 보냈다. 글만이라 파일이 안 겹친다. dr8a 는 report.rs·cli.rs 가 ghkp 와 겹쳐 ghkp 병합 뒤에 보낸다"}
