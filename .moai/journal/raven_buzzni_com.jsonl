@@ -6988,3 +6988,8 @@
 {"ts":"2026-10-16T17:58:20Z","id":"moai-e7vm","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Next: member moai-e7vm.83t (TMUX_OWN, brief 4-2, AGENTS rule 4 text under the cmux stand-in) once moai-rle0 releases src/guide.rs; then the epic-end review again. Branch worktree-moai-e7vm is pushed and kept until the release; merged into milestone/moai-4d0z at 72510a14."}
 {"ts":"2026-10-16T17:58:41Z","id":"moai-e7vm","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Report-checked: 72510a14 in milestone/moai-4d0z, origin/worktree-moai-e7vm pushed. 83t waits for moai-rle0 (src/guide.rs), then the epic-end review runs again."}
 {"ts":"2026-10-16T17:59:00Z","id":"moai-opdk","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"Sent: moai-ghkp-ae"}
+{"ts":"2026-10-16T18:01:15Z","id":"moai-4ysn","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"CI 의 required check 글을 main 보호 규칙에 맞춘다"}
+{"ts":"2026-10-16T18:01:15Z","id":"moai-4ysn.yp7","kind":"create","by":"레이븐","by_email":"raven@buzzni.com","title":"ci.yml 과 CONTRIBUTING 이 required check 를 둘로 적는다"}
+{"ts":"2026-10-16T18:01:15Z","id":"moai-4ysn","kind":"note","by":"레이븐","by_email":"raven@buzzni.com","text":"moai-opdk 에서 펼쳤다 — ci.yml 머리글의 required check 가 main 보호 규칙과 다르다(size-budget)"}
+{"ts":"2026-10-16T18:01:15Z","id":"moai-opdk","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"done","note":"moai-4ysn 로 펼쳤다 (이슈 1건)"}
+{"ts":"2026-10-16T18:01:21Z","id":"moai-4ysn.yp7","kind":"status","by":"레이븐","by_email":"raven@buzzni.com","from":"todo","to":"in_progress"}
