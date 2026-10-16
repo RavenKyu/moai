@@ -1078,6 +1078,13 @@ impl Surfaced {
         self.free + self.dues.count(now, zone)
     }
 
+    /// 든 알림 수(`free`)에 **읽는 사람의 달로 잰** 기한 알림을 더한다(moai-dr8a.rl4) — 기한에 뒤처진 우선순위는
+    /// 날 판정에 닿으므로 셈이 접지 않고 [`crate::report::Dues`] 에 들었다. 알림 수는 `usize` 로 따로 드니, 그것을
+    /// 그리는 자리가 이것으로 더한다.
+    pub fn notices(&self, free: usize, now: &str, zone: &crate::tz::Zone) -> usize {
+        free + self.dues.notice_count(now, zone)
+    }
+
     /// 순수한 셈이 못 내는 몫을 더한다 — 자리 없는 집은 줄이 그것이다(디스크를 읽어야 안다).
     fn add(&mut self, n: usize) {
         self.free += n;

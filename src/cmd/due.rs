@@ -59,20 +59,18 @@ pub fn run(ctx: &Ctx, cmd: DueCmd) -> R<Vec<String>> {
     }
 }
 
-/// 판정을 **산 줄의 것만** 제 것으로 든다 — 아카이브의 줄은 문맥(미룬 에픽)으로만 읽는다. 그 줄은 닫혀 있어 판정이
-/// 늘 거르지만, 산 파일에 없는 id 를 쓰기로 넘기면 아무것도 안 바꾸고 노트만 남긴다.
-fn judged(issues: &[model::Issue], archived: &[model::Issue], unread: &[crate::store::LoadError], zone: &crate::tz::Zone, rule: &crate::config::DueRule, now: &str) -> Vec<Raised> {
-    // 기한 든 줄이 하나도 없으면 아카이브를 안 푼다 — 기한 없는 저장소가 보통이다.
-    if !issues.iter().any(|i| i.due_on.is_some()) {
-        return Vec::new();
-    }
+/// 판정을 제 것으로 든다 — 판정은 빌린 줄을 내고, 쓰기는 그 줄을 고친다. 올리는 것은 **산 줄뿐이고** 아카이브의 줄은
+/// 계획 밖을 잴 문맥(미룬 에픽)으로만 읽는다([`crate::report::due_raises`]).
+fn judged(
+    issues: &[model::Issue],
+    archived: &[model::Issue],
+    unread: &[crate::store::LoadError],
+    zone: &crate::tz::Zone,
+    rule: &crate::config::DueRule,
+    now: &str,
+) -> Vec<Raised> {
     let context = super::in_context(issues, archived, unread);
-    let live: std::collections::BTreeSet<&str> = issues.iter().map(|i| i.id.as_str()).collect();
-    crate::report::due_raises(&context, now, zone, rule)
-        .iter()
-        .filter(|r| live.contains(r.issue.id.as_str()))
-        .map(Raised::of)
-        .collect()
+    crate::report::due_raises(issues, &context, now, zone, rule).iter().map(Raised::of).collect()
 }
 
 fn apply(ctx: &Ctx, dry_run: bool) -> R<Vec<String>> {

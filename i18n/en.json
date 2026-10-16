@@ -100,6 +100,8 @@
   "warn.milestones_running": "{n} milestones are running at once",
   "warn.milestone_overdue": "{n} milestones are past their deadline",
   "warn.milestone_due_soon": "{n} milestones fall due within {d} days",
+  "warn.overdue": "{n} rows are past their deadline",
+  "warn.due_priority_behind": "{n} rows have a priority behind their deadline",
   "ready.outside_held": "{n} outside the running milestone are not listed — finish inside first (p0 still shows)",
   "ready.others": "{n} belong to someone else or to nobody — ask the person before you pick one up; on a yes, `moai mv <id> {column} --from {from} {take}`",
   "ready.unowned": "(unowned)",

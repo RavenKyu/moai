@@ -905,6 +905,10 @@ fn says(w: &Warning, screen: Screen) -> String {
         // 남은 날수는 `preview` 가 줄마다 낸다.
         "milestone_overdue" => one(say(lang, "warn.milestone_overdue")),
         "milestone_due_soon" => aged(say(lang, "warn.milestone_due_soon"), w.days.unwrap_or(0)),
+        // 마일스톤 밖 줄의 지난 기한(moai-dr8a.rl4) — 마일스톤의 것과 짝이다.
+        "overdue" => one(say(lang, "warn.overdue")),
+        // **알림이지 경고가 아니다**(moai-dr8a.rl4) — 고칠 손은 `moai due apply` 고 `hint` 가 그것을 댄다.
+        "due_priority_behind" => one(say(lang, "warn.due_priority_behind")),
         // **끊긴 것과 종류가 틀린 것을 한 낱말로 말한다** — 둘을 가려 말하면
         // 고치는 손이 달라지는 것도 아닌데 경고가 둘로 늘어난다.
         "dangling_epic" => one(say(lang, "warn.dangling_epic")),
@@ -1206,7 +1210,7 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
     // 기한 경고는 **그 날짜와 남은 날수를 함께** 낸다(moai-tfcp) — id 와 제목만 내면 언제까지인지가
     // 화면에 없어 사람이 `moai show` 를 한 번 더 쳐야 한다. 날수는 **판정한 자리가 실은 것**을
     // 읽는다(`Warning::ages`) — 여기서 새로 재면 판정과 표시가 갈라진다.
-    if matches!(w.kind, "milestone_overdue" | "milestone_due_soon") {
+    if matches!(w.kind, "milestone_overdue" | "milestone_due_soon" | "overdue" | "due_priority_behind") {
         for id in w.ids.iter().take(SHOW) {
             let Some(i) = by_id.get(id.as_str()) else { continue };
             // `ages` 에 남은 날수가 **부호째** 들어 있다 — 지난 것이 음수고, 낱말도 색도 그 부호
@@ -1224,6 +1228,10 @@ fn preview(w: &Warning, by_id: &BTreeMap<&str, &Issue>, now: &str, screen: Scree
         let rest = w.ids.len().saturating_sub(SHOW);
         if rest > 0 {
             out.push(format!("    {}", paint(style::DIM, &more_of(rest, lang))));
+        }
+        // 고칠 손을 싣는 갈래(`due_priority_behind` → `moai due apply`) — 일찍 나가면 그 줄이 `--json` 에만 선다.
+        if let Some(h) = &w.hint {
+            out.push(format!("    {}", paint(style::DIM, &format!("→ `{h}`"))));
         }
         return out;
     }

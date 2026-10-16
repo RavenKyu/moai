@@ -1870,8 +1870,9 @@ fn banner_parts(app: &App) -> Option<(String, bool, Option<std::ops::Range<usize
     // 낱말로 부르면 오가는 사람이 둘을 다 배워야 한다. `+` 가 글에 들어 경고의 `!` 와 갈린다.
     // **급한 것이 아니라** `urgent` 를 안 세운다 — 담아 둔 것과 설치가 어긋난 것이지 고칠 계획이
     // 아니다(`view::status` 의 "알림만 있는 것은 문제 없다" 와 같은 자).
-    if app.site.notices > 0 {
-        parts.push(fill(say(lang, "tui.place.notices"), &[("n", &app.site.notices.to_string())]));
+    let notices = app.site.warnings.notices(app.site.notices, &app.site.now, &app.zone);
+    if notices > 0 {
+        parts.push(fill(say(lang, "tui.place.notices"), &[("n", &notices.to_string())]));
         // **급한 줄로 안 센다**(리뷰) — 이 줄만 선 배너에 아래의 `!` 가 붙던 때는 `! + 알림 3건`
         // 이 되어, 한 줄이 경고의 `!` 와 알림의 `+` 를 같이 이고 섰다. 같은 수를 `view::status` 는
         // `✓ 드러난 문제 없다` 와 흐린 `+` 로 내고, 프로젝트 층의 상세도 `!` 없이 낸다 — 설치를
@@ -4570,8 +4571,9 @@ fn place_line<'a>(app: &App, at: usize, budget: usize) -> Line<'a> {
             // (`view::status`). `!` 를 달면 설치가 어긋난 것이 고칠 계획으로 읽히고, 글자 없이
             // `+` 만 달면 하나인지 셋인지를 들어가 봐야 안다. 낱말은 안 붙인다 — 이 줄은 80칸에서
             // 이미 이름·칸·경로로 차 있다.
-            if sum.notices > 0 {
-                spans.push(Span::styled(format!(" +{}", sum.notices), dim()));
+            let notices = sum.warnings.notices(sum.notices, &app.site.now, &app.zone);
+            if notices > 0 {
+                spans.push(Span::styled(format!(" +{notices}"), dim()));
             }
         }
         Look::Shut { state, said } => spans.push(Span::styled(said.clone(), shut_style(*state))),
@@ -4722,8 +4724,9 @@ fn place_about<'a>(app: &App, at: usize, w: usize) -> Vec<Line<'a>> {
             //
             // **감아 낸다**(위의 `stranded` 와 같은 자) — 80칸 창의 상세는 안쪽 폭이 30 뿐이라,
             // 자르면 정작 몇 건인지가 잘려 나간다.
-            if sum.notices > 0 {
-                let said = fill(say(lang, "tui.place.notices"), &[("n", &sum.notices.to_string())]);
+            let notices = sum.warnings.notices(sum.notices, &app.site.now, &app.zone);
+            if notices > 0 {
+                let said = fill(say(lang, "tui.place.notices"), &[("n", &notices.to_string())]);
                 out.extend(wrapped(&said, w, dim()));
             }
             out.push(Line::from(""));
