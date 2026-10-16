@@ -34,6 +34,12 @@ does not tag — see `CONTRIBUTING.md`.
   `backlog promote` carries the backlog item's deadline onto the epic.
   `--dry-run` checks them the way the real write does, and `show --as-plan`
   writes them back. (moai-ghkp.u1w)
+- **The AGENTS block asks when work is due.** Showing a plan, an agent now asks
+  for a deadline in the same breath as the milestone, writes the answer as
+  `@YYYY-MM-DD` or `--due`, and leaves it empty when there is none — never made
+  up. The supervisor's message carries a `Due:` line that the worker hangs on
+  the epic it unfolds, and each supervisor round starts with `moai due apply`.
+  Run `moai init` to bring a repository's block in line. (moai-7bqy)
 
 ### Changed
 
