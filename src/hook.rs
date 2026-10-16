@@ -6543,7 +6543,9 @@ pub fn guard_shell_in(
 /// cmux 에 워크스페이스로, `kill-session`·`kill-window` 를 `workspace.close`(`-t` 가 없으면 부른 쪽 자기
 /// 워크스페이스), `kill-pane` 을 `surface.close` 로 옮긴다. 그래서 `env -u TMUX tmux -L x kill-session` 이
 /// 제 서버가 아니라 사람의 워크스페이스를 닫는다. 그 아래에서는 shim 으로 읽히는 `tmux` 의 만들기·죽이기를
-/// `-L`·`-S` 와 무관하게 막고, 거절문은 shim 이 아닌 진짜 tmux 의 절대 경로를 낸다.
+/// `-L`·`-S` 와 무관하게 막고, 가짜 아래의 **규칙 4 거절문은 모두**([`own_line`]) shim 이 아닌 진짜 tmux 의
+/// 절대 경로를 낸다 — 절대 경로의 `kill-server` 와 `pkill tmux` 의 거절문이 shim 이 막을 줄을 대던 것을 고쳤다
+/// (리뷰 moai-e7vm.rl8 10번).
 ///
 /// **환경은 `tmux` 낱말에 닿았을 때만 읽는다** — 규칙 4 는 [`Line`] 처럼 게을러야 한다. 읽는 것은
 /// [`TmuxEnv::read`] 하나고, 판정은 순수한 [`guard_tmux_in`] 이다. 게으름은 [`std::cell::LazyCell`] 이 진다 —
@@ -6665,6 +6667,18 @@ fn cmux_hit(rest: &[String]) -> Option<(usize, usize)> {
     None
 }
 
+/// 거절문이 내미는 시험용 tmux 줄(moai-e7vm.83t) — 가짜 `$TMUX` 아래에서는 진짜 tmux 의 절대 경로로 짠 줄이고
+/// (없으면 없다고 말한다), 밖에서는 `tmux` 그대로다. `tail` 은 `…` 자리에 들어간다.
+fn own_line(env: &TmuxEnv, tail: &str) -> String {
+    if !env.stand_in {
+        return crate::guide::TMUX_OWN.replace('…', tail);
+    }
+    match &env.real {
+        Some(real) => crate::guide::TMUX_OWN_REAL.replace("<real tmux>", &crate::text::quoted(real)).replace('…', tail),
+        None => "There is no real tmux on this PATH — run the test outside the claude-teams shell.".into(),
+    }
+}
+
 /// [`guard_tmux`] 의 순수한 몸 — 환경은 인자로 받는다. 받는 것은 [`TmuxEnv`] 로 풀리는 무엇이든이라
 /// `guard_tmux` 는 게으른 칸을, 시험은 손으로 세운 값을 건넨다.
 pub fn guard_tmux_in(line: &Line<'_>, env: &impl std::ops::Deref<Target = TmuxEnv>) -> Decision {
@@ -6681,11 +6695,7 @@ pub fn guard_tmux_in(line: &Line<'_>, env: &impl std::ops::Deref<Target = TmuxEn
                     {
                         // 낱말마다 감싼다 — 껍데기가 벗긴 따옴표를 되살려야 `'sleep 60'`·`';'` 가 그 낱말 하나로 돌아간다.
                         let tail = rest[first..].iter().map(|w| crate::text::quoted(w)).collect::<Vec<_>>().join(" ");
-                        let handed = match &env.real {
-                            Some(real) => format!("env -u TMUX {} -L <unique name> {tail}", crate::text::quoted(real)),
-                            None => "There is no real tmux on this PATH — run the test outside the claude-teams shell."
-                                .into(),
-                        };
+                        let handed = own_line(env, &tail);
                         return refuse(
                             4,
                             format!(
@@ -6715,7 +6725,7 @@ pub fn guard_tmux_in(line: &Line<'_>, env: &impl std::ops::Deref<Target = TmuxEn
                          and run it there.\n\
                          \x20 {}",
                             rest[at],
-                            crate::guide::TMUX_OWN.replace('…', &rest[at..].join(" "))
+                            own_line(env, &rest[at..].join(" "))
                         ),
                     );
                 }
@@ -6729,7 +6739,7 @@ pub fn guard_tmux_in(line: &Line<'_>, env: &impl std::ops::Deref<Target = TmuxEn
                          If you raised a separate server for testing, run kill-server against that server.\n\
                          \x20 {}",
                             basename(word),
-                            crate::guide::TMUX_OWN.replace('…', "kill-server")
+                            own_line(env, "kill-server")
                         ),
                     );
                 }
@@ -11923,11 +11933,10 @@ mod tests {
                 assert!(why.starts_with(&crate::guide::rule_head(4)), "규칙 4 가 안 섰다 — {cmd}\n{why}");
             }
         }
-        // **cmux 의 가짜 `$TMUX` 아래에서 도는 시험 프로세스는 통과 쪽을 못 잰다**(moai-e7vm) — 그 아래에서는
-        // `-L` 을 단 줄도 막히는 것이 맞다. 막는 쪽은 위에서 쟀고, 가짜 아래는 아래 시험이 환경을 갈아 끼워 잰다.
-        if std::env::var("TMUX").is_ok_and(|t| t.starts_with(crate::skill::CMUX_STAND_IN)) {
-            return;
-        }
+        // 통과 쪽은 시험 프로세스의 `$TMUX` 를 안 읽는다 — 가짜 밖의 환경을 손으로 세워 순수한 몸에 건넨다.
+        // (가짜 아래는 아래 시험이 환경을 갈아 끼워 잰다.)
+        let outside = TmuxEnv { stand_in: false, shim: None, real: None, canon: |_| None };
+        let pass = |cmd: &str| guard_tmux_in(&Line::new(cmd), &&outside);
         for cmd in [
             "tmux -L moai-ju21 kill-server",
             "env -u TMUX tmux -L t kill-session -t x",
@@ -11935,17 +11944,19 @@ mod tests {
             "tmux -Lfoo kill-server",
             "tmux kill-pane -t 1",
             "tmux ls",
-            "moai note t-1 \"tmux kill-server 를 막는다\"",
-            "echo 'tmux kill-server'",
-            "pkill cargo",
         ] {
+            assert_eq!(pass(cmd), Decision::Pass, "막혔다 — {cmd}");
+        }
+        // 따옴표 안의 글과 `pkill cargo` 는 어느 환경에서도 지난다.
+        for cmd in ["moai note t-1 \"tmux kill-server 를 막는다\"", "echo 'tmux kill-server'", "pkill cargo", "tmux ls"]
+        {
             assert_eq!(guard_shell(&held, &cfg(), &here(), root, root, cmd), Decision::Pass, "막혔다 — {cmd}");
         }
         // 거절문이 댄 줄은 자리표시자만 채우면 지나간다.
-        let why = denied(&guard_shell(&idle, &cfg(), &here(), root, root, "tmux kill-server")).to_string();
+        let why = denied(&pass("tmux kill-server")).to_string();
         let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
         assert!(line.ends_with("kill-server"), "{why}");
-        assert_eq!(guard_shell(&idle, &cfg(), &here(), root, root, &line), Decision::Pass, "{line}");
+        assert_eq!(pass(&line), Decision::Pass, "{line}");
     }
 
     /// **cmux 의 가짜 `$TMUX` 아래에서는 `-L`·`-S` 도 사람의 cmux 를 못 지킨다**(moai-e7vm, 리뷰 moai-xpa8.yv6) —
@@ -12023,6 +12034,16 @@ mod tests {
             let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
             assert_eq!(line, format!("env -u TMUX /usr/bin/tmux -L moai-t {tail}"), "{why}");
             assert_eq!(run(&inside, &line), Decision::Pass, "{line}");
+        }
+        // 절대 경로의 맨 kill-server 와 pkill 은 옛 갈래로 떨어진다 — 그 거절문도 shim 이 안 막는 줄을 낸다
+        // (리뷰 moai-e7vm.rl8 10번).
+        for cmd in ["/usr/bin/tmux kill-server", "pkill tmux", "killall tmux"] {
+            let why = denied(&run(&inside, cmd)).to_string();
+            let line = why.lines().last().unwrap().trim().replace("<unique name>", "moai-t");
+            assert_eq!(line, "env -u TMUX /usr/bin/tmux -L moai-t kill-server", "{cmd}\n{why}");
+            assert_eq!(run(&inside, &line), Decision::Pass, "{line}");
+            let why = denied(&run(&env(true, None), cmd)).to_string();
+            assert!(why.contains("no real tmux"), "{cmd}\n{why}");
         }
         // 진짜 tmux 가 없으면 줄 대신 그렇다고 말한다.
         let why = denied(&run(&env(true, None), "tmux kill-session")).to_string();
